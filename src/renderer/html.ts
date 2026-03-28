@@ -10,6 +10,8 @@ import type { ResolvedLayout, ResolvedRow, ResolvedComponent } from "./layout.js
 import type { ComponentData, DashboardData, ParamInfo } from "./data.js";
 import { collectComponents } from "./data.js";
 import { OPENBOARD_CSS } from "./styles.js";
+import { getRenderer } from "../components/registry.js";
+import type { ComponentRenderData } from "../components/types.js";
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -205,9 +207,19 @@ function renderComponentContainer(
 // ---------------------------------------------------------------------------
 
 function renderComponentBody(component: ComponentNode, compData?: ComponentData): string {
+  // Try the component registry first
+  const renderer = getRenderer(component.componentType);
+  if (renderer) {
+    const renderData: ComponentRenderData = {
+      result: compData?.result,
+      trendResult: compData?.trendResult,
+      error: compData?.error,
+    };
+    return renderer.renderToString(component, renderData);
+  }
+
+  // Fallback for components not yet in the registry
   switch (component.componentType) {
-    case "metric":
-      return renderMetricBody(component, compData);
     case "table":
       return renderTableBody(compData);
     case "chart":
@@ -217,25 +229,6 @@ function renderComponentBody(component: ComponentNode, compData?: ComponentData)
     default:
       return `<div class="openboard-placeholder">${escapeHtml(component.componentType)} component</div>`;
   }
-}
-
-function renderMetricBody(component: ComponentNode, compData?: ComponentData): string {
-  if (!compData?.result?.rows?.length) {
-    return `<div class="openboard-placeholder">No data</div>`;
-  }
-
-  const row = compData.result.rows[0];
-  const value = row.value ?? row[compData.result.columns[0]];
-  const prefix = getStringProp(component, "prefix");
-  const suffix = getStringProp(component, "suffix");
-
-  const formatted = value != null ? String(value) : "—";
-
-  return `<div style="text-align:center;padding:0.5rem 0">
-    <div class="openboard-metric-value">
-      ${prefix ? `<span class="openboard-metric-prefix">${escapeHtml(prefix)}</span>` : ""}${escapeHtml(formatted)}${suffix ? `<span class="openboard-metric-suffix">${escapeHtml(suffix)}</span>` : ""}
-    </div>
-  </div>`;
 }
 
 function renderTableBody(compData?: ComponentData): string {
