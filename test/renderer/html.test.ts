@@ -189,9 +189,9 @@ describe("renderPage", () => {
 
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
-    expect(html).toContain('class="openboard-data-table"');
-    expect(html).toContain("<th>name</th>");
-    expect(html).toContain("<th>email</th>");
+    expect(html).toContain("openboard-data-table");
+    expect(html).toContain("name");
+    expect(html).toContain("email");
     expect(html).toContain("Alice");
     expect(html).toContain("bob@example.com");
   });

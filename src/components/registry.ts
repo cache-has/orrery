@@ -8,10 +8,12 @@ import type { ComponentType } from "../parser/ast.js";
 import type { ComponentRenderer } from "./types.js";
 import { metricRenderer } from "./metric.js";
 import { chartRenderer } from "./chart.js";
+import { tableRenderer } from "./table.js";
 
 const renderers: Record<string, ComponentRenderer> = {
   metric: metricRenderer,
   chart: chartRenderer,
+  table: tableRenderer,
 };
 
 /**
