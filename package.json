@@ -32,7 +32,7 @@
     "dashboards-as-code",
     "sql"
   ],
-  "author": "",
+  "author": "Horizon Analytic Studios, LLC",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

@@ -2,6 +2,8 @@ export { parse } from "./parser.js";
 export { Lexer } from "./lexer.js";
 export type { Token, TokenType } from "./lexer.js";
 export { ParseError, createPosition, createSpan } from "./errors.js";
+export { validate, validateOrThrow } from "./validator.js";
+export type { ValidationDiagnostic } from "./validator.js";
 export type {
   DashboardNode,
   DashboardItem,

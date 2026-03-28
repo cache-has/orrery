@@ -35,30 +35,110 @@ export class Lexer {
   private line: number = 1;
   private column: number = 1;
   private file?: string;
+  private peeked: Token | null = null;
 
   constructor(source: string, file?: string) {
     this.source = source;
     this.file = file;
   }
 
+  /** Tokenize the entire source into an array of tokens (batch mode). */
   tokenize(): Token[] {
     const tokens: Token[] = [];
-
-    while (this.pos < this.source.length) {
-      this.skipWhitespaceAndComments();
-      if (this.pos >= this.source.length) break;
-
-      const token = this.readToken();
+    while (true) {
+      const token = this.nextToken();
       tokens.push(token);
+      if (token.type === "eof") break;
+    }
+    return tokens;
+  }
+
+  /** Return the next token, consuming it. */
+  nextToken(): Token {
+    if (this.peeked) {
+      const t = this.peeked;
+      this.peeked = null;
+      return t;
+    }
+    this.skipWhitespaceAndComments();
+    if (this.pos >= this.source.length) {
+      return { type: "eof", value: "", span: this.spanHere() };
+    }
+    return this.readToken();
+  }
+
+  /** Peek at the next token without consuming it. */
+  peekToken(): Token {
+    if (!this.peeked) {
+      this.peeked = this.nextToken();
+    }
+    return this.peeked;
+  }
+
+  /**
+   * Read raw text from the current position until a matching closing brace.
+   * Used for markdown content inside text blocks.
+   * Call this AFTER consuming the opening '{'.
+   * Returns the raw content string (with common indent stripped).
+   * Does NOT consume the closing '}'.
+   */
+  readRawUntilCloseBrace(): { content: string; span: Span } {
+    // Discard any peeked token — we're switching to raw mode
+    this.peeked = null;
+
+    const start = this.currentPosition();
+    let depth = 1;
+
+    // Skip optional leading newline after '{'
+    this.skipInlineWhitespace();
+    if (this.pos < this.source.length && this.source[this.pos] === "\n") {
+      this.pos++;
+      this.line++;
+      this.column = 1;
     }
 
-    tokens.push({
-      type: "eof",
-      value: "",
-      span: this.spanHere(),
-    });
+    const contentStart = this.pos;
 
-    return tokens;
+    while (this.pos < this.source.length && depth > 0) {
+      const ch = this.source[this.pos];
+      if (ch === "{") depth++;
+      if (ch === "}") {
+        depth--;
+        if (depth === 0) break;
+      }
+      if (ch === "\n") {
+        this.pos++;
+        this.line++;
+        this.column = 1;
+      } else {
+        this.pos++;
+        this.column++;
+      }
+    }
+
+    let content = this.source.slice(contentStart, this.pos);
+    // Trim trailing whitespace/newlines
+    content = content.replace(/\s+$/, "");
+
+    // Strip common leading indent
+    const lines = content.split("\n");
+    const nonEmptyLines = lines.filter((l) => l.trim().length > 0);
+    if (nonEmptyLines.length > 0) {
+      const minIndent = Math.min(
+        ...nonEmptyLines.map((l) => {
+          const match = l.match(/^(\s*)/);
+          return match ? match[1].length : 0;
+        }),
+      );
+      if (minIndent > 0) {
+        content = lines.map((l) => (l.length >= minIndent ? l.slice(minIndent) : l)).join("\n");
+      }
+    }
+
+    return {
+      content,
+      span: createSpan(start, this.currentPosition(), this.file),
+    };
   }
 
   private readToken(): Token {
@@ -310,6 +390,15 @@ export class Lexer {
       } else {
         break;
       }
+    }
+  }
+
+  private skipInlineWhitespace(): void {
+    while (
+      this.pos < this.source.length &&
+      (this.source[this.pos] === " " || this.source[this.pos] === "\t")
+    ) {
+      this.advance();
     }
   }
 
