@@ -222,8 +222,6 @@ function renderComponentBody(component: ComponentNode, compData?: ComponentData)
   switch (component.componentType) {
     case "table":
       return renderTableBody(compData);
-    case "chart":
-      return renderChartPlaceholder(component);
     case "text":
       return renderTextBody(component);
     default:
@@ -258,13 +256,6 @@ function renderTableBody(compData?: ComponentData): string {
     <thead><tr>${headerCells}</tr></thead>
     <tbody>${bodyRows}</tbody>
   </table>${truncation}`;
-}
-
-function renderChartPlaceholder(component: ComponentNode): string {
-  const chartType = component.opts.type ?? "line";
-  return `<div class="openboard-placeholder" data-chart-type="${escapeAttr(String(chartType))}">
-    Chart: ${escapeHtml(String(chartType))} (renders after component library — phase 07)
-  </div>`;
 }
 
 function renderTextBody(component: ComponentNode): string {

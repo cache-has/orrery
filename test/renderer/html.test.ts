@@ -278,7 +278,7 @@ describe("renderPage", () => {
     expect(html).toContain("</html>");
   });
 
-  it("renders chart placeholder with chart type", () => {
+  it("renders chart via chart renderer (no placeholder)", () => {
     const chart = makeComponent("chart", "Revenue Trend", 12);
     chart.opts.type = "area";
     const row = makeRow([chart]);
@@ -288,8 +288,9 @@ describe("renderPage", () => {
 
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
-    expect(html).toContain('data-chart-type="area"');
-    expect(html).toContain("phase 07");
+    // Chart renderer handles area type; with no data it shows "No data"
+    expect(html).toContain('data-component-type="chart"');
+    expect(html).toContain("No data");
   });
 
   it("escapes HTML in titles and values", () => {
