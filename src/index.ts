@@ -10,7 +10,7 @@ export {
   placeholderStyleForDriver,
 } from "./query/index.js";
 export { ConnectionManager } from "./connections/index.js";
-export { resolveLayout } from "./renderer/index.js";
+export { resolveLayout, renderPage, fetchDashboardData, collectComponents, componentId, OPENBOARD_CSS } from "./renderer/index.js";
 export { createApp } from "./server/index.js";
 
 export type {
@@ -26,4 +26,5 @@ export type {
 
 export type { QueryResult, QueryOptions, QueryError } from "./query/index.js";
 export type { ConnectionConfig, DatabaseDriver } from "./connections/index.js";
-export type { ResolvedLayout } from "./renderer/index.js";
+export type { ResolvedLayout, RenderOptions, ComponentData, DashboardData, ParamInfo } from "./renderer/index.js";
+export type { AppOptions } from "./server/index.js";

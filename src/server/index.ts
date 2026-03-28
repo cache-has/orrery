@@ -1,12 +1,23 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { healthRoutes } from "./routes/health.js";
+import { dashboardRoutes, type DashboardRouteOptions } from "./routes/dashboard.js";
 
-export function createApp(): Hono {
+export interface AppOptions {
+  /** Options for dashboard rendering. When omitted, only health routes are available. */
+  dashboard?: DashboardRouteOptions;
+}
+
+export function createApp(options: AppOptions = {}): Hono {
   const app = new Hono();
 
   app.use("*", logger());
   app.route("/api", healthRoutes);
+
+  if (options.dashboard) {
+    const dashRoutes = dashboardRoutes(options.dashboard);
+    app.route("/", dashRoutes);
+  }
 
   app.get("/", (c) => {
     return c.html(`<!DOCTYPE html>
@@ -25,7 +36,6 @@ export function createApp(): Hono {
 <body>
   <h1>OpenBoard</h1>
   <p>Dashboards as code, not clicks.</p>
-  <p>The dev server is running. Dashboard rendering will be implemented in phase 06.</p>
   <p>Health check: <code>GET /api/health</code></p>
 </body>
 </html>`);
