@@ -323,6 +323,60 @@ body {
   font-size: 0.75rem;
 }
 
+/* =========================================================================
+   Chart components (SVG)
+   ========================================================================= */
+
+.openboard-chart-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.openboard-chart {
+  width: 100%;
+  height: auto;
+  max-height: 400px;
+}
+
+.openboard-chart-grid {
+  stroke: var(--ob-border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.openboard-chart-axis {
+  stroke: var(--ob-border);
+  stroke-width: 1;
+}
+
+.openboard-chart-axis-label {
+  font-family: var(--ob-font);
+  font-size: 10px;
+  fill: var(--ob-text-muted);
+}
+
+.openboard-chart-line-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.openboard-chart-point {
+  stroke: var(--ob-surface);
+  stroke-width: 1.5;
+}
+
+.openboard-chart-bar-rect {
+  transition: opacity 0.15s ease;
+}
+
+.openboard-chart-legend-label {
+  font-family: var(--ob-font);
+  font-size: 10px;
+  fill: var(--ob-text-muted);
+}
+
 .openboard-no-data {
   display: flex;
   align-items: center;

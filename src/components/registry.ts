@@ -7,9 +7,11 @@
 import type { ComponentType } from "../parser/ast.js";
 import type { ComponentRenderer } from "./types.js";
 import { metricRenderer } from "./metric.js";
+import { chartRenderer } from "./chart.js";
 
 const renderers: Record<string, ComponentRenderer> = {
   metric: metricRenderer,
+  chart: chartRenderer,
 };
 
 /**
