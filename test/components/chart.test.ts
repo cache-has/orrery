@@ -41,7 +41,7 @@ function makeResult(columns: string[], rows: Record<string, unknown>[]): QueryRe
 // ---------------------------------------------------------------------------
 
 describe("chartRenderer — line chart", () => {
-  it("renders an SVG line chart with data", () => {
+  it("renders an ECharts SVG with data", () => {
     const component = makeChart("Revenue Trend", "line", [
       identProp("x", "date"),
       identProp("y", "revenue"),
@@ -56,10 +56,9 @@ describe("chartRenderer — line chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-chart-line");
-    expect(html).toContain("<polyline");
-    expect(html).toContain("<circle");
-    expect(html).toContain("Jan");
+    expect(html).toContain("openboard-chart-container");
+    expect(html).toContain("<svg");
+    expect(html).toContain("</svg>");
   });
 
   it("renders 'No data' when result is empty", () => {
@@ -72,6 +71,7 @@ describe("chartRenderer — line chart", () => {
     const html = chartRenderer.renderToString(component, data);
 
     expect(html).toContain("No data");
+    expect(html).not.toContain("<svg");
   });
 
   it("renders 'No data' when result is undefined", () => {
@@ -94,29 +94,10 @@ describe("chartRenderer — line chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    expect(html).toContain("<polyline");
-    expect(html).toContain("Jan");
+    expect(html).toContain("<svg");
   });
 
-  it("applies custom color", () => {
-    const component = makeChart("Colored", "line", [
-      identProp("x", "date"),
-      identProp("y", "val"),
-      prop("color", "#ff0000"),
-    ]);
-    const data: ComponentRenderData = {
-      result: makeResult(["date", "val"], [
-        { date: "A", val: 10 },
-        { date: "B", val: 20 },
-      ]),
-    };
-
-    const html = chartRenderer.renderToString(component, data);
-
-    expect(html).toContain("#ff0000");
-  });
-
-  it("renders multi-series with legend", () => {
+  it("renders multi-series line chart", () => {
     const component = makeChart("Multi", "line", [
       identProp("x", "month"),
       identProp("y", "value"),
@@ -133,13 +114,10 @@ describe("chartRenderer — line chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    // Should have two polylines (two series)
-    const polylineCount = (html.match(/<polyline/g) || []).length;
-    expect(polylineCount).toBe(2);
-    // Should have legend labels
+    expect(html).toContain("<svg");
+    // ECharts renders legend text for multi-series
     expect(html).toContain("East");
     expect(html).toContain("West");
-    expect(html).toContain("openboard-chart-legend-label");
   });
 
   it("formats y-axis labels with y_format", () => {
@@ -157,11 +135,11 @@ describe("chartRenderer — line chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    // Should contain compact-formatted tick labels like "1K", "5K", etc.
+    // Compact formatter should produce K-suffixed labels
     expect(html).toContain("K");
   });
 
-  it("treats area type as line chart", () => {
+  it("renders area chart with areaStyle", () => {
     const component = makeChart("Area", "area", [
       identProp("x", "x"),
       identProp("y", "y"),
@@ -175,8 +153,9 @@ describe("chartRenderer — line chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-chart-line");
-    expect(html).toContain("<polyline");
+    // Area charts still produce an SVG — the areaStyle fill is inside
+    expect(html).toContain("<svg");
+    expect(html).toContain("openboard-chart-container");
   });
 });
 
@@ -200,12 +179,10 @@ describe("chartRenderer — bar chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-chart-bar");
-    expect(html).toContain("openboard-chart-bar-rect");
+    expect(html).toContain("<svg");
     expect(html).toContain("East");
-    // Should have 3 bars
-    const rectCount = (html.match(/openboard-chart-bar-rect/g) || []).length;
-    expect(rectCount).toBe(3);
+    expect(html).toContain("West");
+    expect(html).toContain("North");
   });
 
   it("renders 'No data' when result is empty", () => {
@@ -236,10 +213,13 @@ describe("chartRenderer — bar chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    // B (30) should appear before C (20) and A (10) in x-axis labels
+    // B (30) should appear before C (20) and A (10) in the SVG output
     const bIdx = html.indexOf(">B<");
     const cIdx = html.indexOf(">C<");
     const aIdx = html.indexOf(">A<");
+    expect(bIdx).toBeGreaterThan(-1);
+    expect(cIdx).toBeGreaterThan(-1);
+    expect(aIdx).toBeGreaterThan(-1);
     expect(bIdx).toBeLessThan(cIdx);
     expect(cIdx).toBeLessThan(aIdx);
   });
@@ -260,10 +240,11 @@ describe("chartRenderer — bar chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    // B (10) should appear before C (20) and A (30)
+    // B (10) should appear before C (20) and A (30) in the SVG
     const bIdx = html.indexOf(">B<");
     const cIdx = html.indexOf(">C<");
     const aIdx = html.indexOf(">A<");
+    expect(bIdx).toBeGreaterThan(-1);
     expect(bIdx).toBeLessThan(cIdx);
     expect(cIdx).toBeLessThan(aIdx);
   });
@@ -283,8 +264,10 @@ describe("chartRenderer — bar chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-chart-bar-horizontal");
-    expect(html).toContain("openboard-chart-bar-rect");
+    expect(html).toContain("<svg");
+    // Category labels should appear (on y-axis for horizontal)
+    expect(html).toContain(">A<");
+    expect(html).toContain(">B<");
   });
 
   it("renders multi-series grouped bars with legend", () => {
@@ -304,12 +287,9 @@ describe("chartRenderer — bar chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    // 2 quarters x 2 products = 4 bars
-    const rectCount = (html.match(/openboard-chart-bar-rect/g) || []).length;
-    expect(rectCount).toBe(4);
+    expect(html).toContain("<svg");
     expect(html).toContain("Widget");
     expect(html).toContain("Gadget");
-    expect(html).toContain("openboard-chart-legend-label");
   });
 
   it("renders unsupported chart type with placeholder", () => {
@@ -322,5 +302,23 @@ describe("chartRenderer — bar chart", () => {
 
     expect(html).toContain("Unsupported chart type");
     expect(html).toContain("scatter");
+  });
+
+  it("applies custom color", () => {
+    const component = makeChart("Colored", "bar", [
+      identProp("x", "name"),
+      identProp("y", "val"),
+      prop("color", "#ff0000"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["name", "val"], [
+        { name: "A", val: 10 },
+        { name: "B", val: 20 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("#ff0000");
   });
 });
