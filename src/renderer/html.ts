@@ -13,6 +13,7 @@ import { OPENBOARD_CSS } from "./styles.js";
 import { getRenderer } from "../components/registry.js";
 import type { ComponentRenderData } from "../components/types.js";
 import { DATE_RANGE_PRESETS } from "../query/daterange.js";
+import type { BrandingConfig } from "./theme.js";
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -29,13 +30,15 @@ export interface RenderOptions {
   themeName?: "light" | "dark";
   /** Chart color palette (concrete hex values for SSR) */
   palette?: string[];
+  /** Branding config (logo, title, favicon) from theme.yaml */
+  branding?: BrandingConfig;
 }
 
 /**
  * Render a complete HTML page for a dashboard.
  */
 export function renderPage(options: RenderOptions): string {
-  const { dashboard, layout, data, paramValues, themeCSS, themeName, palette } = options;
+  const { dashboard, layout, data, paramValues, themeCSS, themeName, palette, branding } = options;
 
   const components = collectComponents(dashboard);
   const componentDataMap: Record<string, ComponentData> = {};
@@ -68,18 +71,20 @@ export function renderPage(options: RenderOptions): string {
 
   const themeAttr = themeName ? ` data-theme="${escapeAttr(themeName)}"` : "";
   const themeStyle = themeCSS ? `\n  <style id="ob-theme">${themeCSS}</style>` : "";
+  const pageTitle = branding?.title ? `${escapeHtml(layout.title)} — ${escapeHtml(branding.title)}` : escapeHtml(layout.title);
+  const faviconLink = branding?.favicon ? `\n  <link rel="icon" href="/openboard/assets/${escapeAttr(branding.favicon)}" />` : "";
 
   return `<!DOCTYPE html>
 <html lang="en"${themeAttr}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(layout.title)}</title>
+  <title>${pageTitle}</title>${faviconLink}
   <style>${OPENBOARD_CSS}</style>${themeStyle}
 </head>
 <body>
   <div class="openboard-root" id="openboard-root">
-    ${renderHeader(layout.title, description)}
+    ${renderHeader(layout.title, description, branding)}
     ${renderParamBar(data.params, paramValues)}
     ${renderRows(layout.rows, data, components, paramValues, palette)}
   </div>
@@ -118,8 +123,19 @@ export function renderComponentFragment(
 // Section renderers
 // ---------------------------------------------------------------------------
 
-function renderHeader(title: string, description?: string): string {
+function renderHeader(title: string, description?: string, branding?: BrandingConfig): string {
+  const logo = branding?.logo
+    ? `<img class="openboard-header-logo" src="/openboard/assets/${escapeAttr(branding.logo)}" alt="${escapeAttr(branding.title ?? "Logo")}" />`
+    : "";
+  const brandTitle = branding?.title
+    ? `<span class="openboard-header-brand">${escapeHtml(branding.title)}</span>`
+    : "";
+  const brandingRow = (logo || brandTitle)
+    ? `<div class="openboard-header-branding">${logo}${brandTitle}</div>`
+    : "";
+
   return `<header class="openboard-header">
+      ${brandingRow}
       <h1>${escapeHtml(title)}</h1>
       ${description ? `<p class="openboard-description">${escapeHtml(description)}</p>` : ""}
     </header>`;

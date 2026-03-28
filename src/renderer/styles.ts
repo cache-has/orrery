@@ -50,6 +50,26 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.openboard-header-branding {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.openboard-header-logo {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+}
+
+.openboard-header-brand {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ob-text-muted);
+  letter-spacing: 0.02em;
+}
+
 .openboard-header h1 {
   font-size: 1.5rem;
   font-weight: 600;
