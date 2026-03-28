@@ -21,6 +21,8 @@ export interface ConnectionInfo {
   sourceFile: string;
 }
 
+export type HealthStatus = { ok: true } | { ok: false; error: string };
+
 export class ConnectionManager {
   private connections = new Map<
     string,
@@ -44,6 +46,16 @@ export class ConnectionManager {
 
     for (const conn of loaded) {
       await this.register(conn.name, conn.config, conn.sourceFile);
+    }
+
+    // Non-fatal health check: warn on unreachable connections, don't crash
+    const health = await this.healthCheck();
+    for (const [name, status] of health) {
+      if (!status.ok) {
+        console.warn(
+          `Warning: Connection "${name}" health check failed: ${status.error}`,
+        );
+      }
     }
   }
 
@@ -91,6 +103,27 @@ export class ConnectionManager {
       connected: entry.driver.isConnected(),
       sourceFile: entry.sourceFile,
     }));
+  }
+
+  async healthCheck(): Promise<Map<string, HealthStatus>> {
+    const results = new Map<string, HealthStatus>();
+    for (const [name, entry] of this.connections) {
+      try {
+        // Use a lightweight query to verify the connection works
+        const testSql =
+          entry.config.type === "sqlite" || entry.config.type === "duckdb"
+            ? "SELECT 1"
+            : "SELECT 1";
+        await entry.driver.query(testSql);
+        results.set(name, { ok: true });
+      } catch (err) {
+        results.set(name, {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return results;
   }
 
   async disconnectAll(): Promise<void> {
