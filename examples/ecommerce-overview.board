@@ -1,0 +1,107 @@
+# E-Commerce Dashboard
+# Shows key sales metrics, revenue trends, and recent orders
+# Connection: a PostgreSQL warehouse with orders, customers, and products tables
+
+dashboard "E-Commerce Overview" {
+  description: "Daily sales performance and order activity"
+  connection: "warehouse"
+  refresh: 300
+
+  param date_range = daterange(default: "last 30 days")
+  param region = select(
+    query: "SELECT DISTINCT region FROM customers ORDER BY region"
+    default_first: true
+  )
+  param min_amount = number(default: 0, min: 0, max: 100000)
+
+  # KPI row — four metrics across the top
+  row {
+    metric "Total Revenue" (span: 3) {
+      query: "SELECT SUM(amount) as value FROM orders WHERE {{date_range}} AND region = '{{region}}'"
+      format: currency
+      prefix: "$"
+      trend_query: "SELECT SUM(amount) as value FROM orders WHERE {{date_range.previous}} AND region = '{{region}}'"
+      trend_label: "vs previous period"
+    }
+
+    metric "Orders" (span: 3) {
+      query: "SELECT COUNT(*) as value FROM orders WHERE {{date_range}} AND region = '{{region}}'"
+      format: number
+    }
+
+    metric "Avg Order Value" (span: 3) {
+      query: "SELECT AVG(amount) as value FROM orders WHERE {{date_range}} AND region = '{{region}}'"
+      format: currency
+      prefix: "$"
+    }
+
+    metric "Customers" (span: 3) {
+      query: "SELECT COUNT(DISTINCT customer_id) as value FROM orders WHERE {{date_range}} AND region = '{{region}}'"
+      format: number
+    }
+  }
+
+  # Charts row — revenue trend and breakdown
+  row {
+    chart "Revenue Over Time" (span: 8, type: line) {
+      query: """
+        SELECT
+          date_trunc('day', created_at) as date,
+          SUM(amount) as revenue
+        FROM orders
+        WHERE {{date_range}}
+          AND region = '{{region}}'
+        GROUP BY 1
+        ORDER BY 1
+      """
+      x: date
+      y: revenue
+      color: "#4F46E5"
+    }
+
+    chart "Revenue by Category" (span: 4, type: donut) {
+      query: """
+        SELECT
+          p.category,
+          SUM(o.amount) as revenue
+        FROM orders o
+        JOIN products p ON o.product_id = p.id
+        WHERE {{date_range}}
+          AND o.region = '{{region}}'
+        GROUP BY 1
+        ORDER BY 2 DESC
+      """
+      x: category
+      y: revenue
+    }
+  }
+
+  # Orders table
+  row {
+    table "Recent Orders" (span: 12) {
+      query: """
+        SELECT
+          o.id,
+          c.name as customer,
+          o.amount,
+          o.status,
+          o.created_at
+        FROM orders o
+        JOIN customers c ON o.customer_id = c.id
+        WHERE {{date_range}}
+          AND o.region = '{{region}}'
+          AND o.amount >= {{min_amount}}
+        ORDER BY o.created_at DESC
+        LIMIT 100
+      """
+      filterable: true
+      sortable: true
+      page_size: 25
+      columns {
+        amount { format: currency, prefix: "$" }
+        created_at { format: datetime, label: "Date" }
+        status { format: badge }
+      }
+    }
+  }
+}
