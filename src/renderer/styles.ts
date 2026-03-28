@@ -547,6 +547,7 @@ body {
 }
 
 /* Text/markdown component */
+.openboard-text { font-size: 0.875rem; line-height: 1.6; }
 .openboard-text p { margin-bottom: 0.5rem; }
 .openboard-text p:last-child { margin-bottom: 0; }
 .openboard-text strong { font-weight: 600; }
@@ -557,5 +558,72 @@ body {
   border-radius: 3px;
   font-family: var(--ob-font-mono);
   font-size: 0.85em;
+}
+.openboard-text pre {
+  background: var(--ob-bg);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+.openboard-text pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.8125rem;
+}
+.openboard-text h1, .openboard-text h2, .openboard-text h3,
+.openboard-text h4, .openboard-text h5, .openboard-text h6 {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--ob-text);
+}
+.openboard-text h1 { font-size: 1.25rem; }
+.openboard-text h2 { font-size: 1.125rem; }
+.openboard-text h3 { font-size: 1rem; }
+.openboard-text ul, .openboard-text ol {
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+}
+.openboard-text li { margin-bottom: 0.25rem; }
+.openboard-text blockquote {
+  border-left: 3px solid var(--ob-border);
+  padding-left: 0.75rem;
+  margin-bottom: 0.5rem;
+  color: var(--ob-text-muted);
+}
+.openboard-text a {
+  color: var(--ob-primary);
+  text-decoration: none;
+}
+.openboard-text a:hover { text-decoration: underline; }
+.openboard-text hr {
+  border: none;
+  border-top: 1px solid var(--ob-border);
+  margin: 0.75rem 0;
+}
+.openboard-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.5rem;
+  font-size: 0.8125rem;
+}
+.openboard-text th, .openboard-text td {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--ob-border);
+  text-align: left;
+}
+.openboard-text th {
+  font-weight: 600;
+  background: var(--ob-bg);
+}
+.openboard-text img { max-width: 100%; height: auto; }
+.openboard-text-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ob-text-muted);
+  font-size: 0.8125rem;
+  min-height: 80px;
 }
 `;

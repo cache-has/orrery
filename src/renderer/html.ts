@@ -70,7 +70,7 @@ export function renderPage(options: RenderOptions): string {
   <div class="openboard-root" id="openboard-root">
     ${renderHeader(layout.title, description)}
     ${renderParamBar(data.params, paramValues)}
-    ${renderRows(layout.rows, data, components)}
+    ${renderRows(layout.rows, data, components, paramValues)}
   </div>
 
   <script>
@@ -147,11 +147,12 @@ function renderRows(
   rows: ResolvedRow[],
   data: DashboardData,
   components: { id: string; component: ComponentNode }[],
+  paramValues?: Record<string, unknown>,
 ): string {
   return rows
     .map((row) => {
       const cells = row.components
-        .map((rc) => renderComponentContainer(rc, data, components))
+        .map((rc) => renderComponentContainer(rc, data, components, paramValues))
         .join("\n      ");
       return `<div class="openboard-row">
       ${cells}
@@ -164,6 +165,7 @@ function renderComponentContainer(
   rc: ResolvedComponent,
   data: DashboardData,
   components: { id: string; component: ComponentNode }[],
+  paramValues?: Record<string, unknown>,
 ): string {
   const id = findComponentId(rc.component, components);
   const compData = data.components.get(id);
@@ -171,7 +173,7 @@ function renderComponentContainer(
 
   const body = compData?.error
     ? renderErrorState(compData.error)
-    : renderComponentBody(rc.component, compData);
+    : renderComponentBody(rc.component, compData, paramValues);
 
   const footer = compData?.result
     ? `<div class="openboard-component-footer">
@@ -206,7 +208,11 @@ function renderComponentContainer(
 // Component body renderers (basic/placeholder until component library)
 // ---------------------------------------------------------------------------
 
-function renderComponentBody(component: ComponentNode, compData?: ComponentData): string {
+function renderComponentBody(
+  component: ComponentNode,
+  compData?: ComponentData,
+  paramValues?: Record<string, unknown>,
+): string {
   // Try the component registry first
   const renderer = getRenderer(component.componentType);
   if (renderer) {
@@ -214,30 +220,12 @@ function renderComponentBody(component: ComponentNode, compData?: ComponentData)
       result: compData?.result,
       trendResult: compData?.trendResult,
       error: compData?.error,
+      paramValues,
     };
     return renderer.renderToString(component, renderData);
   }
 
-  // Fallback for components not yet in the registry
-  switch (component.componentType) {
-    case "text":
-      return renderTextBody(component);
-    default:
-      return `<div class="openboard-placeholder">${escapeHtml(component.componentType)} component</div>`;
-  }
-}
-
-function renderTextBody(component: ComponentNode): string {
-  if (component.markdownContent) {
-    // Basic markdown → HTML (bold, italic, inline code). Full markdown in phase 07.
-    const html = component.markdownContent
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      .replace(/`(.+?)`/g, "<code>$1</code>")
-      .replace(/^(.+)$/gm, "<p>$1</p>");
-    return `<div class="openboard-text">${html}</div>`;
-  }
-  return `<div class="openboard-placeholder">Empty text block</div>`;
+  return `<div class="openboard-placeholder">${escapeHtml(component.componentType)} component</div>`;
 }
 
 // ---------------------------------------------------------------------------

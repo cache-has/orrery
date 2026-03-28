@@ -9,11 +9,13 @@ import type { ComponentRenderer } from "./types.js";
 import { metricRenderer } from "./metric.js";
 import { chartRenderer } from "./chart.js";
 import { tableRenderer } from "./table.js";
+import { textRenderer } from "./text.js";
 
 const renderers: Record<string, ComponentRenderer> = {
   metric: metricRenderer,
   chart: chartRenderer,
   table: tableRenderer,
+  text: textRenderer,
 };
 
 /**

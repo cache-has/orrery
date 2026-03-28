@@ -17,6 +17,8 @@ export interface ComponentRenderData {
   result?: QueryResult;
   trendResult?: QueryResult;
   error?: string;
+  /** Current parameter values — used by text components for {{param}} interpolation. */
+  paramValues?: Record<string, unknown>;
 }
 
 /**
