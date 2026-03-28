@@ -29,7 +29,7 @@ export class MySQLDriver implements DatabaseDriver {
     }
   }
 
-  async query(sql: string): Promise<QueryResult> {
+  async query(sql: string, params?: unknown[]): Promise<QueryResult> {
     if (!this.pool) {
       throw new Error("MySQL driver is not connected");
     }
@@ -37,7 +37,7 @@ export class MySQLDriver implements DatabaseDriver {
     const start = performance.now();
 
     // Race query against a timeout
-    const queryPromise = this.pool.query(sql).then(([rows, fields]) => {
+    const queryPromise = this.pool.query(sql, params).then(([rows, fields]) => {
       // DDL/DML statements return OkPacket, not arrays
       if (!Array.isArray(rows)) {
         return {

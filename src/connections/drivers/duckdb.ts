@@ -1,5 +1,5 @@
 import { DuckDBInstance } from "@duckdb/node-api";
-import type { DuckDBConnection } from "@duckdb/node-api";
+import type { DuckDBConnection, DuckDBValue } from "@duckdb/node-api";
 import type { ConnectionConfig, DatabaseDriver } from "./base.js";
 import type { QueryResult } from "../../query/executor.js";
 
@@ -15,7 +15,7 @@ export class DuckDBDriver implements DatabaseDriver {
     this.connection = await this.instance.connect();
   }
 
-  async query(sql: string): Promise<QueryResult> {
+  async query(sql: string, params?: unknown[]): Promise<QueryResult> {
     if (!this.connection) {
       throw new Error("DuckDB driver is not connected");
     }
@@ -23,7 +23,10 @@ export class DuckDBDriver implements DatabaseDriver {
     const start = performance.now();
 
     // Race the query against a timeout
-    const queryPromise = this.connection.run(sql).then(async (result) => {
+    const runQuery = params?.length
+      ? this.connection.run(sql, params as DuckDBValue[])
+      : this.connection.run(sql);
+    const queryPromise = runQuery.then(async (result) => {
       const columns = result.columnNames();
       const rows = (await result.getRowObjectsJS()) as Record<
         string,
