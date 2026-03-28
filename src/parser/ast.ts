@@ -74,7 +74,7 @@ export interface PropertyNode {
 
 // --- Parameters ---
 
-export type ParamType = "daterange" | "select" | "text" | "number";
+export type ParamType = "daterange" | "select" | "text" | "number" | "toggle";
 
 export interface ParamNode {
   kind: "param";

@@ -12,11 +12,13 @@ import { readFileSync, existsSync } from "fs";
 import { resolve, basename } from "path";
 import { parse } from "../../parser/parser.js";
 import { resolveLayout } from "../../renderer/layout.js";
-import { renderPage } from "../../renderer/html.js";
-import { fetchDashboardData } from "../../renderer/data.js";
+import { renderPage, renderComponentFragment } from "../../renderer/html.js";
+import { fetchDashboardData, collectComponents } from "../../renderer/data.js";
 import type { QueryExecutor } from "../../query/executor.js";
 import { OPENBOARD_CSS } from "../../renderer/styles.js";
 import { OPENBOARD_CLIENT_JS } from "../client.js";
+import { OPENBOARD_INTERACTIVE_JS } from "../interactive.js";
+import { resolveDateRange } from "../../query/daterange.js";
 
 export interface DashboardRouteOptions {
   /** Root directory containing .board files */
@@ -45,6 +47,13 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
     return c.body(OPENBOARD_CLIENT_JS);
   });
 
+  // Serve the interactive script (always — interactivity is core)
+  app.get("/openboard/interactive.js", (c) => {
+    c.header("Content-Type", "application/javascript; charset=utf-8");
+    c.header("Cache-Control", "public, max-age=3600");
+    return c.body(OPENBOARD_INTERACTIVE_JS);
+  });
+
   // Render a dashboard by name — support both /d/:name and /dashboard/:name
   const renderDashboard = async (c: { req: { param: (k: string) => string; query: () => Record<string, string> }; html: (body: string, status?: number) => Response }) => {
     const name = c.req.param("name");
@@ -68,8 +77,23 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
       // Merge query string overrides
       const queryParams = c.req.query();
       for (const [key, value] of Object.entries(queryParams)) {
-        paramValues[key] = value;
+        // Handle dotted daterange params: date_range.start, date_range.end
+        if (key.includes(".")) {
+          const [paramName, subKey] = key.split(".", 2);
+          const existing = paramValues[paramName];
+          if (existing && typeof existing === "object") {
+            (existing as Record<string, unknown>)[subKey] = value;
+          } else {
+            paramValues[paramName] = { [subKey]: value };
+          }
+        } else {
+          paramValues[key] = value;
+        }
       }
+
+      // Resolve daterange params (presets → concrete dates)
+      const resolvedParams = resolveParamsWithDateRanges(dashboard, paramValues);
+      Object.assign(paramValues, resolvedParams);
 
       const data = await fetchDashboardData(dashboard, executor, paramValues);
 
@@ -79,6 +103,9 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         data,
         paramValues,
       });
+
+      // Always inject interactive script (interactivity is core)
+      html = html.replace("</body>", `  <script src="/openboard/interactive.js"></script>\n</body>`);
 
       // Inject dev client script
       if (devMode) {
@@ -108,6 +135,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         dashboard: string;
         params: Record<string, unknown>;
         components?: string[];
+        format?: "json" | "html";
       }>();
 
       const boardFile = resolve(boardDir, `${body.dashboard}.board`);
@@ -117,9 +145,28 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
 
       const source = readFileSync(boardFile, "utf-8");
       const dashboard = parse(source, boardFile);
-      const data = await fetchDashboardData(dashboard, executor, body.params);
 
-      // Filter to requested components if specified
+      // Resolve daterange params
+      const resolvedParams = resolveParamsWithDateRanges(dashboard, body.params);
+      const data = await fetchDashboardData(dashboard, executor, resolvedParams);
+
+      const components = collectComponents(dashboard);
+
+      if (body.format === "html") {
+        // Return rendered HTML fragments for each component
+        const html: Record<string, string> = {};
+        for (const [id, compData] of data.components) {
+          if (!body.components || body.components.includes(id)) {
+            const comp = components.find((c) => c.id === id);
+            if (comp) {
+              html[id] = renderComponentFragment(comp.component, compData, resolvedParams);
+            }
+          }
+        }
+        return c.json({ html });
+      }
+
+      // JSON format (default)
       const result: Record<string, unknown> = {};
       for (const [id, compData] of data.components) {
         if (!body.components || body.components.includes(id)) {
@@ -150,13 +197,46 @@ function resolveDefaultParams(dashboard: DashboardNode): Record<string, unknown>
       const param = item as ParamNode;
       const defaultProp = param.options.find((o) => o.key === "default");
       if (defaultProp) {
-        if (defaultProp.value.kind === "string") defaults[param.name] = defaultProp.value.value;
-        else if (defaultProp.value.kind === "number") defaults[param.name] = defaultProp.value.value;
+        if (defaultProp.value.kind === "string") {
+          if (param.paramType === "daterange") {
+            // Resolve preset string to { start, end, previous, preset }
+            const resolved = resolveDateRange(defaultProp.value.value);
+            defaults[param.name] = { ...resolved, preset: defaultProp.value.value.toLowerCase().replace(/[\s-]+/g, "_") };
+          } else {
+            defaults[param.name] = defaultProp.value.value;
+          }
+        } else if (defaultProp.value.kind === "number") defaults[param.name] = defaultProp.value.value;
         else if (defaultProp.value.kind === "boolean") defaults[param.name] = defaultProp.value.value;
       }
     }
   }
   return defaults;
+}
+
+/**
+ * Resolve daterange params in a params object by looking at the AST
+ * to know which params are daterange type.
+ */
+function resolveParamsWithDateRanges(
+  dashboard: DashboardNode,
+  params: Record<string, unknown>,
+): Record<string, unknown> {
+  const resolved = { ...params };
+  for (const item of dashboard.items) {
+    if (item.kind === "param" && item.paramType === "daterange") {
+      const val = resolved[item.name];
+      if (typeof val === "string") {
+        // Preset string from client
+        const dr = resolveDateRange(val);
+        resolved[item.name] = { ...dr, preset: val };
+      } else if (val && typeof val === "object" && "start" in val) {
+        // Custom range — ensure previous is computed
+        const dr = resolveDateRange(val);
+        resolved[item.name] = dr;
+      }
+    }
+  }
+  return resolved;
 }
 
 function escapeHtml(str: string): string {

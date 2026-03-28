@@ -9,3 +9,5 @@ export {
   placeholderStyleForDriver,
 } from "./parameterizer.js";
 export type { PreparedQuery, PlaceholderStyle } from "./parameterizer.js";
+export { resolveDateRange, resolveDateRangePreset, DATE_RANGE_PRESETS } from "./daterange.js";
+export type { ResolvedDateRange } from "./daterange.js";

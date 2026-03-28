@@ -235,6 +235,66 @@ describe("renderPage", () => {
     expect(html).toContain("South");
   });
 
+  it("renders toggle parameter control", () => {
+    const paramNode: ParamNode = {
+      kind: "param",
+      name: "show_inactive",
+      paramType: "toggle",
+      options: [
+        { kind: "property", key: "default", value: { kind: "boolean", value: false, span }, span },
+        { kind: "property", key: "label", value: { kind: "string", value: "Include inactive", span }, span },
+      ],
+      span,
+    };
+    const dashboard = makeDashboard("Test", [paramNode]);
+    const layout = resolveLayout(dashboard);
+    const data = makeData(
+      [],
+      [{ name: "show_inactive", type: "toggle", options: { default: false, label: "Include inactive" } }],
+    );
+
+    const html = renderPage({ dashboard, layout, data, paramValues: { show_inactive: false } });
+
+    expect(html).toContain('data-param-type="toggle"');
+    expect(html).toContain('role="switch"');
+    expect(html).toContain("Include inactive");
+    expect(html).toContain('aria-checked="false"');
+    // The button element itself should not have the "on" class (CSS rules contain the class name)
+    expect(html).toContain('class="openboard-toggle"');
+    expect(html).not.toContain('class="openboard-toggle openboard-toggle-on"');
+  });
+
+  it("renders daterange parameter with preset dropdown", () => {
+    const paramNode: ParamNode = {
+      kind: "param",
+      name: "date_range",
+      paramType: "daterange",
+      options: [
+        { kind: "property", key: "default", value: { kind: "string", value: "last 30 days", span }, span },
+      ],
+      span,
+    };
+    const dashboard = makeDashboard("Test", [paramNode]);
+    const layout = resolveLayout(dashboard);
+    const data = makeData(
+      [],
+      [{ name: "date_range", type: "daterange", options: { default: "last 30 days" } }],
+    );
+
+    const html = renderPage({
+      dashboard,
+      layout,
+      data,
+      paramValues: { date_range: { start: "2025-02-14", end: "2025-03-15", preset: "last_30_days" } },
+    });
+
+    expect(html).toContain('data-param-type="daterange"');
+    expect(html).toContain("openboard-daterange-preset");
+    expect(html).toContain("Last 30 days");
+    expect(html).toContain("Custom");
+    expect(html).toContain('type="date"');
+  });
+
   it("serializes __OPENBOARD__ state for client hydration", () => {
     const dashboard = makeDashboard("Hydration Test", []);
     const layout = resolveLayout(dashboard);

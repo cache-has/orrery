@@ -22,7 +22,7 @@ import { ParseError, createSpan } from "./errors.js";
 import { Lexer, type Token, type TokenType } from "./lexer.js";
 
 const COMPONENT_TYPES = new Set(["metric", "chart", "table", "text"]);
-const PARAM_TYPES = new Set(["daterange", "select", "text", "number"]);
+const PARAM_TYPES = new Set(["daterange", "select", "text", "number", "toggle"]);
 const COMP_OPS = new Set(["==", "!=", "<", ">", "<=", ">="]);
 
 /**
@@ -109,7 +109,7 @@ class Parser {
     const name = this.expect("ident", "Expected parameter name").value;
     this.expect("equals", "Expected '=' after parameter name");
 
-    const typeTok = this.expect("ident", "Expected parameter type (daterange, select, text, number)");
+    const typeTok = this.expect("ident", "Expected parameter type (daterange, select, text, number, toggle)");
     if (!PARAM_TYPES.has(typeTok.value)) {
       throw this.error(
         `Unknown parameter type '${typeTok.value}'`,

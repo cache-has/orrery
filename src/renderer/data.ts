@@ -89,6 +89,43 @@ function extractParams(dashboard: DashboardNode): ParamInfo[] {
     });
 }
 
+/**
+ * For select params with a `query` option, execute the query and
+ * populate the `options` array with the first column's values.
+ */
+async function resolveQueryDrivenParams(
+  params: ParamInfo[],
+  executor: QueryExecutor,
+  connection: string,
+): Promise<void> {
+  const queryParams = params.filter(
+    (p) => p.type === "select" && typeof p.options.query === "string",
+  );
+  if (queryParams.length === 0) return;
+
+  const queryOptions = queryParams.map((p) => ({
+    sql: p.options.query as string,
+    connection,
+    params: {},
+  }));
+
+  const results = await executor.executeAll(queryOptions);
+
+  for (let i = 0; i < queryParams.length; i++) {
+    const result = results.get(i);
+    if (result && !(result instanceof Error) && result.rows.length > 0) {
+      // Use the first column's values as the options
+      const firstCol = result.columns[0];
+      const optionValues = result.rows.map((row) => String(row[firstCol]));
+      queryParams[i].options.options = optionValues;
+      // Set default to first option if default_first is set
+      if (queryParams[i].options.default_first && !queryParams[i].options.default) {
+        queryParams[i].options.default = optionValues[0];
+      }
+    }
+  }
+}
+
 /** Collect all components from the AST in order, with stable IDs */
 export function collectComponents(
   dashboard: DashboardNode,
@@ -131,6 +168,9 @@ export async function fetchDashboardData(
   const params = extractParams(dashboard);
   const components = collectComponents(dashboard);
   const dataMap = new Map<string, ComponentData>();
+
+  // Resolve query-driven select params
+  await resolveQueryDrivenParams(params, executor, connection);
 
   // Build list of queries to execute
   const queryJobs: { id: string; sql: string; kind: "primary" | "trend" }[] = [];
