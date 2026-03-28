@@ -84,6 +84,20 @@ describe("Parser", () => {
     }
   });
 
+  it("parses a toggle param", () => {
+    const ast = parse(`dashboard "D" {
+      param show_inactive = toggle(default: false, label: "Include inactive")
+    }`);
+    const param = ast.items[0];
+    expect(param.kind).toBe("param");
+    if (param.kind === "param") {
+      expect(param.paramType).toBe("toggle");
+      expect(param.options).toHaveLength(2);
+      expect(param.options[0].key).toBe("default");
+      expect(param.options[1].key).toBe("label");
+    }
+  });
+
   it("parses a row with metric components", () => {
     const ast = parse(`dashboard "D" {
       row {

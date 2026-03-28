@@ -109,6 +109,67 @@ body {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
+/* Date range picker */
+.openboard-daterange {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.openboard-daterange-custom {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.openboard-daterange-sep {
+  font-size: 0.75rem;
+  color: var(--ob-text-muted);
+  padding: 0 0.125rem;
+}
+
+/* Toggle switch */
+.openboard-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.openboard-toggle-track {
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  background: var(--ob-border);
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+.openboard-toggle-on .openboard-toggle-track {
+  background: var(--ob-primary);
+}
+
+.openboard-toggle-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.openboard-toggle-on .openboard-toggle-thumb {
+  transform: translateX(16px);
+}
+
 /* =========================================================================
    Grid layout — 12-column system
    ========================================================================= */
