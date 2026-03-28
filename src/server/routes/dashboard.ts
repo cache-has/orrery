@@ -1,7 +1,7 @@
 /**
  * Dashboard serving route.
  *
- * GET /dashboard/:name — parses the .board file, resolves layout,
+ * GET /d/:name — parses the .board file, resolves layout,
  * fetches data, and returns a fully rendered HTML page.
  *
  * POST /api/query — partial update endpoint for parameter changes.
@@ -16,17 +16,20 @@ import { renderPage } from "../../renderer/html.js";
 import { fetchDashboardData } from "../../renderer/data.js";
 import type { QueryExecutor } from "../../query/executor.js";
 import { OPENBOARD_CSS } from "../../renderer/styles.js";
+import { OPENBOARD_CLIENT_JS } from "../client.js";
 
 export interface DashboardRouteOptions {
   /** Root directory containing .board files */
   boardDir: string;
   /** Query executor for running SQL */
   executor: QueryExecutor;
+  /** Whether to inject dev client JS for hot reload */
+  devMode?: boolean;
 }
 
 export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   const app = new Hono();
-  const { boardDir, executor } = options;
+  const { boardDir, executor, devMode } = options;
 
   // Serve the raw CSS stylesheet
   app.get("/openboard/styles.css", (c) => {
@@ -35,8 +38,15 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
     return c.body(OPENBOARD_CSS);
   });
 
-  // Render a dashboard by name
-  app.get("/dashboard/:name", async (c) => {
+  // Serve the client-side JavaScript (dev mode)
+  app.get("/openboard/client.js", (c) => {
+    c.header("Content-Type", "application/javascript; charset=utf-8");
+    c.header("Cache-Control", "no-cache");
+    return c.body(OPENBOARD_CLIENT_JS);
+  });
+
+  // Render a dashboard by name — support both /d/:name and /dashboard/:name
+  const renderDashboard = async (c: { req: { param: (k: string) => string; query: () => Record<string, string> }; html: (body: string, status?: number) => Response }) => {
     const name = c.req.param("name");
     const boardFile = resolve(boardDir, `${name}.board`);
 
@@ -63,12 +73,17 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
 
       const data = await fetchDashboardData(dashboard, executor, paramValues);
 
-      const html = renderPage({
+      let html = renderPage({
         dashboard,
         layout,
         data,
         paramValues,
       });
+
+      // Inject dev client script
+      if (devMode) {
+        html = html.replace("</body>", `  <script src="/openboard/client.js"></script>\n</body>`);
+      }
 
       return c.html(html);
     } catch (err) {
@@ -78,7 +93,13 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         500,
       );
     }
-  });
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  app.get("/d/:name", renderDashboard as any);
+  // Keep legacy route for backwards compatibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  app.get("/dashboard/:name", renderDashboard as any);
 
   // Partial update: re-execute specific queries with new params
   app.post("/api/query", async (c) => {
