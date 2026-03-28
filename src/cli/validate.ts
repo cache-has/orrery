@@ -1,4 +1,3 @@
-import { Lexer } from "../parser/lexer.js";
 import { parse } from "../parser/parser.js";
 import { validate } from "../parser/validator.js";
 import { loadConnectionFiles } from "../connections/loader.js";
@@ -33,7 +32,6 @@ if (boardFiles.length > 0) {
   for (const file of boardFiles) {
     try {
       const source = readFileSync(file, "utf-8");
-      new Lexer(source, file).tokenize();
       const ast = parse(source, file);
       const diagnostics = validate(ast);
 

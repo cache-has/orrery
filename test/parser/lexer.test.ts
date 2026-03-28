@@ -90,6 +90,45 @@ describe("Lexer", () => {
     expect(() => new Lexer("@").tokenize()).toThrow(ParseError);
   });
 
+  it("tokenizes escape sequences in strings", () => {
+    const tokens = new Lexer('"hello\\nworld"').tokenize();
+    expect(tokens[0]).toMatchObject({ type: "string", value: "hello\nworld" });
+  });
+
+  it("tokenizes tab escape in strings", () => {
+    const tokens = new Lexer('"col1\\tcol2"').tokenize();
+    expect(tokens[0]).toMatchObject({ type: "string", value: "col1\tcol2" });
+  });
+
+  it("tokenizes escaped quote in strings", () => {
+    const tokens = new Lexer('"say \\"hi\\""').tokenize();
+    expect(tokens[0]).toMatchObject({ type: "string", value: 'say "hi"' });
+  });
+
+  it("tokenizes escaped backslash in strings", () => {
+    const tokens = new Lexer('"path\\\\to"').tokenize();
+    expect(tokens[0]).toMatchObject({ type: "string", value: "path\\to" });
+  });
+
+  it("passes through unknown escape sequences", () => {
+    const tokens = new Lexer('"hello\\xworld"').tokenize();
+    expect(tokens[0]).toMatchObject({ type: "string", value: "hello\\xworld" });
+  });
+
+  it("throws on unterminated triple-quoted string", () => {
+    expect(() => new Lexer('"""hello').tokenize()).toThrow(ParseError);
+  });
+
+  it("throws on string with newline", () => {
+    expect(() => new Lexer('"hello\nworld"').tokenize()).toThrow(ParseError);
+  });
+
+  it("handles carriage returns in whitespace", () => {
+    const tokens = new Lexer("a\r\nb").tokenize();
+    expect(tokens[0]).toMatchObject({ type: "ident", value: "a" });
+    expect(tokens[1]).toMatchObject({ type: "ident", value: "b" });
+  });
+
   it("tokenizes a complete fixture file", () => {
     const source = `dashboard "Test" {
   description: "A test"

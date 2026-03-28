@@ -293,6 +293,24 @@ export const chartRenderer: ComponentRenderer = {
     }
 
     const svg = renderEChartsSvg(option);
-    return `<div class="openboard-chart-container">${svg}</div>`;
+
+    // Add tooltip config for client-side hydration
+    const clientOption = {
+      ...option,
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: "rgba(50,50,50,0.9)",
+        borderColor: "transparent",
+        textStyle: { color: "#fff", fontSize: 12 },
+      },
+    };
+    // Escape for safe embedding in HTML attribute
+    const optionJson = JSON.stringify(clientOption)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    return `<div class="openboard-chart-container" data-chart-option="${optionJson}">${svg}</div>`;
   },
 };

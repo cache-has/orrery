@@ -1,0 +1,50 @@
+dashboard "Test Dashboard" {
+  description: "Fixture dashboard for integration and E2E tests"
+  connection: "fixture_db"
+
+  param date_range = daterange(default: "last 30 days")
+  param region = select(default: "US", options: ["US", "EU", "APAC"])
+
+  row {
+    metric "Total Orders" (span: 4) {
+      query: "SELECT COUNT(*) as value FROM orders"
+      format: number
+    }
+    metric "Total Revenue" (span: 4) {
+      query: "SELECT SUM(amount) as value FROM orders"
+      format: currency
+      prefix: "$"
+    }
+    metric "Avg Order" (span: 4) {
+      query: "SELECT ROUND(AVG(amount), 2) as value FROM orders"
+      format: currency
+      prefix: "$"
+    }
+  }
+
+  row {
+    chart "Orders by Region" (span: 6, type: bar) {
+      query: "SELECT region, COUNT(*) as count FROM orders GROUP BY region ORDER BY region"
+      x: region
+      y: count
+    }
+    chart "Revenue Over Time" (span: 6, type: line) {
+      query: """
+        SELECT created_at as date, SUM(amount) as revenue
+        FROM orders
+        GROUP BY created_at
+        ORDER BY created_at
+      """
+      x: date
+      y: revenue
+    }
+  }
+
+  row {
+    table "Recent Orders" (span: 12) {
+      query: "SELECT id, customer, amount, region, status, created_at FROM orders ORDER BY id DESC LIMIT 25"
+      sortable: true
+      page_size: 10
+    }
+  }
+}

@@ -50,6 +50,21 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.openboard-breadcrumb {
+  margin-bottom: 0.5rem;
+}
+
+.openboard-breadcrumb a {
+  font-size: 0.85rem;
+  color: var(--ob-text-secondary, #666);
+  text-decoration: none;
+}
+
+.openboard-breadcrumb a:hover {
+  color: var(--ob-text-primary, #1a1a1a);
+  text-decoration: underline;
+}
+
 .openboard-header-branding {
   display: flex;
   align-items: center;
@@ -411,6 +426,7 @@ body {
 
 .openboard-chart-container {
   width: 100%;
+  min-height: 350px;
   display: flex;
   align-items: center;
   justify-content: center;

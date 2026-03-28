@@ -74,6 +74,8 @@ export interface DiscoveredDashboard {
   title: string;
   /** Dashboard description if present */
   description?: string;
+  /** Relative folder path from dashboards dir (empty string for root) */
+  folder: string;
   /** Last modified time */
   lastModified: Date;
 }
@@ -120,12 +122,17 @@ export function parseDashboardInfo(
     const dashboard = parse(source, filePath);
     const stat = statSync(filePath);
     const slug = fileToSlug(filePath, baseDir);
+    const rel = relative(baseDir, filePath);
+    const folder = rel.includes("/") || rel.includes("\\")
+      ? rel.replace(/[\\/][^\\/]+$/, "")
+      : "";
 
     return {
       slug,
       filePath,
       title: dashboard.title || slug,
       description: getDashboardDescription(dashboard),
+      folder,
       lastModified: stat.mtime,
     };
   } catch (err) {

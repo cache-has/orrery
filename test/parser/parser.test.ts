@@ -356,6 +356,71 @@ dashboard "D" {
     }
   });
 
+  it("parses component with type option as string", () => {
+    const ast = parse(`dashboard "D" {
+      row {
+        chart "Revenue" (type: "bar") {
+          query: "SELECT 1"
+        }
+      }
+    }`);
+    const row = ast.items[0];
+    if (row.kind === "row") {
+      const comp = row.components[0];
+      expect(comp.opts?.type).toBe("bar");
+    }
+  });
+
+  it("parses component with connection option", () => {
+    const ast = parse(`dashboard "D" {
+      row {
+        chart "Revenue" (connection: "pg_main") {
+          query: "SELECT 1"
+        }
+      }
+    }`);
+    const row = ast.items[0];
+    if (row.kind === "row") {
+      const comp = row.components[0];
+      expect(comp.opts?.connection).toBe("pg_main");
+    }
+  });
+
+  it("parses component with unknown option", () => {
+    const ast = parse(`dashboard "D" {
+      row {
+        chart "Revenue" (custom_opt: 42) {
+          query: "SELECT 1"
+        }
+      }
+    }`);
+    const row = ast.items[0];
+    if (row.kind === "row") {
+      expect(row.components[0].opts?.custom_opt).toBe(42);
+    }
+  });
+
+  it("parses visibility expression on component", () => {
+    const ast = parse(`dashboard "D" {
+      param region = select(default: "US", options: ["US", "EU"])
+      row {
+        metric "US Only" (visible: region == "US") {
+          query: "SELECT 1 as value"
+        }
+      }
+    }`);
+    const row = ast.items.find((i) => i.kind === "row");
+    if (row && row.kind === "row") {
+      expect(row.components[0].opts?.visible).toBeDefined();
+    }
+  });
+
+  it("throws on invalid value in property", () => {
+    expect(() =>
+      parse(`dashboard "D" { row { metric "M" { query: } } }`),
+    ).toThrow(ParseError);
+  });
+
   it("parses components outside rows (top-level)", () => {
     const ast = parse(`dashboard "D" {
       metric "Revenue" (span: 4) {

@@ -41,6 +41,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     hydrateParamControls();
     hydrateRefreshButtons();
     hydrateThemeToggle();
+    hydrateCharts();
     syncFromUrl();
     setupKeyboardShortcuts();
     setupAutoRefresh();
@@ -658,6 +659,75 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
   function focusFirstTextParam() {
     var textInput = document.querySelector('[data-param-type="text"] input');
     if (textInput) textInput.focus();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Chart hydration (ECharts tooltips + resize)
+  // ---------------------------------------------------------------------------
+
+  function hydrateCharts() {
+    var containers = document.querySelectorAll('[data-chart-option]');
+    if (containers.length === 0) return;
+
+    // If ECharts is already loaded (e.g. from a previous hydration), use it directly
+    if (window.echarts) {
+      doHydrateCharts(containers);
+      return;
+    }
+
+    // Load ECharts from CDN, then hydrate
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js';
+    script.onload = function() {
+      doHydrateCharts(containers);
+    };
+    script.onerror = function() {
+      console.warn('[OpenBoard] Failed to load ECharts from CDN — tooltips unavailable');
+    };
+    document.head.appendChild(script);
+  }
+
+  function doHydrateCharts(containers) {
+    for (var i = 0; i < containers.length; i++) {
+      hydrateOneChart(containers[i]);
+    }
+    window.addEventListener('resize', function() {
+      var charts = document.querySelectorAll('[data-chart-instance]');
+      for (var j = 0; j < charts.length; j++) {
+        var inst = window.echarts.getInstanceByDom(charts[j]);
+        if (inst) inst.resize();
+      }
+    });
+  }
+
+  function hydrateOneChart(container) {
+    var optionJson = container.getAttribute('data-chart-option');
+    if (!optionJson) return;
+
+    try {
+      var option = JSON.parse(optionJson);
+    } catch(e) {
+      console.warn('[OpenBoard] Failed to parse chart option:', e);
+      return;
+    }
+
+    // Measure before clearing SVG
+    var rect = container.getBoundingClientRect();
+    var width = Math.round(rect.width) || 600;
+    var height = Math.round(rect.height) || 350;
+
+    // Replace static SVG with live ECharts canvas
+    container.innerHTML = '';
+    container.style.width = width + 'px';
+    container.style.height = height + 'px';
+    container.setAttribute('data-chart-instance', 'true');
+
+    try {
+      var chart = window.echarts.init(container, null, { renderer: 'canvas' });
+      chart.setOption(option);
+    } catch(e) {
+      console.warn('[OpenBoard] Chart hydration failed:', e);
+    }
   }
 
   // ---------------------------------------------------------------------------

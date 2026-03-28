@@ -1,0 +1,115 @@
+dashboard "Film Catalog" {
+  description: "Film inventory analysis — categories, ratings, rental popularity"
+  connection: "pagila"
+
+  row {
+    metric "Total Films" (span: 3) {
+      query: "SELECT COUNT(*) as value FROM film"
+      format: number
+    }
+    metric "Categories" (span: 3) {
+      query: "SELECT COUNT(*) as value FROM category"
+      format: number
+    }
+    metric "Avg Rental Duration" (span: 3) {
+      query: "SELECT ROUND(AVG(rental_duration)::numeric, 1) as value FROM film"
+      format: number
+    }
+    metric "Avg Replacement Cost" (span: 3) {
+      query: "SELECT ROUND(AVG(replacement_cost)::numeric, 2) as value FROM film"
+      format: currency
+      prefix: "$"
+    }
+  }
+
+  row {
+    chart "Films by Rating" (span: 6, type: bar) {
+      query: """
+        SELECT
+          rating,
+          COUNT(*) as films
+        FROM film
+        GROUP BY rating
+        ORDER BY rating
+      """
+      x: rating
+      y: films
+    }
+    chart "Films by Category" (span: 6, type: bar) {
+      query: """
+        SELECT
+          c.name as category,
+          COUNT(*) as films
+        FROM film_category fc
+        JOIN category c ON fc.category_id = c.category_id
+        GROUP BY c.name
+        ORDER BY films DESC
+      """
+      x: category
+      y: films
+    }
+  }
+
+  row {
+    chart "Revenue by Category" (span: 12, type: bar) {
+      query: """
+        SELECT
+          c.name as category,
+          ROUND(SUM(p.amount)::numeric, 2) as revenue
+        FROM payment p
+        JOIN rental r ON p.rental_id = r.rental_id
+        JOIN inventory i ON r.inventory_id = i.inventory_id
+        JOIN film f ON i.film_id = f.film_id
+        JOIN film_category fc ON f.film_id = fc.film_id
+        JOIN category c ON fc.category_id = c.category_id
+        GROUP BY c.name
+        ORDER BY revenue DESC
+      """
+      x: category
+      y: revenue
+    }
+  }
+
+  row {
+    table "Most Rented Films" (span: 6) {
+      query: """
+        SELECT
+          f.title,
+          c.name as category,
+          f.rating,
+          COUNT(r.rental_id) as rentals,
+          ROUND(SUM(p.amount)::numeric, 2) as revenue
+        FROM film f
+        JOIN inventory i ON f.film_id = i.film_id
+        JOIN rental r ON i.inventory_id = r.inventory_id
+        LEFT JOIN payment p ON r.rental_id = p.rental_id
+        JOIN film_category fc ON f.film_id = fc.film_id
+        JOIN category c ON fc.category_id = c.category_id
+        GROUP BY f.title, c.name, f.rating
+        ORDER BY rentals DESC
+        LIMIT 15
+      """
+      sortable: true
+      page_size: 15
+    }
+    table "Least Rented Films" (span: 6) {
+      query: """
+        SELECT
+          f.title,
+          c.name as category,
+          f.rating,
+          COUNT(r.rental_id) as rentals
+        FROM film f
+        JOIN inventory i ON f.film_id = i.film_id
+        LEFT JOIN rental r ON i.inventory_id = r.inventory_id
+        JOIN film_category fc ON f.film_id = fc.film_id
+        JOIN category c ON fc.category_id = c.category_id
+        GROUP BY f.title, c.name, f.rating
+        ORDER BY rentals ASC
+        LIMIT 15
+      """
+      sortable: true
+      page_size: 15
+    }
+  }
+}

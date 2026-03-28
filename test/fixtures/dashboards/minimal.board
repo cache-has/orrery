@@ -1,0 +1,9 @@
+dashboard "Minimal" {
+  description: "Minimal dashboard for testing"
+
+  row {
+    text "Welcome" {
+      > Hello from the **test** dashboard.
+    }
+  }
+}

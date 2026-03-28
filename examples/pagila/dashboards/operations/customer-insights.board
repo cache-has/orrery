@@ -1,0 +1,115 @@
+dashboard "Customer Insights" {
+  description: "Customer behavior, geography, and lifetime value analysis"
+  connection: "pagila"
+
+  row {
+    metric "Total Customers" (span: 3) {
+      query: "SELECT COUNT(*) as value FROM customer WHERE activebool = true"
+      format: number
+    }
+    metric "Avg Lifetime Value" (span: 3) {
+      query: """
+        SELECT ROUND(AVG(total)::numeric, 2) as value
+        FROM (SELECT SUM(amount) as total FROM payment GROUP BY customer_id) sub
+      """
+      format: currency
+      prefix: "$"
+    }
+    metric "Avg Rentals/Customer" (span: 3) {
+      query: """
+        SELECT ROUND(AVG(cnt)::numeric, 1) as value
+        FROM (SELECT COUNT(*) as cnt FROM rental GROUP BY customer_id) sub
+      """
+      format: number
+    }
+    metric "Countries" (span: 3) {
+      query: """
+        SELECT COUNT(DISTINCT co.country_id) as value
+        FROM customer cu
+        JOIN address a ON cu.address_id = a.address_id
+        JOIN city ci ON a.city_id = ci.city_id
+        JOIN country co ON ci.country_id = co.country_id
+      """
+      format: number
+    }
+  }
+
+  row {
+    chart "Top 10 Countries by Customers" (span: 6, type: bar) {
+      query: """
+        SELECT
+          co.country,
+          COUNT(*) as customers
+        FROM customer cu
+        JOIN address a ON cu.address_id = a.address_id
+        JOIN city ci ON a.city_id = ci.city_id
+        JOIN country co ON ci.country_id = co.country_id
+        GROUP BY co.country
+        ORDER BY customers DESC
+        LIMIT 10
+      """
+      x: country
+      y: customers
+    }
+    chart "Customer Spend Distribution" (span: 6, type: bar) {
+      query: """
+        SELECT
+          CASE
+            WHEN total < 75 THEN '$0-75'
+            WHEN total < 100 THEN '$75-100'
+            WHEN total < 125 THEN '$100-125'
+            WHEN total < 150 THEN '$125-150'
+            ELSE '$150+'
+          END as spend_bucket,
+          COUNT(*) as customers
+        FROM (SELECT customer_id, SUM(amount) as total FROM payment GROUP BY customer_id) sub
+        GROUP BY spend_bucket
+        ORDER BY spend_bucket
+      """
+      x: spend_bucket
+      y: customers
+    }
+  }
+
+  row {
+    chart "New Rentals by Month" (span: 12, type: line) {
+      query: """
+        SELECT
+          TO_CHAR(rental_date, 'YYYY-MM') as month,
+          COUNT(DISTINCT customer_id) as active_customers,
+          COUNT(*) as rentals
+        FROM rental
+        GROUP BY TO_CHAR(rental_date, 'YYYY-MM')
+        ORDER BY month
+      """
+      x: month
+      y: rentals
+    }
+  }
+
+  row {
+    table "Top 25 Customers by Revenue" (span: 12) {
+      query: """
+        SELECT
+          c.first_name || ' ' || c.last_name as customer,
+          c.email,
+          co.country,
+          COUNT(DISTINCT r.rental_id) as rentals,
+          ROUND(SUM(p.amount)::numeric, 2) as total_spent,
+          MIN(r.rental_date)::date as first_rental,
+          MAX(r.rental_date)::date as last_rental
+        FROM customer c
+        JOIN address a ON c.address_id = a.address_id
+        JOIN city ci ON a.city_id = ci.city_id
+        JOIN country co ON ci.country_id = co.country_id
+        JOIN rental r ON c.customer_id = r.customer_id
+        JOIN payment p ON r.rental_id = p.rental_id
+        GROUP BY c.customer_id, c.first_name, c.last_name, c.email, co.country
+        ORDER BY total_spent DESC
+        LIMIT 25
+      """
+      sortable: true
+      page_size: 10
+    }
+  }
+}

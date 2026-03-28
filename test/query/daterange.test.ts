@@ -93,6 +93,58 @@ describe("resolveDateRange", () => {
   });
 });
 
+describe("resolveDateRangePreset — additional presets", () => {
+  it("resolves 'last 90 days'", () => {
+    const result = resolveDateRangePreset("last 90 days", NOW);
+    expect(result).not.toBeNull();
+    expect(result!.start).toBe("2024-12-16");
+    expect(result!.end).toBe("2025-03-15");
+    expect(result!.previous).toBeDefined();
+  });
+
+  it("resolves 'this month'", () => {
+    const result = resolveDateRangePreset("this month", NOW);
+    expect(result).not.toBeNull();
+    expect(result!.start).toBe("2025-03-01");
+    expect(result!.end).toBe("2025-03-15");
+  });
+
+  it("resolves 'last month'", () => {
+    const result = resolveDateRangePreset("last month", NOW);
+    expect(result).not.toBeNull();
+    expect(result!.start).toBe("2025-02-01");
+    expect(result!.end).toBe("2025-02-28");
+  });
+
+  it("resolves 'this quarter'", () => {
+    const result = resolveDateRangePreset("this quarter", NOW);
+    expect(result).not.toBeNull();
+    expect(result!.start).toBe("2025-01-01");
+    expect(result!.end).toBe("2025-03-15");
+  });
+
+  it("resolves 'this year'", () => {
+    const result = resolveDateRangePreset("this year", NOW);
+    expect(result).not.toBeNull();
+    expect(result!.start).toBe("2025-01-01");
+    expect(result!.end).toBe("2025-03-15");
+  });
+
+  it("returns null for unknown preset", () => {
+    const result = resolveDateRangePreset("not a preset", NOW);
+    expect(result).toBeNull();
+  });
+});
+
+describe("resolveDateRange — object input", () => {
+  it("resolves custom range object with start and end", () => {
+    const result = resolveDateRange({ start: "2025-01-01", end: "2025-01-31" }, NOW);
+    expect(result.start).toBe("2025-01-01");
+    expect(result.end).toBe("2025-01-31");
+    expect(result.previous).toBeDefined();
+  });
+});
+
 describe("DATE_RANGE_PRESETS", () => {
   it("has all expected presets", () => {
     expect(Object.keys(DATE_RANGE_PRESETS)).toContain("last_7_days");
