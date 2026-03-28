@@ -9,6 +9,9 @@ export interface ConnectionConfig {
   password?: string;
   path?: string;
   ssl?: boolean;
+  connection_string?: string;
+  pool_size?: number;
+  timeout?: number;
   options?: Record<string, unknown>;
 }
 
