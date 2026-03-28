@@ -162,19 +162,7 @@ function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: Bran
     .ob-idx-meta { font-size: 0.8rem; color: #999; }
     .ob-idx-empty { max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #666; }
     .ob-idx-empty code { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
-    [data-theme="dark"] body { background: #0f172a; color: #f1f5f9; }
-    [data-theme="dark"] .ob-idx-header h1 { color: #f1f5f9; }
-    [data-theme="dark"] .ob-idx-header p { color: #94a3b8; }
-    [data-theme="dark"] .ob-idx-card { background: #1e293b; border-color: #334155; color: #f1f5f9; }
-    [data-theme="dark"] .ob-idx-card h2 { color: #f1f5f9; }
-    [data-theme="dark"] .ob-idx-card:hover { border-color: #60a5fa; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-    [data-theme="dark"] .ob-idx-desc { color: #cbd5e1; }
-    [data-theme="dark"] .ob-idx-meta { color: #94a3b8; }
-    [data-theme="dark"] .ob-idx-folder { color: #94a3b8; border-color: #334155; }
-    [data-theme="dark"] .ob-idx-empty { color: #94a3b8; }
-    [data-theme="dark"] .ob-idx-empty code { background: #334155; color: #e2e8f0; }
   </style>
-  <script>try{var t=localStorage.getItem('openboard-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 </head>
 <body>
   <div class="ob-idx-header">

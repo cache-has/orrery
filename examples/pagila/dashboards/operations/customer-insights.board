@@ -2,15 +2,34 @@ dashboard "Customer Insights" {
   description: "Customer behavior, geography, and lifetime value analysis"
   connection: "pagila"
 
+  param country = select(default: "All", options: ["All", "India", "China", "United States", "Japan", "Mexico", "Brazil", "Russian Federation", "Philippines", "Turkey", "Indonesia"])
+
   row {
     metric "Total Customers" (span: 3) {
-      query: "SELECT COUNT(*) as value FROM customer WHERE activebool = true"
+      query: """
+        SELECT COUNT(*) as value
+        FROM customer cu
+        JOIN address a ON cu.address_id = a.address_id
+        JOIN city ci ON a.city_id = ci.city_id
+        JOIN country co ON ci.country_id = co.country_id
+        WHERE cu.activebool = true
+          AND ({{country}} = 'All' OR co.country = {{country}})
+      """
       format: number
     }
     metric "Avg Lifetime Value" (span: 3) {
       query: """
         SELECT ROUND(AVG(total)::numeric, 2) as value
-        FROM (SELECT SUM(amount) as total FROM payment GROUP BY customer_id) sub
+        FROM (
+          SELECT p.customer_id, SUM(p.amount) as total
+          FROM payment p
+          JOIN customer cu ON p.customer_id = cu.customer_id
+          JOIN address a ON cu.address_id = a.address_id
+          JOIN city ci ON a.city_id = ci.city_id
+          JOIN country co ON ci.country_id = co.country_id
+          WHERE ({{country}} = 'All' OR co.country = {{country}})
+          GROUP BY p.customer_id
+        ) sub
       """
       format: currency
       prefix: "$"
@@ -18,7 +37,16 @@ dashboard "Customer Insights" {
     metric "Avg Rentals/Customer" (span: 3) {
       query: """
         SELECT ROUND(AVG(cnt)::numeric, 1) as value
-        FROM (SELECT COUNT(*) as cnt FROM rental GROUP BY customer_id) sub
+        FROM (
+          SELECT r.customer_id, COUNT(*) as cnt
+          FROM rental r
+          JOIN customer cu ON r.customer_id = cu.customer_id
+          JOIN address a ON cu.address_id = a.address_id
+          JOIN city ci ON a.city_id = ci.city_id
+          JOIN country co ON ci.country_id = co.country_id
+          WHERE ({{country}} = 'All' OR co.country = {{country}})
+          GROUP BY r.customer_id
+        ) sub
       """
       format: number
     }
@@ -29,6 +57,7 @@ dashboard "Customer Insights" {
         JOIN address a ON cu.address_id = a.address_id
         JOIN city ci ON a.city_id = ci.city_id
         JOIN country co ON ci.country_id = co.country_id
+        WHERE ({{country}} = 'All' OR co.country = {{country}})
       """
       format: number
     }
@@ -37,13 +66,12 @@ dashboard "Customer Insights" {
   row {
     chart "Top 10 Countries by Customers" (span: 6, type: bar) {
       query: """
-        SELECT
-          co.country,
-          COUNT(*) as customers
+        SELECT co.country, COUNT(*) as customers
         FROM customer cu
         JOIN address a ON cu.address_id = a.address_id
         JOIN city ci ON a.city_id = ci.city_id
         JOIN country co ON ci.country_id = co.country_id
+        WHERE ({{country}} = 'All' OR co.country = {{country}})
         GROUP BY co.country
         ORDER BY customers DESC
         LIMIT 10
@@ -62,7 +90,16 @@ dashboard "Customer Insights" {
             ELSE '$150+'
           END as spend_bucket,
           COUNT(*) as customers
-        FROM (SELECT customer_id, SUM(amount) as total FROM payment GROUP BY customer_id) sub
+        FROM (
+          SELECT p.customer_id, SUM(p.amount) as total
+          FROM payment p
+          JOIN customer cu ON p.customer_id = cu.customer_id
+          JOIN address a ON cu.address_id = a.address_id
+          JOIN city ci ON a.city_id = ci.city_id
+          JOIN country co ON ci.country_id = co.country_id
+          WHERE ({{country}} = 'All' OR co.country = {{country}})
+          GROUP BY p.customer_id
+        ) sub
         GROUP BY spend_bucket
         ORDER BY spend_bucket
       """
@@ -72,14 +109,18 @@ dashboard "Customer Insights" {
   }
 
   row {
-    chart "New Rentals by Month" (span: 12, type: line) {
+    chart "Rentals by Month" (span: 12, type: line) {
       query: """
         SELECT
-          TO_CHAR(rental_date, 'YYYY-MM') as month,
-          COUNT(DISTINCT customer_id) as active_customers,
+          TO_CHAR(r.rental_date, 'YYYY-MM') as month,
           COUNT(*) as rentals
-        FROM rental
-        GROUP BY TO_CHAR(rental_date, 'YYYY-MM')
+        FROM rental r
+        JOIN customer cu ON r.customer_id = cu.customer_id
+        JOIN address a ON cu.address_id = a.address_id
+        JOIN city ci ON a.city_id = ci.city_id
+        JOIN country co ON ci.country_id = co.country_id
+        WHERE ({{country}} = 'All' OR co.country = {{country}})
+        GROUP BY TO_CHAR(r.rental_date, 'YYYY-MM')
         ORDER BY month
       """
       x: month
@@ -92,18 +133,18 @@ dashboard "Customer Insights" {
       query: """
         SELECT
           c.first_name || ' ' || c.last_name as customer,
-          c.email,
-          co.country,
+          c.email, co.country,
           COUNT(DISTINCT r.rental_id) as rentals,
           ROUND(SUM(p.amount)::numeric, 2) as total_spent,
-          MIN(r.rental_date)::date as first_rental,
-          MAX(r.rental_date)::date as last_rental
+          TO_CHAR(MIN(r.rental_date), 'YYYY-MM-DD') as first_rental,
+          TO_CHAR(MAX(r.rental_date), 'YYYY-MM-DD') as last_rental
         FROM customer c
         JOIN address a ON c.address_id = a.address_id
         JOIN city ci ON a.city_id = ci.city_id
         JOIN country co ON ci.country_id = co.country_id
         JOIN rental r ON c.customer_id = r.customer_id
         JOIN payment p ON r.rental_id = p.rental_id
+        WHERE ({{country}} = 'All' OR co.country = {{country}})
         GROUP BY c.customer_id, c.first_name, c.last_name, c.email, co.country
         ORDER BY total_spent DESC
         LIMIT 25

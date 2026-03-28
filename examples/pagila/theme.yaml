@@ -1,0 +1,34 @@
+# OpenBoard theme configuration
+# Place this file in your project root as theme.yaml
+
+# Branding — customize the header and browser tab
+branding:
+  title: Pagila Analytics
+  # logo: assets/logo.svg       # Path to logo image (relative to project root)
+  # favicon: assets/favicon.ico  # Path to favicon
+
+# Chart color palette — used for all chart series across dashboards
+chart_palette:
+  - "#2563eb"   # blue
+  - "#16a34a"   # green
+  - "#d97706"   # amber
+  - "#dc2626"   # red
+  - "#7c3aed"   # violet
+  - "#db2777"   # pink
+  - "#0891b2"   # cyan
+  - "#65a30d"   # lime
+
+# CSS variable overrides — customize the UI appearance
+colors:
+  ob-bg: "#f8f9fa"
+  ob-surface: "#ffffff"
+  ob-border: "#e2e8f0"
+  ob-text: "#1a202c"
+  ob-text-muted: "#718096"
+  ob-primary: "#2563eb"
+  ob-radius: "8px"
+
+# Typography overrides
+# typography:
+#   ob-font: "Inter, system-ui, sans-serif"
+#   ob-font-mono: "JetBrains Mono, monospace"
