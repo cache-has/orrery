@@ -475,30 +475,13 @@ describe("renderPage", () => {
     expect(html).not.toContain('rel="icon"');
   });
 
-  it("renders theme toggle button when devMode is true", () => {
-    const dashboard = makeDashboard("Dev Dashboard", []);
+  it("does not render theme toggle (dark mode disabled)", () => {
+    const dashboard = makeDashboard("Dashboard", []);
     const layout = resolveLayout(dashboard);
     const data = makeData([]);
 
     const html = renderPage({ dashboard, layout, data, paramValues: {}, devMode: true });
-
-    expect(html).toContain('data-action="toggle-theme"');
-    expect(html).toContain("openboard-theme-toggle");
-    expect(html).toContain("openboard-theme-icon");
-  });
-
-  it("does not render theme toggle when devMode is false or absent", () => {
-    const dashboard = makeDashboard("Prod Dashboard", []);
-    const layout = resolveLayout(dashboard);
-    const data = makeData([]);
-
-    const html = renderPage({ dashboard, layout, data, paramValues: {} });
-
     expect(html).not.toContain('data-action="toggle-theme"');
-    // The class name appears in CSS, but no button element should exist
-    const bodyMatch = html.match(/<body>[\s\S]*<\/body>/);
-    expect(bodyMatch).toBeTruthy();
-    expect(bodyMatch![0]).not.toContain('<button class="openboard-theme-toggle"');
   });
 
   it("includes print styles in CSS", () => {

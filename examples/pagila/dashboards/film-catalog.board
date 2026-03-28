@@ -2,9 +2,18 @@ dashboard "Film Catalog" {
   description: "Film inventory analysis — categories, ratings, rental popularity"
   connection: "pagila"
 
+  param rating = select(default: "All", options: ["All", "G", "PG", "PG-13", "R", "NC-17"])
+  param category = select(default: "All", options: ["All", "Action", "Animation", "Children", "Classics", "Comedy", "Documentary", "Drama", "Family", "Foreign", "Games", "Horror", "Music", "New", "Sci-Fi", "Sports", "Travel"], multiple: true)
+
   row {
     metric "Total Films" (span: 3) {
-      query: "SELECT COUNT(*) as value FROM film"
+      query: """
+        SELECT COUNT(*) as value FROM film f
+        JOIN film_category fc ON f.film_id = fc.film_id
+        JOIN category c ON fc.category_id = c.category_id
+        WHERE ({{rating}} = 'All' OR f.rating::text = {{rating}})
+          AND ({{category}} = '' OR {{category}} = 'All' OR c.name = ANY(string_to_array({{category}}, ',')))
+      """
       format: number
     }
     metric "Categories" (span: 3) {
@@ -12,11 +21,23 @@ dashboard "Film Catalog" {
       format: number
     }
     metric "Avg Rental Duration" (span: 3) {
-      query: "SELECT ROUND(AVG(rental_duration)::numeric, 1) as value FROM film"
+      query: """
+        SELECT ROUND(AVG(f.rental_duration)::numeric, 1) as value FROM film f
+        JOIN film_category fc ON f.film_id = fc.film_id
+        JOIN category c ON fc.category_id = c.category_id
+        WHERE ({{rating}} = 'All' OR f.rating::text = {{rating}})
+          AND ({{category}} = '' OR {{category}} = 'All' OR c.name = ANY(string_to_array({{category}}, ',')))
+      """
       format: number
     }
     metric "Avg Replacement Cost" (span: 3) {
-      query: "SELECT ROUND(AVG(replacement_cost)::numeric, 2) as value FROM film"
+      query: """
+        SELECT ROUND(AVG(f.replacement_cost)::numeric, 2) as value FROM film f
+        JOIN film_category fc ON f.film_id = fc.film_id
+        JOIN category c ON fc.category_id = c.category_id
+        WHERE ({{rating}} = 'All' OR f.rating::text = {{rating}})
+          AND ({{category}} = '' OR {{category}} = 'All' OR c.name = ANY(string_to_array({{category}}, ',')))
+      """
       format: currency
       prefix: "$"
     }
@@ -25,23 +46,26 @@ dashboard "Film Catalog" {
   row {
     chart "Films by Rating" (span: 6, type: bar) {
       query: """
-        SELECT
-          rating,
-          COUNT(*) as films
-        FROM film
-        GROUP BY rating
-        ORDER BY rating
+        SELECT f.rating, COUNT(*) as films
+        FROM film f
+        JOIN film_category fc ON f.film_id = fc.film_id
+        JOIN category c ON fc.category_id = c.category_id
+        WHERE ({{rating}} = 'All' OR f.rating::text = {{rating}})
+          AND ({{category}} = '' OR {{category}} = 'All' OR c.name = ANY(string_to_array({{category}}, ',')))
+        GROUP BY f.rating
+        ORDER BY f.rating
       """
       x: rating
       y: films
     }
     chart "Films by Category" (span: 6, type: bar) {
       query: """
-        SELECT
-          c.name as category,
-          COUNT(*) as films
+        SELECT c.name as category, COUNT(*) as films
         FROM film_category fc
         JOIN category c ON fc.category_id = c.category_id
+        JOIN film f ON fc.film_id = f.film_id
+        WHERE ({{rating}} = 'All' OR f.rating::text = {{rating}})
+          AND ({{category}} = '' OR {{category}} = 'All' OR c.name = ANY(string_to_array({{category}}, ',')))
         GROUP BY c.name
         ORDER BY films DESC
       """
@@ -51,10 +75,11 @@ dashboard "Film Catalog" {
   }
 
   row {
-    chart "Revenue by Category" (span: 12, type: bar) {
+    chart "Revenue by Rating per Month" (span: 12, type: bar) {
       query: """
         SELECT
-          c.name as category,
+          TO_CHAR(p.payment_date, 'YYYY-MM') as month,
+          f.rating::text as series,
           ROUND(SUM(p.amount)::numeric, 2) as revenue
         FROM payment p
         JOIN rental r ON p.rental_id = r.rental_id
@@ -62,11 +87,14 @@ dashboard "Film Catalog" {
         JOIN film f ON i.film_id = f.film_id
         JOIN film_category fc ON f.film_id = fc.film_id
         JOIN category c ON fc.category_id = c.category_id
-        GROUP BY c.name
-        ORDER BY revenue DESC
+        WHERE ({{rating}} = 'All' OR f.rating::text = {{rating}})
+          AND ({{category}} = '' OR {{category}} = 'All' OR c.name = ANY(string_to_array({{category}}, ',')))
+        GROUP BY TO_CHAR(p.payment_date, 'YYYY-MM'), f.rating
+        ORDER BY month, f.rating
       """
-      x: category
+      x: month
       y: revenue
+      series: series
     }
   }
 
@@ -74,9 +102,7 @@ dashboard "Film Catalog" {
     table "Most Rented Films" (span: 6) {
       query: """
         SELECT
-          f.title,
-          c.name as category,
-          f.rating,
+          f.title, c.name as category, f.rating,
           COUNT(r.rental_id) as rentals,
           ROUND(SUM(p.amount)::numeric, 2) as revenue
         FROM film f
@@ -85,6 +111,8 @@ dashboard "Film Catalog" {
         LEFT JOIN payment p ON r.rental_id = p.rental_id
         JOIN film_category fc ON f.film_id = fc.film_id
         JOIN category c ON fc.category_id = c.category_id
+        WHERE ({{rating}} = 'All' OR f.rating::text = {{rating}})
+          AND ({{category}} = '' OR {{category}} = 'All' OR c.name = ANY(string_to_array({{category}}, ',')))
         GROUP BY f.title, c.name, f.rating
         ORDER BY rentals DESC
         LIMIT 15
@@ -95,15 +123,15 @@ dashboard "Film Catalog" {
     table "Least Rented Films" (span: 6) {
       query: """
         SELECT
-          f.title,
-          c.name as category,
-          f.rating,
+          f.title, c.name as category, f.rating,
           COUNT(r.rental_id) as rentals
         FROM film f
         JOIN inventory i ON f.film_id = i.film_id
         LEFT JOIN rental r ON i.inventory_id = r.inventory_id
         JOIN film_category fc ON f.film_id = fc.film_id
         JOIN category c ON fc.category_id = c.category_id
+        WHERE ({{rating}} = 'All' OR f.rating::text = {{rating}})
+          AND ({{category}} = '' OR {{category}} = 'All' OR c.name = ANY(string_to_array({{category}}, ',')))
         GROUP BY f.title, c.name, f.rating
         ORDER BY rentals ASC
         LIMIT 15

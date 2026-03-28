@@ -40,7 +40,6 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
   function init() {
     hydrateParamControls();
     hydrateRefreshButtons();
-    hydrateThemeToggle();
     hydrateCharts();
     syncFromUrl();
     setupKeyboardShortcuts();
@@ -132,6 +131,9 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
       case 'select':
         hydrateSelect(el, name);
         break;
+      case 'multiselect':
+        hydrateMultiSelect(el, name);
+        break;
       case 'text':
         hydrateText(el, name);
         break;
@@ -190,6 +192,42 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
       paramValues[name] = select.value;
       onParamChange(name);
     });
+  }
+
+  function hydrateMultiSelect(el, name) {
+    var wrapper = el.querySelector('.openboard-multiselect');
+    var toggle = el.querySelector('.openboard-multiselect-toggle');
+    var dropdown = el.querySelector('.openboard-multiselect-dropdown');
+    if (!wrapper || !toggle || !dropdown) return;
+
+    var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+
+    // Toggle dropdown open/close
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      wrapper.classList.toggle('open');
+    });
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+      if (!wrapper.contains(e.target)) {
+        wrapper.classList.remove('open');
+      }
+    });
+
+    // Handle checkbox changes
+    for (var i = 0; i < checkboxes.length; i++) {
+      checkboxes[i].addEventListener('change', function() {
+        var selected = [];
+        for (var j = 0; j < checkboxes.length; j++) {
+          if (checkboxes[j].checked) selected.push(checkboxes[j].value);
+        }
+        var val = selected.join(',');
+        paramValues[name] = val;
+        toggle.textContent = selected.length > 0 ? selected.join(', ') : 'All';
+        onParamChange(name);
+      });
+    }
   }
 
   function hydrateText(el, name) {
@@ -367,7 +405,18 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     var newFooter = temp.querySelector('.openboard-component-footer');
 
     if (body && newBody) {
+      // Dispose any existing ECharts instance before replacing
+      var oldCharts = body.querySelectorAll('[data-chart-instance]');
+      for (var ci = 0; ci < oldCharts.length; ci++) {
+        var inst = window.echarts && window.echarts.getInstanceByDom(oldCharts[ci]);
+        if (inst) inst.dispose();
+      }
       body.innerHTML = newBody.innerHTML;
+      // Re-hydrate any charts in the updated body
+      var newCharts = body.querySelectorAll('[data-chart-option]');
+      for (var cj = 0; cj < newCharts.length; cj++) {
+        hydrateOneChart(newCharts[cj]);
+      }
     }
 
     if (footer && newFooter) {
@@ -569,11 +618,10 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     }, refreshInterval * 1000);
   }
 
-  // ---------------------------------------------------------------------------
-  // Theme toggle (dev mode)
-  // ---------------------------------------------------------------------------
+  // Theme toggle disabled — needs proper dark mode implementation for ECharts
+  // See deferred backlog for dark mode rework
 
-  function hydrateThemeToggle() {
+  function _unused_hydrateThemeToggle() {
     var btn = document.querySelector('[data-action="toggle-theme"]');
     if (!btn) return;
 
@@ -590,6 +638,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
       applyTheme(next);
       try { localStorage.setItem('openboard-theme', next); } catch(e) {}
     });
+
   }
 
   function applyTheme(theme) {
@@ -619,6 +668,28 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     var icon = document.querySelector('.openboard-theme-icon');
     if (icon) {
       icon.innerHTML = theme === 'dark' ? '\\u2600' : '\\u263E';
+    }
+
+    // Re-apply theme colors to all live ECharts instances
+    rethemeCharts();
+  }
+
+  function rethemeCharts() {
+    if (!window.echarts) return;
+    // Dispose all existing chart instances and re-hydrate from the stored option JSON
+    // This guarantees theme colors are applied fresh
+    var containers = document.querySelectorAll('[data-chart-instance]');
+    for (var i = 0; i < containers.length; i++) {
+      var inst = window.echarts.getInstanceByDom(containers[i]);
+      if (inst) inst.dispose();
+      containers[i].removeAttribute('data-chart-instance');
+      containers[i].style.width = '';
+      containers[i].style.height = '';
+    }
+    // The data-chart-option attribute is still on the original containers
+    var toHydrate = document.querySelectorAll('[data-chart-option]');
+    for (var j = 0; j < toHydrate.length; j++) {
+      hydrateOneChart(toHydrate[j]);
     }
   }
 
@@ -711,6 +782,11 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
       return;
     }
 
+    // Clear any previous fixed dimensions so we measure the natural layout size
+    container.style.width = '';
+    container.style.height = '';
+    container.removeAttribute('data-chart-instance');
+
     // Measure before clearing SVG
     var rect = container.getBoundingClientRect();
     var width = Math.round(rect.width) || 600;
@@ -721,6 +797,35 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     container.style.width = width + 'px';
     container.style.height = height + 'px';
     container.setAttribute('data-chart-instance', 'true');
+
+    // Add dataZoom for interactivity (scroll to zoom, drag to pan)
+    var xData = option.xAxis && option.xAxis.data;
+    var hasEnoughData = xData && xData.length > 10;
+    if (hasEnoughData) {
+      option.dataZoom = [
+        {
+          type: 'inside',
+          xAxisIndex: 0,
+          filterMode: 'none'
+        },
+        {
+          type: 'slider',
+          xAxisIndex: 0,
+          height: 20,
+          bottom: 4,
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(150,150,150,0.1)',
+          fillerColor: 'rgba(100,100,200,0.15)',
+          handleSize: '80%',
+          handleStyle: { color: '#aaa', borderColor: '#999' },
+          textStyle: { fontSize: 10 }
+        }
+      ];
+      // Make room for the slider
+      if (option.grid) {
+        option.grid.bottom = (option.grid.bottom || 36) + 30;
+      }
+    }
 
     try {
       var chart = window.echarts.init(container, null, { renderer: 'canvas' });

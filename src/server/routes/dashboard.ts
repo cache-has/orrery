@@ -171,6 +171,9 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         themeFile: cachedThemeFile,
       });
 
+      // Dashboard-level palette overrides theme palette
+      const dashboardPalette = getDashboardPalette(dashboard);
+
       let html = renderPage({
         dashboard,
         layout,
@@ -178,7 +181,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         paramValues,
         themeCSS: resolved.css || undefined,
         themeName: resolved.name,
-        palette: resolved.palette,
+        palette: dashboardPalette ?? resolved.palette,
         branding: resolved.branding,
         devMode,
       });
@@ -276,6 +279,20 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
 // ---------------------------------------------------------------------------
 
 import type { DashboardNode, ParamNode } from "../../parser/ast.js";
+
+function getDashboardPalette(dashboard: DashboardNode): string[] | undefined {
+  for (const item of dashboard.items) {
+    if (item.kind === "property" && item.key === "palette") {
+      if (item.value.kind === "array") {
+        const colors = item.value.elements
+          .filter((el) => el.kind === "string")
+          .map((el) => (el as { kind: "string"; value: string }).value);
+        if (colors.length > 0) return colors;
+      }
+    }
+  }
+  return undefined;
+}
 
 function getDashboardTheme(dashboard: DashboardNode): ThemeName | undefined {
   for (const item of dashboard.items) {

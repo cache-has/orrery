@@ -64,7 +64,8 @@ function extractChartData(
 
   const points: ChartDataPoint[] = [];
   for (const row of data.result.rows) {
-    const label = String(row[xCol] ?? "");
+    const rawLabel = String(row[xCol] ?? "");
+    const label = formatChartLabel(rawLabel);
     const value = Number(row[yCol]);
     if (isNaN(value)) continue;
     points.push({
@@ -75,6 +76,21 @@ function extractChartData(
   }
 
   return { points, xCol, yCol };
+}
+
+// ---------------------------------------------------------------------------
+// Label formatting
+// ---------------------------------------------------------------------------
+
+/** ISO 8601 full datetime pattern: 2022-07-28T05:00:00.000Z */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+
+/** Format chart labels — auto-shorten ISO timestamps to YYYY-MM-DD */
+function formatChartLabel(raw: string): string {
+  if (ISO_DATETIME_RE.test(raw)) {
+    return raw.slice(0, 10);
+  }
+  return raw;
 }
 
 // ---------------------------------------------------------------------------

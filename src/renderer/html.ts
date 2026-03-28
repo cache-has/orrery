@@ -136,14 +136,6 @@ function renderHeader(title: string, description?: string, branding?: BrandingCo
     ? `<div class="openboard-header-branding">${logo}${brandTitle}</div>`
     : "";
 
-  const themeToggle = devMode
-    ? `<div class="openboard-header-actions">
-        <button class="openboard-theme-toggle" data-action="toggle-theme" title="Toggle light/dark theme">
-          <span class="openboard-theme-icon">&#x263E;</span>
-        </button>
-      </div>`
-    : "";
-
   const homeLink = `<nav class="openboard-breadcrumb"><a href="/">&#8592; All Dashboards</a></nav>`;
 
   return `<header class="openboard-header" style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">
@@ -153,7 +145,6 @@ function renderHeader(title: string, description?: string, branding?: BrandingCo
         <h1>${escapeHtml(title)}</h1>
         ${description ? `<p class="openboard-description">${escapeHtml(description)}</p>` : ""}
       </div>
-      ${themeToggle}
     </header>`;
 }
 
@@ -204,6 +195,28 @@ function renderParamControl(param: ParamInfo, paramValues: Record<string, unknow
     case "select": {
       const opts = (param.options.options as string[]) ?? [];
       const searchable = param.options.searchable === true;
+      const multiple = param.options.multiple === true;
+
+      if (multiple) {
+        const selectedValues = typeof currentValue === "string" ? currentValue.split(",").map((s) => s.trim()) : [];
+        const checkboxes = opts
+          .map((o) => {
+            const checked = selectedValues.includes(o) ? " checked" : "";
+            return `<label class="openboard-multiselect-item">
+              <input type="checkbox" value="${escapeAttr(o)}"${checked} />
+              <span>${escapeHtml(o)}</span>
+            </label>`;
+          })
+          .join("");
+        return `<div class="openboard-param" data-param-name="${escapeAttr(param.name)}" data-param-type="multiselect">
+          <label>${escapeHtml(label)}</label>
+          <div class="openboard-multiselect">
+            <button type="button" class="openboard-multiselect-toggle">${selectedValues.length ? escapeHtml(selectedValues.join(", ")) : "All"}</button>
+            <div class="openboard-multiselect-dropdown">${checkboxes}</div>
+          </div>
+        </div>`;
+      }
+
       const optionTags = opts
         .map((o) => `<option value="${escapeAttr(o)}"${o === String(currentValue) ? " selected" : ""}>${escapeHtml(o)}</option>`)
         .join("");

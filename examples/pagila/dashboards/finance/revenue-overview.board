@@ -2,39 +2,71 @@ dashboard "Revenue Overview" {
   description: "Pagila DVD rental store — revenue, rentals, and payment trends"
   connection: "pagila"
 
+  param date_range = daterange(default: "last 30 days")
+  param store = select(default: "All", options: ["All", "Store 25", "Store 33"])
+
   row {
     metric "Total Revenue" (span: 3) {
-      query: "SELECT ROUND(SUM(amount)::numeric, 2) as value FROM payment"
+      query: """
+        SELECT ROUND(SUM(p.amount)::numeric, 2) as value
+        FROM payment p
+        JOIN staff st ON p.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        WHERE ({{store}} = 'All' OR 'Store ' || s.store_id = {{store}})
+      """
       format: currency
       prefix: "$"
     }
     metric "Total Rentals" (span: 3) {
-      query: "SELECT COUNT(*) as value FROM rental"
+      query: """
+        SELECT COUNT(*) as value
+        FROM rental r
+        JOIN staff st ON r.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        WHERE ({{store}} = 'All' OR 'Store ' || s.store_id = {{store}})
+      """
       format: number
     }
     metric "Active Customers" (span: 3) {
-      query: "SELECT COUNT(DISTINCT customer_id) as value FROM rental"
+      query: """
+        SELECT COUNT(DISTINCT r.customer_id) as value
+        FROM rental r
+        JOIN staff st ON r.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        WHERE ({{store}} = 'All' OR 'Store ' || s.store_id = {{store}})
+      """
       format: number
     }
     metric "Avg Rental Value" (span: 3) {
-      query: "SELECT ROUND(AVG(amount)::numeric, 2) as value FROM payment"
+      query: """
+        SELECT ROUND(AVG(p.amount)::numeric, 2) as value
+        FROM payment p
+        JOIN staff st ON p.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        WHERE ({{store}} = 'All' OR 'Store ' || s.store_id = {{store}})
+      """
       format: currency
       prefix: "$"
     }
   }
 
   row {
-    chart "Monthly Revenue" (span: 8, type: bar) {
+    chart "Monthly Revenue by Store" (span: 8, type: bar) {
       query: """
         SELECT
-          TO_CHAR(payment_date, 'YYYY-MM') as month,
-          ROUND(SUM(amount)::numeric, 2) as revenue
-        FROM payment
-        GROUP BY TO_CHAR(payment_date, 'YYYY-MM')
-        ORDER BY month
+          TO_CHAR(p.payment_date, 'YYYY-MM') as month,
+          'Store ' || s.store_id as series,
+          ROUND(SUM(p.amount)::numeric, 2) as revenue
+        FROM payment p
+        JOIN staff st ON p.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        WHERE ({{store}} = 'All' OR 'Store ' || s.store_id = {{store}})
+        GROUP BY TO_CHAR(p.payment_date, 'YYYY-MM'), s.store_id
+        ORDER BY month, s.store_id
       """
       x: month
       y: revenue
+      series: series
     }
     chart "Revenue by Store" (span: 4, type: bar) {
       query: """
@@ -44,6 +76,7 @@ dashboard "Revenue Overview" {
         FROM payment p
         JOIN staff st ON p.staff_id = st.staff_id
         JOIN store s ON st.store_id = s.store_id
+        WHERE ({{store}} = 'All' OR 'Store ' || s.store_id = {{store}})
         GROUP BY s.store_id
         ORDER BY s.store_id
       """
@@ -56,11 +89,14 @@ dashboard "Revenue Overview" {
     chart "Daily Rentals" (span: 12, type: line) {
       query: """
         SELECT
-          rental_date::date as date,
+          TO_CHAR(r.rental_date::date, 'YYYY-MM-DD') as date,
           COUNT(*) as rentals
-        FROM rental
-        GROUP BY rental_date::date
-        ORDER BY date
+        FROM rental r
+        JOIN staff st ON r.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        WHERE ({{store}} = 'All' OR 'Store ' || s.store_id = {{store}})
+        GROUP BY r.rental_date::date
+        ORDER BY r.rental_date::date
       """
       x: date
       y: rentals
@@ -75,12 +111,16 @@ dashboard "Revenue Overview" {
           c.first_name || ' ' || c.last_name as customer,
           f.title as film,
           p.amount,
-          p.payment_date::date as date
+          'Store ' || s.store_id as store,
+          TO_CHAR(p.payment_date, 'YYYY-MM-DD') as date
         FROM payment p
         JOIN customer c ON p.customer_id = c.customer_id
         JOIN rental r ON p.rental_id = r.rental_id
         JOIN inventory i ON r.inventory_id = i.inventory_id
         JOIN film f ON i.film_id = f.film_id
+        JOIN staff st ON p.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        WHERE ({{store}} = 'All' OR 'Store ' || s.store_id = {{store}})
         ORDER BY p.amount DESC
         LIMIT 20
       """

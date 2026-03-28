@@ -33,7 +33,7 @@
     "dashboards-as-code",
     "sql"
   ],
-  "author": "Horizon Analytic Studios, LLC",
+  "author": "Cache McClure <cache@horizonanalytic.com> (Horizon Analytic Studios, LLC)",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

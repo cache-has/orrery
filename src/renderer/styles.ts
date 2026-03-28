@@ -145,6 +145,77 @@ body {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
+/* Multi-select */
+.openboard-multiselect {
+  position: relative;
+}
+
+.openboard-multiselect-toggle {
+  font-family: var(--ob-font);
+  font-size: 0.875rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--ob-border);
+  border-radius: 4px;
+  background: var(--ob-surface);
+  color: var(--ob-text);
+  cursor: pointer;
+  text-align: left;
+  min-width: 140px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.openboard-multiselect-toggle:focus {
+  outline: none;
+  border-color: var(--ob-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.openboard-multiselect-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  min-width: 180px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 2px;
+  padding: 0.25rem 0;
+  background: var(--ob-surface);
+  border: 1px solid var(--ob-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.openboard-multiselect.open .openboard-multiselect-dropdown {
+  display: block;
+}
+
+.openboard-multiselect-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: normal;
+  color: var(--ob-text);
+}
+
+.openboard-multiselect-item:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.openboard-multiselect-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
 /* Date range picker */
 .openboard-daterange {
   display: flex;
