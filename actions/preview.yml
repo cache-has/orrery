@@ -1,0 +1,63 @@
+# OpenBoard — Dashboard Preview on Pull Request
+#
+# Copy this file to .github/workflows/preview.yml in your dashboard project.
+# Generates a static preview of changed dashboards and posts a comment on the PR.
+#
+# Preview modes:
+#   - With database access: set credentials as GitHub Secrets for real data
+#   - Without database access: renders layout with placeholder data
+#
+# Requires: openboard preview command (available in openboard >= 0.2.0)
+
+name: Dashboard Preview
+on:
+  pull_request:
+    paths:
+      - "dashboards/**"
+
+permissions:
+  pull-requests: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Generate preview
+        run: npx openboard preview --output ./preview
+        env:
+          OPENBOARD_PREVIEW_MODE: "true"
+          # Add your database secrets here if you want real data in previews:
+          # WAREHOUSE_HOST: ${{ secrets.WAREHOUSE_HOST }}
+          # WAREHOUSE_USER: ${{ secrets.WAREHOUSE_USER }}
+          # WAREHOUSE_PASSWORD: ${{ secrets.WAREHOUSE_PASSWORD }}
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-preview
+          path: ./preview
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = './preview/summary.md';
+            if (!fs.existsSync(summaryPath)) {
+              console.log('No preview summary generated');
+              return;
+            }
+            const summary = fs.readFileSync(summaryPath, 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });

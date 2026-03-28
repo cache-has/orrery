@@ -1,0 +1,25 @@
+# OpenBoard — Validate Dashboards on Pull Request
+#
+# Copy this file to .github/workflows/validate.yml in your dashboard project.
+# Validates all .board files and connection configs when a PR touches them.
+
+name: Validate Dashboards
+on:
+  pull_request:
+    paths:
+      - "dashboards/**"
+      - "connections/**"
+      - "queries/**"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Validate dashboards and connections
+        run: npx openboard validate

@@ -13,6 +13,9 @@ switch (command) {
   case "build":
     await import("./build.js");
     break;
+  case "diff":
+    await import("./diff.js");
+    break;
   case "create":
     await import("./create.js");
     break;
@@ -23,7 +26,8 @@ switch (command) {
   Usage:
     openboard dev          Start dev server with hot reload
     openboard build        Build for production
-    openboard validate     Validate .board files
+    openboard validate     Validate .board files and connections
+    openboard diff         Compare dashboards between git refs
     openboard create       Scaffold a new project
 
   Options:
