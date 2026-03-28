@@ -220,42 +220,11 @@ function renderComponentBody(component: ComponentNode, compData?: ComponentData)
 
   // Fallback for components not yet in the registry
   switch (component.componentType) {
-    case "table":
-      return renderTableBody(compData);
     case "text":
       return renderTextBody(component);
     default:
       return `<div class="openboard-placeholder">${escapeHtml(component.componentType)} component</div>`;
   }
-}
-
-function renderTableBody(compData?: ComponentData): string {
-  if (!compData?.result?.rows?.length) {
-    return `<div class="openboard-placeholder">No data</div>`;
-  }
-
-  const { columns, rows } = compData.result;
-  const maxRows = 50; // Preview limit for SSR
-  const displayRows = rows.slice(0, maxRows);
-
-  const headerCells = columns.map((col) => `<th>${escapeHtml(col)}</th>`).join("");
-  const bodyRows = displayRows
-    .map((row) => {
-      const cells = columns
-        .map((col) => `<td>${escapeHtml(String(row[col] ?? ""))}</td>`)
-        .join("");
-      return `<tr>${cells}</tr>`;
-    })
-    .join("\n");
-
-  const truncation = rows.length > maxRows
-    ? `<div style="padding:0.5rem;text-align:center;color:var(--ob-text-muted);font-size:0.75rem">Showing ${maxRows} of ${rows.length} rows</div>`
-    : "";
-
-  return `<table class="openboard-data-table">
-    <thead><tr>${headerCells}</tr></thead>
-    <tbody>${bodyRows}</tbody>
-  </table>${truncation}`;
 }
 
 function renderTextBody(component: ComponentNode): string {
