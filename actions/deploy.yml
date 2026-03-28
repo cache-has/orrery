@@ -1,0 +1,54 @@
+# OpenBoard — Deploy Dashboards to GitHub Pages
+#
+# Copy this file to .github/workflows/deploy.yml in your dashboard project.
+# Builds a static export of all dashboards and deploys to GitHub Pages.
+#
+# Setup:
+#   1. Enable GitHub Pages in your repo settings (Settings > Pages > Source: GitHub Actions)
+#   2. Add database credentials as GitHub Secrets (Settings > Secrets and variables > Actions)
+#
+# Required secrets (example for a PostgreSQL warehouse):
+#   WAREHOUSE_HOST     — Database hostname
+#   WAREHOUSE_USER     — Database username
+#   WAREHOUSE_PASSWORD — Database password
+
+name: Deploy Dashboards
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build static dashboards
+        run: npx openboard build --output ./dist
+        env:
+          WAREHOUSE_HOST: ${{ secrets.WAREHOUSE_HOST }}
+          WAREHOUSE_USER: ${{ secrets.WAREHOUSE_USER }}
+          WAREHOUSE_PASSWORD: ${{ secrets.WAREHOUSE_PASSWORD }}
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
