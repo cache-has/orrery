@@ -9,7 +9,7 @@
 
 import { Hono } from "hono";
 import { readFileSync, existsSync } from "fs";
-import { resolve, basename } from "path";
+import { resolve, basename, extname } from "path";
 import { parse } from "../../parser/parser.js";
 import { resolveLayout } from "../../renderer/layout.js";
 import { renderPage, renderComponentFragment } from "../../renderer/html.js";
@@ -83,6 +83,42 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
     return c.body(OPENBOARD_INTERACTIVE_JS);
   });
 
+  // Serve branding assets (logo, favicon) from project root
+  // Only serves image files to prevent path traversal / arbitrary file reads
+  const ALLOWED_ASSET_EXTENSIONS: Record<string, string> = {
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".ico": "image/x-icon",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+  };
+
+  app.get("/openboard/assets/*", (c) => {
+    if (!projectRoot) return c.text("Not found", 404);
+    const rawPath = c.req.path.replace("/openboard/assets/", "");
+    // Prevent path traversal
+    if (rawPath.includes("..") || rawPath.startsWith("/")) {
+      return c.text("Forbidden", 403);
+    }
+    const ext = extname(rawPath).toLowerCase();
+    const mime = ALLOWED_ASSET_EXTENSIONS[ext];
+    if (!mime) return c.text("Forbidden", 403);
+
+    const filePath = resolve(projectRoot, rawPath);
+    // Ensure resolved path is still under project root
+    if (!filePath.startsWith(resolve(projectRoot))) {
+      return c.text("Forbidden", 403);
+    }
+    if (!existsSync(filePath)) return c.text("Not found", 404);
+
+    const content = readFileSync(filePath);
+    c.header("Content-Type", mime);
+    c.header("Cache-Control", "public, max-age=3600");
+    return c.body(content);
+  });
+
   // Render a dashboard by name — support both /d/:name and /dashboard/:name
   const renderDashboard = async (c: { req: { param: (k: string) => string; query: () => Record<string, string> }; html: (body: string, status?: number) => Response }) => {
     const name = c.req.param("name");
@@ -143,6 +179,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         themeCSS: resolved.css || undefined,
         themeName: resolved.name,
         palette: resolved.palette,
+        branding: resolved.branding,
       });
 
       // Always inject interactive script (interactivity is core)

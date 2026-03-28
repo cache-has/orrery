@@ -78,6 +78,21 @@ describe("resolveTheme", () => {
     expect(result.palette.length).toBe(10);
     expect(result.palette[0]).toBe(DARK_THEME["--ob-chart-1"]);
   });
+
+  it("passes branding from theme file to resolved theme", () => {
+    const themeFile: ThemeFile = {
+      type: "yaml",
+      content: "",
+      branding: { logo: "logo.svg", title: "My Corp" },
+    };
+    const result = resolveTheme({ configTheme: "light", themeFile });
+    expect(result.branding).toEqual({ logo: "logo.svg", title: "My Corp" });
+  });
+
+  it("returns undefined branding when theme file has none", () => {
+    const result = resolveTheme({ configTheme: "light" });
+    expect(result.branding).toBeUndefined();
+  });
 });
 
 describe("compileThemeYaml", () => {
@@ -125,6 +140,38 @@ describe("compileThemeYaml", () => {
   it("supports background as alias for bg", () => {
     const result = compileThemeYaml({ colors: { background: "#222" } });
     expect(result.css).toContain("--ob-bg: #222");
+  });
+
+  it("extracts branding config from yaml", () => {
+    const result = compileThemeYaml({
+      branding: {
+        logo: "./assets/logo.svg",
+        title: "Acme Analytics",
+        favicon: "./assets/favicon.ico",
+      },
+    });
+    expect(result.branding).toEqual({
+      logo: "./assets/logo.svg",
+      title: "Acme Analytics",
+      favicon: "./assets/favicon.ico",
+    });
+  });
+
+  it("returns undefined branding when not set", () => {
+    const result = compileThemeYaml({ colors: { bg: "#111" } });
+    expect(result.branding).toBeUndefined();
+  });
+
+  it("returns undefined branding when all fields are empty", () => {
+    const result = compileThemeYaml({ branding: {} });
+    expect(result.branding).toBeUndefined();
+  });
+
+  it("extracts partial branding (title only)", () => {
+    const result = compileThemeYaml({
+      branding: { title: "My App" },
+    });
+    expect(result.branding).toEqual({ title: "My App" });
   });
 });
 

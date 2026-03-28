@@ -17,6 +17,7 @@ import { loadEnvFiles } from "../connections/env.js";
 import { FileWatcher, type FileChange } from "../server/watcher.js";
 import { DevWebSocket } from "../server/websocket.js";
 import { parse } from "../parser/parser.js";
+import { loadThemeFile } from "../renderer/theme.js";
 
 // ---------------------------------------------------------------------------
 // Parse CLI arguments
@@ -82,7 +83,14 @@ try {
 }
 executor = new QueryExecutor(connManager);
 
-// 5. Create HTTP app
+// 5. Load theme file for branding on the index page
+let cachedBranding = (() => {
+  try {
+    return loadThemeFile(projectRoot)?.branding;
+  } catch { return undefined; }
+})();
+
+// 6. Create HTTP app
 const app = createApp({
   dashboard: {
     boardDir: dashboardsDir,
@@ -93,14 +101,15 @@ const app = createApp({
   },
   devMode: true,
   getDashboards: () => dashboards,
+  getBranding: () => cachedBranding,
 });
 
-// 6. Create HTTP server and attach WebSocket
+// 7. Create HTTP server and attach WebSocket
 const server = createServer(app.fetch as unknown as Parameters<typeof createServer>[0]);
 const devWs = new DevWebSocket();
 devWs.attach(server);
 
-// 7. Start file watcher
+// 8. Start file watcher
 const watcher = new FileWatcher(projectRoot, dashboardsDir, connectionsDir, queriesDir);
 
 watcher.on("change", async (change: FileChange) => {
@@ -185,6 +194,9 @@ watcher.on("change", async (change: FileChange) => {
 
     case "theme": {
       console.log(`  Theme file changed: ${change.filePath}`);
+      try {
+        cachedBranding = loadThemeFile(projectRoot)?.branding;
+      } catch { /* theme reload handled by dashboard route */ }
       devWs.broadcast({ type: "reload", dashboard: "*" });
       break;
     }
@@ -198,9 +210,9 @@ watcher.on("change", async (change: FileChange) => {
 
 watcher.start();
 
-// 8. Start server
+// 9. Start server
 server.listen(port, () => {
-  // 9. Print startup summary
+  // 10. Print startup summary
   console.log(`\n  OpenBoard dev server running\n`);
 
   // Dashboard URLs
@@ -228,7 +240,7 @@ server.listen(port, () => {
 
   console.log(`\n  Watching for changes...\n`);
 
-  // 10. Open browser (unless --no-open)
+  // 11. Open browser (unless --no-open)
   if (!args.noOpen) {
     open(`http://localhost:${port}`).catch(() => {
       // Silently ignore if browser can't be opened

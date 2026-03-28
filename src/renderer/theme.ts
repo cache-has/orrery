@@ -46,12 +46,24 @@ export interface ThemeFile {
   content: string;
   /** Parsed chart palette from theme.yaml (if applicable) */
   palette?: string[];
+  /** Branding config from theme.yaml (if applicable) */
+  branding?: BrandingConfig;
+}
+
+export interface BrandingConfig {
+  /** Path to logo image (relative to project root) */
+  logo?: string;
+  /** Custom title to replace "OpenBoard" in headers */
+  title?: string;
+  /** Path to favicon (relative to project root) */
+  favicon?: string;
 }
 
 export interface ThemeYaml {
   colors?: Record<string, string>;
   typography?: Record<string, string | number>;
   chart_palette?: string[];
+  branding?: BrandingConfig;
 }
 
 export interface ResolvedTheme {
@@ -61,6 +73,8 @@ export interface ResolvedTheme {
   palette: string[];
   /** The resolved theme name */
   name: ThemeName;
+  /** Branding config (logo, title, favicon) */
+  branding?: BrandingConfig;
 }
 
 export interface ResolveThemeOptions {
@@ -175,6 +189,7 @@ export function loadThemeFile(projectRoot: string): ThemeFile | null {
       type: "yaml",
       content: compiled.css,
       palette: compiled.palette,
+      branding: compiled.branding,
     };
   }
 
@@ -206,9 +221,9 @@ const YAML_TYPOGRAPHY_MAP: Record<string, string> = {
 };
 
 /**
- * Compile a parsed theme.yaml into CSS variable declarations and a palette array.
+ * Compile a parsed theme.yaml into CSS variable declarations, a palette array, and branding config.
  */
-export function compileThemeYaml(yaml: ThemeYaml): { css: string; palette?: string[] } {
+export function compileThemeYaml(yaml: ThemeYaml): { css: string; palette?: string[]; branding?: BrandingConfig } {
   const vars: string[] = [];
 
   if (yaml.colors) {
@@ -238,8 +253,18 @@ export function compileThemeYaml(yaml: ThemeYaml): { css: string; palette?: stri
     }
   }
 
+  // Extract branding config
+  let branding: BrandingConfig | undefined;
+  if (yaml.branding && typeof yaml.branding === "object") {
+    branding = {};
+    if (typeof yaml.branding.logo === "string") branding.logo = yaml.branding.logo;
+    if (typeof yaml.branding.title === "string") branding.title = yaml.branding.title;
+    if (typeof yaml.branding.favicon === "string") branding.favicon = yaml.branding.favicon;
+    if (!branding.logo && !branding.title && !branding.favicon) branding = undefined;
+  }
+
   const css = vars.length > 0 ? `:root {\n${vars.join("\n")}\n}` : "";
-  return { css, palette };
+  return { css, palette, branding };
 }
 
 // ---------------------------------------------------------------------------
@@ -284,6 +309,7 @@ export function resolveTheme(options: ResolveThemeOptions): ResolvedTheme {
     css: parts.join("\n\n"),
     palette,
     name,
+    branding: themeFile?.branding,
   };
 }
 

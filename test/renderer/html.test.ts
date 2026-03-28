@@ -416,4 +416,62 @@ describe("renderPage", () => {
     expect(html).toContain("&lt;script&gt;");
     expect(html).toContain("Test &lt;b&gt;Bold&lt;/b&gt;");
   });
+
+  it("renders branding logo and title in header", () => {
+    const dashboard = makeDashboard("Ops Monitor", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({
+      dashboard, layout, data, paramValues: {},
+      branding: { logo: "assets/logo.svg", title: "Acme Analytics" },
+    });
+
+    expect(html).toContain('class="openboard-header-branding"');
+    expect(html).toContain('class="openboard-header-logo"');
+    expect(html).toContain('src="/openboard/assets/assets/logo.svg"');
+    expect(html).toContain('class="openboard-header-brand"');
+    expect(html).toContain("Acme Analytics");
+  });
+
+  it("renders favicon link when branding has favicon", () => {
+    const dashboard = makeDashboard("Test", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({
+      dashboard, layout, data, paramValues: {},
+      branding: { favicon: "assets/favicon.ico" },
+    });
+
+    expect(html).toContain('<link rel="icon" href="/openboard/assets/assets/favicon.ico"');
+  });
+
+  it("includes branding title in page title", () => {
+    const dashboard = makeDashboard("Sales", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({
+      dashboard, layout, data, paramValues: {},
+      branding: { title: "Acme Corp" },
+    });
+
+    expect(html).toContain("<title>Sales — Acme Corp</title>");
+  });
+
+  it("does not render branding elements when branding is absent", () => {
+    const dashboard = makeDashboard("Test", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {} });
+
+    // The branding class appears in the CSS stylesheet, so check the header HTML specifically
+    const headerMatch = html.match(/<header class="openboard-header">[\s\S]*?<\/header>/);
+    expect(headerMatch).toBeTruthy();
+    expect(headerMatch![0]).not.toContain("openboard-header-branding");
+    expect(headerMatch![0]).not.toContain("openboard-header-logo");
+    expect(html).not.toContain('rel="icon"');
+  });
 });
