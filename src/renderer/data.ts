@@ -18,6 +18,7 @@ import type { QueryExecutor, QueryResult } from "../query/executor.js";
 
 export interface ComponentData {
   result?: QueryResult;
+  trendResult?: QueryResult;
   error?: string;
 }
 
@@ -132,15 +133,21 @@ export async function fetchDashboardData(
   const dataMap = new Map<string, ComponentData>();
 
   // Build list of queries to execute
-  const queryJobs: { id: string; sql: string }[] = [];
+  const queryJobs: { id: string; sql: string; kind: "primary" | "trend" }[] = [];
 
   for (const { id, component } of components) {
     const sql = getStringProp(component, "query");
     if (sql) {
-      queryJobs.push({ id, sql });
+      queryJobs.push({ id, sql, kind: "primary" });
     } else {
       // Components without queries (e.g., text blocks) get empty data
       dataMap.set(id, {});
+    }
+
+    // Trend queries for metric components
+    const trendSql = getStringProp(component, "trend_query");
+    if (trendSql) {
+      queryJobs.push({ id, sql: trendSql, kind: "trend" });
     }
   }
 
@@ -157,12 +164,23 @@ export async function fetchDashboardData(
     for (let i = 0; i < queryJobs.length; i++) {
       const job = queryJobs[i];
       const result = results.get(i);
+      const existing = dataMap.get(job.id) ?? {};
+
       if (!result) {
-        dataMap.set(job.id, { error: "Query returned no result" });
+        if (job.kind === "primary") {
+          dataMap.set(job.id, { ...existing, error: "Query returned no result" });
+        }
       } else if (result instanceof Error) {
-        dataMap.set(job.id, { error: result.message });
+        if (job.kind === "primary") {
+          dataMap.set(job.id, { ...existing, error: result.message });
+        }
+        // Trend query errors are silently ignored — trend is optional
       } else {
-        dataMap.set(job.id, { result });
+        if (job.kind === "primary") {
+          dataMap.set(job.id, { ...existing, result });
+        } else {
+          dataMap.set(job.id, { ...existing, trendResult: result });
+        }
       }
     }
   }

@@ -283,6 +283,11 @@ body {
   min-height: 80px;
 }
 
+.openboard-metric {
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
 .openboard-metric-value {
   font-size: 2rem;
   font-weight: 700;
@@ -294,6 +299,47 @@ body {
   font-size: 1.25rem;
   font-weight: 500;
   color: var(--ob-text-muted);
+}
+
+.openboard-metric-trend {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.openboard-trend-up { color: #16a34a; }
+.openboard-trend-down { color: #dc2626; }
+.openboard-trend-flat { color: var(--ob-text-muted); }
+
+.openboard-trend-arrow { font-size: 0.625rem; }
+
+.openboard-trend-percent { font-weight: 600; }
+
+.openboard-trend-label {
+  color: var(--ob-text-muted);
+  font-size: 0.75rem;
+}
+
+.openboard-no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ob-text-muted);
+  font-size: 0.8125rem;
+  min-height: 80px;
+}
+
+.openboard-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--ob-bg);
+  color: var(--ob-text);
 }
 
 .openboard-data-table {
