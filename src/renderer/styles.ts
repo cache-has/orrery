@@ -324,7 +324,7 @@ body {
 }
 
 /* =========================================================================
-   Chart components (SVG)
+   Chart components (ECharts SSR)
    ========================================================================= */
 
 .openboard-chart-container {
@@ -334,47 +334,10 @@ body {
   justify-content: center;
 }
 
-.openboard-chart {
+.openboard-chart-container svg {
   width: 100%;
   height: auto;
   max-height: 400px;
-}
-
-.openboard-chart-grid {
-  stroke: var(--ob-border);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-}
-
-.openboard-chart-axis {
-  stroke: var(--ob-border);
-  stroke-width: 1;
-}
-
-.openboard-chart-axis-label {
-  font-family: var(--ob-font);
-  font-size: 10px;
-  fill: var(--ob-text-muted);
-}
-
-.openboard-chart-line-path {
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.openboard-chart-point {
-  stroke: var(--ob-surface);
-  stroke-width: 1.5;
-}
-
-.openboard-chart-bar-rect {
-  transition: opacity 0.15s ease;
-}
-
-.openboard-chart-legend-label {
-  font-family: var(--ob-font);
-  font-size: 10px;
-  fill: var(--ob-text-muted);
 }
 
 .openboard-no-data {
