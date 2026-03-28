@@ -14,17 +14,18 @@ export class SQLiteDriver implements DatabaseDriver {
     this.db.pragma("journal_mode = WAL");
   }
 
-  async query(sql: string): Promise<QueryResult> {
+  async query(sql: string, params?: unknown[]): Promise<QueryResult> {
     if (!this.db) {
       throw new Error("SQLite driver is not connected");
     }
 
     const start = performance.now();
     const stmt = this.db.prepare(sql);
+    const bindParams = params?.length ? params : [];
 
     // Check if statement returns data (SELECT, etc.) vs. modifies data (INSERT, etc.)
     if (stmt.reader) {
-      const rows = stmt.all() as Record<string, unknown>[];
+      const rows = stmt.all(...bindParams) as Record<string, unknown>[];
       const columns = stmt.columns().map((c) => c.name);
       return {
         columns,
@@ -35,7 +36,7 @@ export class SQLiteDriver implements DatabaseDriver {
     }
 
     // Non-SELECT statements (INSERT, UPDATE, DELETE, CREATE, etc.)
-    const result = stmt.run();
+    const result = stmt.run(...bindParams);
     return {
       columns: [],
       rows: [],

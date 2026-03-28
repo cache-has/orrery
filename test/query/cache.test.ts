@@ -39,4 +39,19 @@ describe("QueryCache", () => {
     cache.clear();
     expect(cache.size).toBe(0);
   });
+
+  it("invalidates entries by predicate", () => {
+    const cache = new QueryCache();
+    cache.set("k1", "v1", 60, { sql: "SELECT * WHERE {{region}}" });
+    cache.set("k2", "v2", 60, { sql: "SELECT * WHERE {{status}}" });
+    cache.set("k3", "v3", 60, { sql: "SELECT 1" });
+
+    cache.invalidateByPredicate((_key, meta) => {
+      return meta?.sql?.includes("{{region}}") ?? false;
+    });
+
+    expect(cache.get("k1")).toBeUndefined();
+    expect(cache.get("k2")).toBe("v2");
+    expect(cache.get("k3")).toBe("v3");
+  });
 });

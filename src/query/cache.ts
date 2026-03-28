@@ -1,6 +1,12 @@
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
+  meta?: CacheMeta;
+}
+
+export interface CacheMeta {
+  sql?: string;
+  connectionName?: string;
 }
 
 export class QueryCache {
@@ -16,15 +22,30 @@ export class QueryCache {
     return entry.data as T;
   }
 
-  set<T>(key: string, data: T, ttlSeconds: number): void {
+  set<T>(key: string, data: T, ttlSeconds: number, meta?: CacheMeta): void {
     this.store.set(key, {
       data,
       expiresAt: Date.now() + ttlSeconds * 1000,
+      meta,
     });
   }
 
   invalidate(key: string): void {
     this.store.delete(key);
+  }
+
+  /**
+   * Invalidate all entries matching a predicate.
+   * Used for parameter-based cache invalidation.
+   */
+  invalidateByPredicate(
+    predicate: (key: string, meta: CacheMeta | undefined) => boolean,
+  ): void {
+    for (const [key, entry] of this.store) {
+      if (predicate(key, entry.meta)) {
+        this.store.delete(key);
+      }
+    }
   }
 
   clear(): void {

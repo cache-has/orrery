@@ -31,13 +31,15 @@ export class PostgresDriver implements DatabaseDriver {
     this.pool = new pg.Pool(poolConfig);
   }
 
-  async query(sql: string): Promise<QueryResult> {
+  async query(sql: string, params?: unknown[]): Promise<QueryResult> {
     if (!this.pool) {
       throw new Error("PostgreSQL driver is not connected");
     }
 
     const start = performance.now();
-    const result = await this.pool.query(sql);
+    const result = params?.length
+      ? await this.pool.query(sql, params)
+      : await this.pool.query(sql);
 
     const columns = result.fields.map((f) => f.name);
     const rows = result.rows as Record<string, unknown>[];
