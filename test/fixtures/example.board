@@ -1,0 +1,38 @@
+dashboard "Test Dashboard" {
+  description: "A simple test dashboard"
+  connection: "test_db"
+  refresh: 60
+
+  param date_range = daterange(default: "last 7 days")
+
+  row {
+    metric "Total Users" (span: 4) {
+      query: "SELECT COUNT(*) as value FROM users WHERE {{date_range}}"
+      format: number
+    }
+    metric "Revenue" (span: 4) {
+      query: "SELECT SUM(amount) as value FROM orders WHERE {{date_range}}"
+      format: currency
+      prefix: "$"
+    }
+    chart "Daily Revenue" (span: 4, type: line) {
+      query: """
+        SELECT date, SUM(amount) as revenue
+        FROM orders
+        WHERE {{date_range}}
+        GROUP BY date
+        ORDER BY date
+      """
+      x: date
+      y: revenue
+    }
+  }
+
+  row {
+    table "Recent Orders" (span: 12) {
+      query: "SELECT id, customer, amount, status FROM orders LIMIT 100"
+      sortable: true
+      page_size: 25
+    }
+  }
+}

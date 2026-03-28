@@ -1,0 +1,24 @@
+dashboard "My Dashboard" {
+  description: "Getting started with OpenBoard"
+  connection: "local"
+
+  param date_range = daterange(default: "last 30 days")
+
+  row {
+    metric "Total Records" (span: 4) {
+      query: "SELECT COUNT(*) as value FROM my_table WHERE {{date_range}}"
+      format: number
+    }
+    chart "Records Over Time" (span: 8, type: line) {
+      query: """
+        SELECT date, COUNT(*) as count
+        FROM my_table
+        WHERE {{date_range}}
+        GROUP BY date
+        ORDER BY date
+      """
+      x: date
+      y: count
+    }
+  }
+}

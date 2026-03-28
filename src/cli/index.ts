@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+export {};
+
+const command = process.argv[2];
+
+switch (command) {
+  case "dev":
+    await import("./dev.js");
+    break;
+  case "validate":
+    await import("./validate.js");
+    break;
+  case "build":
+    await import("./build.js");
+    break;
+  case "create":
+    await import("./create.js");
+    break;
+  default:
+    console.log(`
+  OpenBoard — Dashboards as code, not clicks.
+
+  Usage:
+    openboard dev          Start dev server with hot reload
+    openboard build        Build for production
+    openboard validate     Validate .board files
+    openboard create       Scaffold a new project
+
+  Options:
+    --help                 Show this help message
+    --version              Show version
+`);
+}
