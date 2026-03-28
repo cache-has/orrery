@@ -25,7 +25,7 @@ switch (command) {
 
   Usage:
     openboard dev          Start dev server with hot reload
-    openboard build        Build for production
+    openboard build        Export static HTML dashboards
     openboard validate     Validate .board files and connections
     openboard diff         Compare dashboards between git refs
     openboard create       Scaffold a new project
