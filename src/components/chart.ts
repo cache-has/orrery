@@ -17,7 +17,7 @@ import { echarts } from "./echarts-setup.js";
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 350;
 
-const PALETTE = [
+const DEFAULT_PALETTE = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
 ];
@@ -120,7 +120,7 @@ function makeAxisFormatter(yFormatName: string | undefined): ((v: number) => str
 // Build ECharts option: line / area
 // ---------------------------------------------------------------------------
 
-function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isArea: boolean): Record<string, unknown> {
+function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isArea: boolean, palette: string[]): Record<string, unknown> {
   const color = getStringProp(component, "color");
   const yFormatName = getStringProp(component, "y_format");
   const axisFormatter = makeAxisFormatter(yFormatName);
@@ -144,7 +144,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
     for (const sp of seriesPoints) lookup.set(sp.label, sp.value);
     const data = allLabels.map((l) => lookup.get(l) ?? null);
 
-    const seriesColor = color && i === 0 ? color : PALETTE[i % PALETTE.length];
+    const seriesColor = color && i === 0 ? color : palette[i % palette.length];
 
     return {
       type: "line" as const,
@@ -160,7 +160,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
   });
 
   return {
-    color: color && !isMultiSeries ? [color] : PALETTE,
+    color: color && !isMultiSeries ? [color] : palette,
     grid: { left: 60, right: 20, top: 20, bottom: isMultiSeries ? 60 : 36, containLabel: false },
     xAxis: {
       type: "category",
@@ -174,7 +174,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
         fontSize: 11,
         ...(axisFormatter ? { formatter: axisFormatter } : {}),
       },
-      splitLine: { lineStyle: { type: "dashed", color: "#e2e8f0" } },
+      splitLine: { lineStyle: { type: "dashed" } },
     },
     series: echartsSeriesList,
     ...(isMultiSeries ? { legend: { bottom: 0, textStyle: { fontSize: 11 } } } : {}),
@@ -185,7 +185,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
 // Build ECharts option: bar
 // ---------------------------------------------------------------------------
 
-function buildBarOption(component: ComponentNode, points: ChartDataPoint[]): Record<string, unknown> {
+function buildBarOption(component: ComponentNode, points: ChartDataPoint[], palette: string[]): Record<string, unknown> {
   const color = getStringProp(component, "color");
   const sortDir = getStringProp(component, "sort");
   const orientation = getStringProp(component, "orientation") ?? "vertical";
@@ -219,7 +219,7 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[]): Rec
     for (const sp of seriesPoints) lookup.set(sp.label, sp.value);
     const data = allLabels.map((l) => lookup.get(l) ?? null);
 
-    const seriesColor = color && i === 0 ? color : PALETTE[i % PALETTE.length];
+    const seriesColor = color && i === 0 ? color : palette[i % palette.length];
 
     return {
       type: "bar" as const,
@@ -243,11 +243,11 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[]): Rec
       fontSize: 11,
       ...(axisFormatter ? { formatter: axisFormatter } : {}),
     },
-    splitLine: { lineStyle: { type: "dashed", color: "#e2e8f0" } },
+    splitLine: { lineStyle: { type: "dashed" } },
   };
 
   return {
-    color: color && !isMultiSeries ? [color] : PALETTE,
+    color: color && !isMultiSeries ? [color] : palette,
     grid: {
       left: isHorizontal ? 80 : 60,
       right: 20,
@@ -269,6 +269,7 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[]): Rec
 export const chartRenderer: ComponentRenderer = {
   renderToString(component: ComponentNode, data: ComponentRenderData): string {
     const chartType = String(component.opts.type ?? "line");
+    const palette = data.palette ?? DEFAULT_PALETTE;
 
     const extracted = extractChartData(component, data);
     if (!extracted || extracted.points.length === 0) {
@@ -279,13 +280,13 @@ export const chartRenderer: ComponentRenderer = {
 
     switch (chartType) {
       case "line":
-        option = buildLineOption(component, extracted.points, false);
+        option = buildLineOption(component, extracted.points, false, palette);
         break;
       case "area":
-        option = buildLineOption(component, extracted.points, true);
+        option = buildLineOption(component, extracted.points, true, palette);
         break;
       case "bar":
-        option = buildBarOption(component, extracted.points);
+        option = buildBarOption(component, extracted.points, palette);
         break;
       default:
         return `<div class="openboard-placeholder">Unsupported chart type: ${escapeHtml(chartType)}</div>`;

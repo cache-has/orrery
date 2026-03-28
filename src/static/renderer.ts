@@ -32,6 +32,12 @@ export interface StaticRenderOptions {
   externalDataComponents?: Map<string, string>;
   /** If true, inline all assets (CSS, JS) for single-file output */
   selfContained?: boolean;
+  /** Additional CSS for theme overrides */
+  themeCSS?: string;
+  /** Theme name (light/dark) */
+  themeName?: "light" | "dark";
+  /** Chart color palette */
+  palette?: string[];
 }
 
 export interface StaticIndexDashboard {
@@ -59,10 +65,13 @@ export function renderStaticPage(options: StaticRenderOptions): string {
     version = "0.1.0",
     externalDataComponents,
     selfContained,
+    themeCSS,
+    themeName,
+    palette,
   } = options;
 
   // Start with the standard server-rendered page
-  let html = renderPage({ dashboard, layout, data, paramValues });
+  let html = renderPage({ dashboard, layout, data, paramValues, themeCSS, themeName, palette });
 
   // Add snapshot metadata to <head>
   const metaTags = buildMetaTags(builtAt, snapshotLabel, version);

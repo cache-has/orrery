@@ -19,6 +19,8 @@ export interface ComponentRenderData {
   error?: string;
   /** Current parameter values — used by text components for {{param}} interpolation. */
   paramValues?: Record<string, unknown>;
+  /** Chart color palette from theme (concrete hex values for SSR). */
+  palette?: string[];
 }
 
 /**

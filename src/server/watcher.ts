@@ -13,7 +13,7 @@ import { EventEmitter } from "events";
 // Types
 // ---------------------------------------------------------------------------
 
-export type ChangeType = "dashboard" | "connection" | "query" | "env" | "config";
+export type ChangeType = "dashboard" | "connection" | "query" | "env" | "config" | "theme";
 
 export interface FileChange {
   type: ChangeType;
@@ -45,13 +45,19 @@ export class FileWatcher extends EventEmitter {
     if (existsSync(this.connectionsDir)) paths.push(this.connectionsDir);
     if (existsSync(this.queriesDir)) paths.push(this.queriesDir);
 
-    // Watch specific env/config files in project root
+    // Watch specific env/config/theme files in project root
     const envFile = resolve(this.projectRoot, ".env");
     const envLocalFile = resolve(this.projectRoot, ".env.local");
     const configFile = resolve(this.projectRoot, "openboard.config.yaml");
+    const themeCssFile = resolve(this.projectRoot, "theme.css");
+    const themeYamlFile = resolve(this.projectRoot, "theme.yaml");
+    const themeYmlFile = resolve(this.projectRoot, "theme.yml");
     if (existsSync(envFile)) paths.push(envFile);
     if (existsSync(envLocalFile)) paths.push(envLocalFile);
     if (existsSync(configFile)) paths.push(configFile);
+    if (existsSync(themeCssFile)) paths.push(themeCssFile);
+    if (existsSync(themeYamlFile)) paths.push(themeYamlFile);
+    if (existsSync(themeYmlFile)) paths.push(themeYmlFile);
 
     if (paths.length === 0) return;
 
@@ -91,6 +97,9 @@ export class FileWatcher extends EventEmitter {
     }
     if (name === ".env" || name === ".env.local") {
       return { type: "env", filePath, event };
+    }
+    if (name === "theme.css" || name === "theme.yaml" || name === "theme.yml") {
+      return { type: "theme", filePath, event };
     }
     if (ext === ".board") {
       return { type: "dashboard", filePath, event };

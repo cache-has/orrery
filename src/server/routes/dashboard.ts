@@ -19,6 +19,8 @@ import { OPENBOARD_CSS } from "../../renderer/styles.js";
 import { OPENBOARD_CLIENT_JS } from "../client.js";
 import { OPENBOARD_INTERACTIVE_JS } from "../interactive.js";
 import { resolveDateRange } from "../../query/daterange.js";
+import { loadThemeFile, resolveTheme, type ThemeFile, type ThemeName } from "../../renderer/theme.js";
+import type { ProjectConfig } from "../discovery.js";
 
 export interface DashboardRouteOptions {
   /** Root directory containing .board files */
@@ -27,11 +29,38 @@ export interface DashboardRouteOptions {
   executor: QueryExecutor;
   /** Whether to inject dev client JS for hot reload */
   devMode?: boolean;
+  /** Project root directory (for theme file loading) */
+  projectRoot?: string;
+  /** Project config (for global theme setting) */
+  config?: ProjectConfig;
 }
 
 export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   const app = new Hono();
-  const { boardDir, executor, devMode } = options;
+  const { boardDir, executor, devMode, projectRoot, config } = options;
+
+  // Load theme file once at startup (re-loaded via watcher in dev mode)
+  let cachedThemeFile: ThemeFile | null = null;
+  if (projectRoot) {
+    try {
+      cachedThemeFile = loadThemeFile(projectRoot);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`Warning: Failed to load theme file: ${msg}`);
+    }
+  }
+
+  /** Reload the cached theme file (called from dev watcher) */
+  (app as any).__reloadTheme = () => {
+    if (projectRoot) {
+      try {
+        cachedThemeFile = loadThemeFile(projectRoot);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`Warning: Failed to reload theme file: ${msg}`);
+      }
+    }
+  };
 
   // Serve the raw CSS stylesheet
   app.get("/openboard/styles.css", (c) => {
@@ -97,11 +126,23 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
 
       const data = await fetchDashboardData(dashboard, executor, paramValues);
 
+      // Resolve theme
+      const dashboardTheme = getDashboardTheme(dashboard);
+      const configTheme = config?.theme ?? "light";
+      const resolved = resolveTheme({
+        configTheme,
+        dashboardTheme,
+        themeFile: cachedThemeFile,
+      });
+
       let html = renderPage({
         dashboard,
         layout,
         data,
         paramValues,
+        themeCSS: resolved.css || undefined,
+        themeName: resolved.name,
+        palette: resolved.palette,
       });
 
       // Always inject interactive script (interactivity is core)
@@ -153,13 +194,21 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
       const components = collectComponents(dashboard);
 
       if (body.format === "html") {
+        // Resolve theme palette for chart rendering
+        const dashTheme = getDashboardTheme(dashboard);
+        const resolved = resolveTheme({
+          configTheme: config?.theme ?? "light",
+          dashboardTheme: dashTheme,
+          themeFile: cachedThemeFile,
+        });
+
         // Return rendered HTML fragments for each component
         const html: Record<string, string> = {};
         for (const [id, compData] of data.components) {
           if (!body.components || body.components.includes(id)) {
             const comp = components.find((c) => c.id === id);
             if (comp) {
-              html[id] = renderComponentFragment(comp.component, compData, resolvedParams);
+              html[id] = renderComponentFragment(comp.component, compData, resolvedParams, resolved.palette);
             }
           }
         }
@@ -189,6 +238,18 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
 // ---------------------------------------------------------------------------
 
 import type { DashboardNode, ParamNode } from "../../parser/ast.js";
+
+function getDashboardTheme(dashboard: DashboardNode): ThemeName | undefined {
+  for (const item of dashboard.items) {
+    if (item.kind === "property" && item.key === "theme") {
+      if (item.value.kind === "string" || item.value.kind === "ident") {
+        const val = item.value.kind === "string" ? item.value.value : item.value.name;
+        if (val === "light" || val === "dark") return val;
+      }
+    }
+  }
+  return undefined;
+}
 
 function resolveDefaultParams(dashboard: DashboardNode): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};

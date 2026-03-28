@@ -23,13 +23,19 @@ export interface RenderOptions {
   layout: ResolvedLayout;
   data: DashboardData;
   paramValues: Record<string, unknown>;
+  /** Additional CSS for theme overrides (injected after base styles) */
+  themeCSS?: string;
+  /** Theme name for data-theme attribute on <html> */
+  themeName?: "light" | "dark";
+  /** Chart color palette (concrete hex values for SSR) */
+  palette?: string[];
 }
 
 /**
  * Render a complete HTML page for a dashboard.
  */
 export function renderPage(options: RenderOptions): string {
-  const { dashboard, layout, data, paramValues } = options;
+  const { dashboard, layout, data, paramValues, themeCSS, themeName, palette } = options;
 
   const components = collectComponents(dashboard);
   const componentDataMap: Record<string, ComponentData> = {};
@@ -60,19 +66,22 @@ export function renderPage(options: RenderOptions): string {
 
   const description = getDashboardDescription(dashboard);
 
+  const themeAttr = themeName ? ` data-theme="${escapeAttr(themeName)}"` : "";
+  const themeStyle = themeCSS ? `\n  <style id="ob-theme">${themeCSS}</style>` : "";
+
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en"${themeAttr}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(layout.title)}</title>
-  <style>${OPENBOARD_CSS}</style>
+  <style>${OPENBOARD_CSS}</style>${themeStyle}
 </head>
 <body>
   <div class="openboard-root" id="openboard-root">
     ${renderHeader(layout.title, description)}
     ${renderParamBar(data.params, paramValues)}
-    ${renderRows(layout.rows, data, components, paramValues)}
+    ${renderRows(layout.rows, data, components, paramValues, palette)}
   </div>
 
   <script>
@@ -90,10 +99,11 @@ export function renderComponentFragment(
   component: ComponentNode,
   compData: ComponentData | undefined,
   paramValues?: Record<string, unknown>,
+  palette?: string[],
 ): string {
   const body = compData?.error
     ? renderErrorState(compData.error)
-    : renderComponentBody(component, compData, paramValues);
+    : renderComponentBody(component, compData, paramValues, palette);
 
   const footer = compData?.result
     ? `<div class="openboard-component-footer">
@@ -206,11 +216,12 @@ function renderRows(
   data: DashboardData,
   components: { id: string; component: ComponentNode }[],
   paramValues?: Record<string, unknown>,
+  palette?: string[],
 ): string {
   return rows
     .map((row) => {
       const cells = row.components
-        .map((rc) => renderComponentContainer(rc, data, components, paramValues))
+        .map((rc) => renderComponentContainer(rc, data, components, paramValues, palette))
         .join("\n      ");
       return `<div class="openboard-row">
       ${cells}
@@ -224,6 +235,7 @@ function renderComponentContainer(
   data: DashboardData,
   components: { id: string; component: ComponentNode }[],
   paramValues?: Record<string, unknown>,
+  palette?: string[],
 ): string {
   const id = findComponentId(rc.component, components);
   const compData = data.components.get(id);
@@ -231,7 +243,7 @@ function renderComponentContainer(
 
   const body = compData?.error
     ? renderErrorState(compData.error)
-    : renderComponentBody(rc.component, compData, paramValues);
+    : renderComponentBody(rc.component, compData, paramValues, palette);
 
   const footer = compData?.result
     ? `<div class="openboard-component-footer">
@@ -239,16 +251,24 @@ function renderComponentContainer(
         </div>`
     : "";
 
+  // Build inline style with grid column + per-component color overrides
+  const styleParts = [`grid-column: ${rc.gridColumn}`];
+  const compColor = getStringProp(rc.component, "color");
+  const compBg = getStringProp(rc.component, "background");
+  if (compColor) styleParts.push(`--ob-text: ${compColor}`);
+  if (compBg) styleParts.push(`--ob-surface: ${compBg}`);
+  const inlineStyle = styleParts.join("; ");
+
   // Text components without titles get a simpler wrapper
   if (rc.component.componentType === "text" && !title) {
-    return `<div class="openboard-component" style="grid-column: ${rc.gridColumn}" data-component-id="${escapeAttr(id)}" data-component-type="text">
+    return `<div class="openboard-component" style="${inlineStyle}" data-component-id="${escapeAttr(id)}" data-component-type="text">
         <div class="openboard-component-body">
           ${body}
         </div>
       </div>`;
   }
 
-  return `<div class="openboard-component" style="grid-column: ${rc.gridColumn}" data-component-id="${escapeAttr(id)}" data-component-type="${escapeAttr(rc.component.componentType)}">
+  return `<div class="openboard-component" style="${inlineStyle}" data-component-id="${escapeAttr(id)}" data-component-type="${escapeAttr(rc.component.componentType)}">
         <div class="openboard-component-header">
           <h3 class="openboard-component-title">${escapeHtml(title)}</h3>
           <div class="openboard-component-actions">
@@ -270,6 +290,7 @@ function renderComponentBody(
   component: ComponentNode,
   compData?: ComponentData,
   paramValues?: Record<string, unknown>,
+  palette?: string[],
 ): string {
   // Try the component registry first
   const renderer = getRenderer(component.componentType);
@@ -279,6 +300,7 @@ function renderComponentBody(
       trendResult: compData?.trendResult,
       error: compData?.error,
       paramValues,
+      palette,
     };
     return renderer.renderToString(component, renderData);
   }
