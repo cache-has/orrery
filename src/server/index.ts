@@ -82,7 +82,24 @@ export function createApp(options: AppOptions = {}): Hono {
 // ---------------------------------------------------------------------------
 
 function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: BrandingConfig): string {
-  const rows = dashboards.map((d) => {
+  // Group dashboards by folder
+  const groups = new Map<string, DiscoveredDashboard[]>();
+  for (const d of dashboards) {
+    const folder = d.folder || "";
+    if (!groups.has(folder)) groups.set(folder, []);
+    groups.get(folder)!.push(d);
+  }
+
+  // Sort folders: root first, then alphabetical
+  const sortedFolders = [...groups.keys()].sort((a, b) => {
+    if (a === "" && b !== "") return -1;
+    if (a !== "" && b === "") return 1;
+    return a.localeCompare(b);
+  });
+
+  const hasFolders = sortedFolders.length > 1 || (sortedFolders.length === 1 && sortedFolders[0] !== "");
+
+  function renderCard(d: DiscoveredDashboard): string {
     const desc = d.description ? `<p class="ob-idx-desc">${escapeHtml(d.description)}</p>` : "";
     const modified = d.lastModified.toLocaleDateString("en-US", {
       month: "short", day: "numeric", year: "numeric",
@@ -93,7 +110,23 @@ function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: Bran
       ${desc}
       <span class="ob-idx-meta">${escapeHtml(modified)}</span>
     </a>`;
-  }).join("\n    ");
+  }
+
+  let content: string;
+  if (hasFolders) {
+    content = sortedFolders.map((folder) => {
+      const items = groups.get(folder)!;
+      const folderLabel = folder || "Dashboards";
+      const cards = items.map(renderCard).join("\n      ");
+      return `<div class="ob-idx-section">
+      <h2 class="ob-idx-folder">${escapeHtml(folderLabel)}</h2>
+      <div class="ob-idx-grid">${cards}</div>
+    </div>`;
+    }).join("\n    ");
+  } else {
+    const cards = dashboards.map(renderCard).join("\n    ");
+    content = `<div class="ob-idx-grid">${cards}</div>`;
+  }
 
   const empty = dashboards.length === 0
     ? `<p class="ob-idx-empty">No dashboards found. Create a <code>.board</code> file in your dashboards directory to get started.</p>`
@@ -118,7 +151,10 @@ function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: Bran
     .ob-idx-header { padding: 2rem 2rem 1rem; max-width: 900px; margin: 0 auto; }
     .ob-idx-header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; }
     .ob-idx-header p { color: #666; margin-top: 0.25rem; }
+    .ob-idx-section { max-width: 900px; margin: 0 auto; padding: 0 2rem 1.5rem; }
+    .ob-idx-folder { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e0e0e0; }
     .ob-idx-grid { max-width: 900px; margin: 0 auto; padding: 0 2rem 2rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+    .ob-idx-section .ob-idx-grid { padding: 0; margin: 0; }
     .ob-idx-card { display: block; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.25rem; text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
     .ob-idx-card:hover { border-color: #999; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .ob-idx-card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.4rem; }
@@ -126,16 +162,26 @@ function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: Bran
     .ob-idx-meta { font-size: 0.8rem; color: #999; }
     .ob-idx-empty { max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #666; }
     .ob-idx-empty code { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+    [data-theme="dark"] body { background: #0f172a; color: #f1f5f9; }
+    [data-theme="dark"] .ob-idx-header h1 { color: #f1f5f9; }
+    [data-theme="dark"] .ob-idx-header p { color: #94a3b8; }
+    [data-theme="dark"] .ob-idx-card { background: #1e293b; border-color: #334155; color: #f1f5f9; }
+    [data-theme="dark"] .ob-idx-card h2 { color: #f1f5f9; }
+    [data-theme="dark"] .ob-idx-card:hover { border-color: #60a5fa; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    [data-theme="dark"] .ob-idx-desc { color: #cbd5e1; }
+    [data-theme="dark"] .ob-idx-meta { color: #94a3b8; }
+    [data-theme="dark"] .ob-idx-folder { color: #94a3b8; border-color: #334155; }
+    [data-theme="dark"] .ob-idx-empty { color: #94a3b8; }
+    [data-theme="dark"] .ob-idx-empty code { background: #334155; color: #e2e8f0; }
   </style>
+  <script>try{var t=localStorage.getItem('openboard-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 </head>
 <body>
   <div class="ob-idx-header">
     <h1>${logoHtml}${indexTitle}</h1>
     <p>${dashboards.length} dashboard${dashboards.length !== 1 ? "s" : ""}</p>
   </div>
-  <div class="ob-idx-grid">
-    ${rows}
-  </div>
+  ${content}
   ${empty}
 </body>
 </html>`;

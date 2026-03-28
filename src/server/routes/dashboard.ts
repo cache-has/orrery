@@ -8,8 +8,8 @@
  */
 
 import { Hono } from "hono";
-import { readFileSync, existsSync } from "fs";
-import { resolve, basename, extname } from "path";
+import { readFileSync, existsSync, readdirSync } from "fs";
+import { resolve, basename, extname, relative } from "path";
 import { parse } from "../../parser/parser.js";
 import { resolveLayout } from "../../renderer/layout.js";
 import { renderPage, renderComponentFragment } from "../../renderer/html.js";
@@ -122,11 +122,11 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   // Render a dashboard by name — support both /d/:name and /dashboard/:name
   const renderDashboard = async (c: { req: { param: (k: string) => string; query: () => Record<string, string> }; html: (body: string, status?: number) => Response }) => {
     const name = c.req.param("name");
-    const boardFile = resolve(boardDir, `${name}.board`);
+    const boardFile = resolveBoardFile(boardDir, name);
 
-    if (!existsSync(boardFile)) {
+    if (!boardFile) {
       return c.html(
-        `<!DOCTYPE html><html><body><h1>Dashboard not found</h1><p>No file: ${basename(boardFile)}</p></body></html>`,
+        `<!DOCTYPE html><html><body><h1>Dashboard not found</h1><p>No dashboard matching: ${escapeHtml(name)}</p></body></html>`,
         404,
       );
     }
@@ -217,8 +217,8 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         format?: "json" | "html";
       }>();
 
-      const boardFile = resolve(boardDir, `${body.dashboard}.board`);
-      if (!existsSync(boardFile)) {
+      const boardFile = resolveBoardFile(boardDir, body.dashboard);
+      if (!boardFile) {
         return c.json({ error: "Dashboard not found" }, 404);
       }
 
@@ -336,6 +336,43 @@ function resolveParamsWithDateRanges(
     }
   }
   return resolved;
+}
+
+/**
+ * Resolve a slug to a .board file path. Supports both flat files and
+ * subdirectories (e.g. slug "finance-revenue" → "finance/revenue.board").
+ */
+function resolveBoardFile(boardDir: string, slug: string): string | null {
+  // Try direct match first: {slug}.board
+  const direct = resolve(boardDir, `${slug}.board`);
+  if (existsSync(direct)) return direct;
+
+  // Search recursively for a file whose slug matches
+  const match = findBoardBySlug(boardDir, boardDir, slug);
+  return match;
+}
+
+function findBoardBySlug(baseDir: string, dir: string, targetSlug: string): string | null {
+  if (!existsSync(dir)) return null;
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = resolve(dir, entry.name);
+    if (entry.isDirectory()) {
+      const found = findBoardBySlug(baseDir, fullPath, targetSlug);
+      if (found) return found;
+    } else if (entry.isFile() && extname(entry.name) === ".board") {
+      const rel = relative(baseDir, fullPath);
+      const slug = rel
+        .replace(/\.board$/, "")
+        .replace(/[\\/]/g, "-")
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      if (slug === targetSlug) return fullPath;
+    }
+  }
+  return null;
 }
 
 function escapeHtml(str: string): string {

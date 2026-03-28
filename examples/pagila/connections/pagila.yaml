@@ -1,0 +1,6 @@
+name: pagila
+type: postgres
+host: localhost
+port: 5432
+database: pagila
+username: cachemcclure

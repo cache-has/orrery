@@ -9,6 +9,7 @@ import { resolve } from "path";
 import { existsSync, readFileSync } from "fs";
 import { createServer } from "http";
 import open from "open";
+import { getRequestListener } from "@hono/node-server";
 import { createApp } from "../server/index.js";
 import { loadConfig, discoverDashboards, parseDashboardInfo, type DiscoveredDashboard, type ProjectConfig } from "../server/discovery.js";
 import { ConnectionManager } from "../connections/manager.js";
@@ -105,7 +106,7 @@ const app = createApp({
 });
 
 // 7. Create HTTP server and attach WebSocket
-const server = createServer(app.fetch as unknown as Parameters<typeof createServer>[0]);
+const server = createServer(getRequestListener(app.fetch));
 const devWs = new DevWebSocket();
 devWs.attach(server);
 

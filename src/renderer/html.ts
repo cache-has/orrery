@@ -144,8 +144,11 @@ function renderHeader(title: string, description?: string, branding?: BrandingCo
       </div>`
     : "";
 
+  const homeLink = `<nav class="openboard-breadcrumb"><a href="/">&#8592; All Dashboards</a></nav>`;
+
   return `<header class="openboard-header" style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">
       <div>
+        ${homeLink}
         ${brandingRow}
         <h1>${escapeHtml(title)}</h1>
         ${description ? `<p class="openboard-description">${escapeHtml(description)}</p>` : ""}

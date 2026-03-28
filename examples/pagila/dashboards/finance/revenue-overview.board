@@ -1,0 +1,91 @@
+dashboard "Revenue Overview" {
+  description: "Pagila DVD rental store — revenue, rentals, and payment trends"
+  connection: "pagila"
+
+  row {
+    metric "Total Revenue" (span: 3) {
+      query: "SELECT ROUND(SUM(amount)::numeric, 2) as value FROM payment"
+      format: currency
+      prefix: "$"
+    }
+    metric "Total Rentals" (span: 3) {
+      query: "SELECT COUNT(*) as value FROM rental"
+      format: number
+    }
+    metric "Active Customers" (span: 3) {
+      query: "SELECT COUNT(DISTINCT customer_id) as value FROM rental"
+      format: number
+    }
+    metric "Avg Rental Value" (span: 3) {
+      query: "SELECT ROUND(AVG(amount)::numeric, 2) as value FROM payment"
+      format: currency
+      prefix: "$"
+    }
+  }
+
+  row {
+    chart "Monthly Revenue" (span: 8, type: bar) {
+      query: """
+        SELECT
+          TO_CHAR(payment_date, 'YYYY-MM') as month,
+          ROUND(SUM(amount)::numeric, 2) as revenue
+        FROM payment
+        GROUP BY TO_CHAR(payment_date, 'YYYY-MM')
+        ORDER BY month
+      """
+      x: month
+      y: revenue
+    }
+    chart "Revenue by Store" (span: 4, type: bar) {
+      query: """
+        SELECT
+          'Store ' || s.store_id as store,
+          ROUND(SUM(p.amount)::numeric, 2) as revenue
+        FROM payment p
+        JOIN staff st ON p.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        GROUP BY s.store_id
+        ORDER BY s.store_id
+      """
+      x: store
+      y: revenue
+    }
+  }
+
+  row {
+    chart "Daily Rentals" (span: 12, type: line) {
+      query: """
+        SELECT
+          rental_date::date as date,
+          COUNT(*) as rentals
+        FROM rental
+        GROUP BY rental_date::date
+        ORDER BY date
+      """
+      x: date
+      y: rentals
+    }
+  }
+
+  row {
+    table "Top 20 Payments" (span: 12) {
+      query: """
+        SELECT
+          p.payment_id,
+          c.first_name || ' ' || c.last_name as customer,
+          f.title as film,
+          p.amount,
+          p.payment_date::date as date
+        FROM payment p
+        JOIN customer c ON p.customer_id = c.customer_id
+        JOIN rental r ON p.rental_id = r.rental_id
+        JOIN inventory i ON r.inventory_id = i.inventory_id
+        JOIN film f ON i.film_id = f.film_id
+        ORDER BY p.amount DESC
+        LIMIT 20
+      """
+      sortable: true
+      page_size: 10
+    }
+  }
+}
