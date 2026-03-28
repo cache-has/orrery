@@ -338,6 +338,49 @@ describe("renderPage", () => {
     expect(html).toContain("</html>");
   });
 
+  it("injects theme CSS when themeCSS is provided", () => {
+    const dashboard = makeDashboard("Themed", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({
+      dashboard, layout, data, paramValues: {},
+      themeCSS: ":root { --ob-bg: #111; }",
+      themeName: "dark",
+    });
+
+    expect(html).toContain('<style id="ob-theme">');
+    expect(html).toContain("--ob-bg: #111");
+    expect(html).toContain('data-theme="dark"');
+  });
+
+  it("does not inject theme style block when themeCSS is absent", () => {
+    const dashboard = makeDashboard("No Theme", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {} });
+
+    expect(html).not.toContain('id="ob-theme"');
+    expect(html).not.toContain("data-theme");
+  });
+
+  it("applies per-component color overrides as scoped CSS variables", () => {
+    const props: PropertyNode[] = [
+      { kind: "property", key: "color", value: { kind: "string", value: "#E11D48", span }, span },
+      { kind: "property", key: "background", value: { kind: "string", value: "#FFF1F2", span }, span },
+    ];
+    const row = makeRow([makeComponent("metric", "Custom Colors", 12, props)]);
+    const dashboard = makeDashboard("Test", [row]);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([["custom_colors", {}]]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {} });
+
+    expect(html).toContain("--ob-text: #E11D48");
+    expect(html).toContain("--ob-surface: #FFF1F2");
+  });
+
   it("renders chart via chart renderer (no placeholder)", () => {
     const chart = makeComponent("chart", "Revenue Trend", 12);
     chart.opts.type = "area";

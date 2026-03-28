@@ -24,6 +24,7 @@ import {
   loadConfig,
   discoverDashboards,
   type DiscoveredDashboard,
+  type ProjectConfig,
 } from "../server/discovery.js";
 import { resolveDateRange } from "../query/daterange.js";
 import {
@@ -31,6 +32,7 @@ import {
   renderStaticIndex,
   type StaticIndexDashboard,
 } from "./renderer.js";
+import { loadThemeFile, resolveTheme, type ThemeFile } from "../renderer/theme.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -106,6 +108,15 @@ export async function staticBuild(options: StaticBuildOptions): Promise<StaticBu
 
   const executor = new QueryExecutor(connManager);
 
+  // 4b. Load theme file
+  let themeFile: ThemeFile | null = null;
+  try {
+    themeFile = loadThemeFile(projectRoot);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`Warning: Failed to load theme file: ${msg}`);
+  }
+
   // 5. Build each dashboard
   const results: StaticBuildResult["dashboards"] = [];
   let totalSize = 0;
@@ -121,6 +132,8 @@ export async function staticBuild(options: StaticBuildOptions): Promise<StaticBu
         builtAt,
         selfContained,
         splitThreshold,
+        config,
+        themeFile,
       });
 
       // Write dashboard HTML
@@ -178,12 +191,14 @@ interface BuildDashboardOptions {
   builtAt: Date;
   selfContained: boolean;
   splitThreshold: number;
+  config: ProjectConfig;
+  themeFile: ThemeFile | null;
 }
 
 async function buildDashboard(
   options: BuildDashboardOptions,
 ): Promise<{ html: string; externalFiles: Map<string, string> }> {
-  const { discovered, executor, snapshotLabel, builtAt, selfContained, splitThreshold } = options;
+  const { discovered, executor, snapshotLabel, builtAt, selfContained, splitThreshold, config, themeFile } = options;
 
   // Parse
   const source = readFileSync(discovered.filePath, "utf-8");
@@ -212,6 +227,14 @@ async function buildDashboard(
     }
   }
 
+  // Resolve theme
+  const dashboardTheme = getDashboardThemeFromAST(dashboard);
+  const resolved = resolveTheme({
+    configTheme: config.theme,
+    dashboardTheme,
+    themeFile,
+  });
+
   // Render static page
   const html = renderStaticPage({
     dashboard,
@@ -222,6 +245,9 @@ async function buildDashboard(
     builtAt,
     externalDataComponents: externalDataComponents.size > 0 ? externalDataComponents : undefined,
     selfContained,
+    themeCSS: resolved.css || undefined,
+    themeName: resolved.name,
+    palette: resolved.palette,
   });
 
   return { html, externalFiles };
@@ -230,6 +256,18 @@ async function buildDashboard(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function getDashboardThemeFromAST(dashboard: DashboardNode): "light" | "dark" | undefined {
+  for (const item of dashboard.items) {
+    if (item.kind === "property" && item.key === "theme") {
+      if (item.value.kind === "string" || item.value.kind === "ident") {
+        const val = item.value.kind === "string" ? item.value.value : item.value.name;
+        if (val === "light" || val === "dark") return val;
+      }
+    }
+  }
+  return undefined;
+}
 
 function resolveDefaultParams(dashboard: DashboardNode): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};

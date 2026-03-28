@@ -88,6 +88,8 @@ const app = createApp({
     boardDir: dashboardsDir,
     executor,
     devMode: true,
+    projectRoot,
+    config,
   },
   devMode: true,
   getDashboards: () => dashboards,
@@ -177,6 +179,12 @@ watcher.on("change", async (change: FileChange) => {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`  Warning: Reconnection failed after env change: ${msg}`);
       }
+      devWs.broadcast({ type: "reload", dashboard: "*" });
+      break;
+    }
+
+    case "theme": {
+      console.log(`  Theme file changed: ${change.filePath}`);
       devWs.broadcast({ type: "reload", dashboard: "*" });
       break;
     }
