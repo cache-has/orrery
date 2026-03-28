@@ -3,6 +3,8 @@ import { PostgresDriver } from "./drivers/postgres.js";
 import { MySQLDriver } from "./drivers/mysql.js";
 import { SQLiteDriver } from "./drivers/sqlite.js";
 import { DuckDBDriver } from "./drivers/duckdb.js";
+import { loadEnvFiles } from "./env.js";
+import { loadConnectionFiles } from "./loader.js";
 
 const DRIVER_MAP: Record<string, new () => DatabaseDriver> = {
   postgres: PostgresDriver,
@@ -12,10 +14,44 @@ const DRIVER_MAP: Record<string, new () => DatabaseDriver> = {
   duckdb: DuckDBDriver,
 };
 
-export class ConnectionManager {
-  private connections = new Map<string, DatabaseDriver>();
+export interface ConnectionInfo {
+  name: string;
+  type: string;
+  connected: boolean;
+  sourceFile: string;
+}
 
-  async register(name: string, config: ConnectionConfig): Promise<void> {
+export class ConnectionManager {
+  private connections = new Map<
+    string,
+    { driver: DatabaseDriver; config: ConnectionConfig; sourceFile: string }
+  >();
+
+  /**
+   * Initialize all connections from YAML files in a directory.
+   * Loads .env files from projectRoot, parses connection YAML files,
+   * and registers each connection.
+   */
+  async init(
+    connectionsDir: string,
+    projectRoot?: string,
+  ): Promise<void> {
+    if (projectRoot) {
+      loadEnvFiles(projectRoot);
+    }
+
+    const loaded = loadConnectionFiles(connectionsDir);
+
+    for (const conn of loaded) {
+      await this.register(conn.name, conn.config, conn.sourceFile);
+    }
+  }
+
+  async register(
+    name: string,
+    config: ConnectionConfig,
+    sourceFile: string = "<programmatic>",
+  ): Promise<void> {
     const DriverClass = DRIVER_MAP[config.type];
     if (!DriverClass) {
       throw new Error(
@@ -24,27 +60,43 @@ export class ConnectionManager {
     }
     const driver = new DriverClass();
     await driver.connect(config);
-    this.connections.set(name, driver);
+    this.connections.set(name, { driver, config, sourceFile });
   }
 
   get(name: string): DatabaseDriver {
-    const driver = this.connections.get(name);
-    if (!driver) {
+    const entry = this.connections.get(name);
+    if (!entry) {
       throw new Error(
         `Connection "${name}" not found. Available: ${[...this.connections.keys()].join(", ")}`,
       );
     }
-    return driver;
+    return entry.driver;
+  }
+
+  getConnection(name: string): ConnectionInfo | undefined {
+    const entry = this.connections.get(name);
+    if (!entry) return undefined;
+    return {
+      name,
+      type: entry.config.type,
+      connected: entry.driver.isConnected(),
+      sourceFile: entry.sourceFile,
+    };
+  }
+
+  listConnections(): ConnectionInfo[] {
+    return [...this.connections.entries()].map(([name, entry]) => ({
+      name,
+      type: entry.config.type,
+      connected: entry.driver.isConnected(),
+      sourceFile: entry.sourceFile,
+    }));
   }
 
   async disconnectAll(): Promise<void> {
-    for (const driver of this.connections.values()) {
-      await driver.disconnect();
+    for (const entry of this.connections.values()) {
+      await entry.driver.disconnect();
     }
     this.connections.clear();
-  }
-
-  listConnections(): string[] {
-    return [...this.connections.keys()];
   }
 }
