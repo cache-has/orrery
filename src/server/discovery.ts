@@ -1,0 +1,176 @@
+/**
+ * Project discovery: find config, dashboards, connections, and queries directories.
+ *
+ * Discovery order:
+ *  1. openboard.config.yaml in projectRoot (explicit config)
+ *  2. dashboards/ directory in projectRoot
+ *  3. Any .board files directly in projectRoot
+ */
+
+import { readFileSync, existsSync, readdirSync, statSync } from "fs";
+import { resolve, basename, extname, relative } from "path";
+import { parse as parseYaml } from "yaml";
+import { parse } from "../parser/parser.js";
+import type { DashboardNode } from "../parser/ast.js";
+
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+
+export interface ProjectConfig {
+  dashboards_dir: string;
+  connections_dir: string;
+  queries_dir: string;
+  port: number;
+  theme: "light" | "dark";
+  cache_ttl: number;
+}
+
+const DEFAULT_CONFIG: ProjectConfig = {
+  dashboards_dir: "./dashboards",
+  connections_dir: "./connections",
+  queries_dir: "./queries",
+  port: 3000,
+  theme: "light",
+  cache_ttl: 300,
+};
+
+export function loadConfig(projectRoot: string): ProjectConfig {
+  const configPath = resolve(projectRoot, "openboard.config.yaml");
+  if (!existsSync(configPath)) {
+    return { ...DEFAULT_CONFIG };
+  }
+
+  try {
+    const raw = readFileSync(configPath, "utf-8");
+    const parsed = parseYaml(raw) as Partial<ProjectConfig> | null;
+    if (!parsed || typeof parsed !== "object") {
+      return { ...DEFAULT_CONFIG };
+    }
+    return {
+      dashboards_dir: parsed.dashboards_dir ?? DEFAULT_CONFIG.dashboards_dir,
+      connections_dir: parsed.connections_dir ?? DEFAULT_CONFIG.connections_dir,
+      queries_dir: parsed.queries_dir ?? DEFAULT_CONFIG.queries_dir,
+      port: parsed.port ?? DEFAULT_CONFIG.port,
+      theme: parsed.theme ?? DEFAULT_CONFIG.theme,
+      cache_ttl: parsed.cache_ttl ?? DEFAULT_CONFIG.cache_ttl,
+    };
+  } catch {
+    console.warn(`Warning: Failed to parse ${configPath}, using defaults`);
+    return { ...DEFAULT_CONFIG };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard discovery
+// ---------------------------------------------------------------------------
+
+export interface DiscoveredDashboard {
+  /** Slug used in URL: /d/:slug */
+  slug: string;
+  /** Absolute path to the .board file */
+  filePath: string;
+  /** Dashboard title from parsed AST */
+  title: string;
+  /** Dashboard description if present */
+  description?: string;
+  /** Last modified time */
+  lastModified: Date;
+}
+
+/**
+ * Discover all .board files, parse them, and return metadata.
+ * Parse errors are captured — they never crash discovery.
+ */
+export function discoverDashboards(projectRoot: string, config: ProjectConfig): DiscoveredDashboard[] {
+  const dashboardsDir = resolve(projectRoot, config.dashboards_dir);
+  const results: DiscoveredDashboard[] = [];
+
+  // Strategy 1: Look in configured dashboards directory
+  if (existsSync(dashboardsDir)) {
+    const files = findBoardFiles(dashboardsDir);
+    for (const filePath of files) {
+      const info = parseDashboardInfo(filePath, dashboardsDir);
+      if (info) results.push(info);
+    }
+  }
+
+  // Strategy 2: If no dashboards dir, look for .board files in project root
+  if (results.length === 0) {
+    const rootFiles = findBoardFiles(projectRoot, false);
+    for (const filePath of rootFiles) {
+      const info = parseDashboardInfo(filePath, projectRoot);
+      if (info) results.push(info);
+    }
+  }
+
+  return results.sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+/**
+ * Re-parse a single dashboard file and return updated metadata.
+ * Returns null on parse error.
+ */
+export function parseDashboardInfo(
+  filePath: string,
+  baseDir: string,
+): DiscoveredDashboard | null {
+  try {
+    const source = readFileSync(filePath, "utf-8");
+    const dashboard = parse(source, filePath);
+    const stat = statSync(filePath);
+    const slug = fileToSlug(filePath, baseDir);
+
+    return {
+      slug,
+      filePath,
+      title: dashboard.title || slug,
+      description: getDashboardDescription(dashboard),
+      lastModified: stat.mtime,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`Warning: Failed to parse ${filePath}: ${msg}`);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function findBoardFiles(dir: string, recursive = true): string[] {
+  const results: string[] = [];
+  if (!existsSync(dir)) return results;
+
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = resolve(dir, entry.name);
+    if (entry.isDirectory() && recursive) {
+      results.push(...findBoardFiles(fullPath, true));
+    } else if (entry.isFile() && extname(entry.name) === ".board") {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
+
+function fileToSlug(filePath: string, baseDir: string): string {
+  const rel = relative(baseDir, filePath);
+  return rel
+    .replace(/\.board$/, "")
+    .replace(/[\\/]/g, "-")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function getDashboardDescription(dashboard: DashboardNode): string | undefined {
+  for (const item of dashboard.items) {
+    if (item.kind === "property" && item.key === "description") {
+      if (item.value.kind === "string") return item.value.value;
+    }
+  }
+  return undefined;
+}
