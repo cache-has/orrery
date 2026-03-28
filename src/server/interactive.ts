@@ -40,6 +40,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
   function init() {
     hydrateParamControls();
     hydrateRefreshButtons();
+    hydrateThemeToggle();
     syncFromUrl();
     setupKeyboardShortcuts();
     setupAutoRefresh();
@@ -565,6 +566,59 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     autoRefreshTimer = setInterval(function() {
       refreshAll();
     }, refreshInterval * 1000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Theme toggle (dev mode)
+  // ---------------------------------------------------------------------------
+
+  function hydrateThemeToggle() {
+    var btn = document.querySelector('[data-action="toggle-theme"]');
+    if (!btn) return;
+
+    // Restore saved preference from localStorage
+    var saved = null;
+    try { saved = localStorage.getItem('openboard-theme'); } catch(e) {}
+    if (saved === 'light' || saved === 'dark') {
+      applyTheme(saved);
+    }
+
+    btn.addEventListener('click', function() {
+      var current = document.documentElement.getAttribute('data-theme') || 'light';
+      var next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      try { localStorage.setItem('openboard-theme', next); } catch(e) {}
+    });
+  }
+
+  function applyTheme(theme) {
+    var light = {
+      '--ob-bg': '#f8f9fa', '--ob-surface': '#ffffff', '--ob-border': '#e2e8f0',
+      '--ob-text': '#1a202c', '--ob-text-muted': '#718096', '--ob-primary': '#3b82f6',
+      '--ob-error-bg': '#fef2f2', '--ob-error-border': '#fecaca', '--ob-error-text': '#991b1b',
+      '--ob-shadow': '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
+      '--ob-loading-overlay': 'rgba(255, 255, 255, 0.7)'
+    };
+    var dark = {
+      '--ob-bg': '#0f172a', '--ob-surface': '#1e293b', '--ob-border': '#334155',
+      '--ob-text': '#f1f5f9', '--ob-text-muted': '#94a3b8', '--ob-primary': '#60a5fa',
+      '--ob-error-bg': '#451a1a', '--ob-error-border': '#7f1d1d', '--ob-error-text': '#fca5a5',
+      '--ob-shadow': '0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)',
+      '--ob-loading-overlay': 'rgba(15, 23, 42, 0.7)'
+    };
+
+    var vars = theme === 'dark' ? dark : light;
+    var root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    for (var key in vars) {
+      root.style.setProperty(key, vars[key]);
+    }
+
+    // Update toggle icon
+    var icon = document.querySelector('.openboard-theme-icon');
+    if (icon) {
+      icon.innerHTML = theme === 'dark' ? '\\u2600' : '\\u263E';
+    }
   }
 
   // ---------------------------------------------------------------------------

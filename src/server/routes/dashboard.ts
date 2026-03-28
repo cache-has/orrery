@@ -180,6 +180,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         themeName: resolved.name,
         palette: resolved.palette,
         branding: resolved.branding,
+        devMode,
       });
 
       // Always inject interactive script (interactivity is core)
