@@ -32,13 +32,15 @@ export interface RenderOptions {
   palette?: string[];
   /** Branding config (logo, title, favicon) from theme.yaml */
   branding?: BrandingConfig;
+  /** Whether to show dev-mode UI (theme toggle) */
+  devMode?: boolean;
 }
 
 /**
  * Render a complete HTML page for a dashboard.
  */
 export function renderPage(options: RenderOptions): string {
-  const { dashboard, layout, data, paramValues, themeCSS, themeName, palette, branding } = options;
+  const { dashboard, layout, data, paramValues, themeCSS, themeName, palette, branding, devMode } = options;
 
   const components = collectComponents(dashboard);
   const componentDataMap: Record<string, ComponentData> = {};
@@ -84,7 +86,7 @@ export function renderPage(options: RenderOptions): string {
 </head>
 <body>
   <div class="openboard-root" id="openboard-root">
-    ${renderHeader(layout.title, description, branding)}
+    ${renderHeader(layout.title, description, branding, devMode)}
     ${renderParamBar(data.params, paramValues)}
     ${renderRows(layout.rows, data, components, paramValues, palette)}
   </div>
@@ -123,7 +125,7 @@ export function renderComponentFragment(
 // Section renderers
 // ---------------------------------------------------------------------------
 
-function renderHeader(title: string, description?: string, branding?: BrandingConfig): string {
+function renderHeader(title: string, description?: string, branding?: BrandingConfig, devMode?: boolean): string {
   const logo = branding?.logo
     ? `<img class="openboard-header-logo" src="/openboard/assets/${escapeAttr(branding.logo)}" alt="${escapeAttr(branding.title ?? "Logo")}" />`
     : "";
@@ -134,10 +136,21 @@ function renderHeader(title: string, description?: string, branding?: BrandingCo
     ? `<div class="openboard-header-branding">${logo}${brandTitle}</div>`
     : "";
 
-  return `<header class="openboard-header">
-      ${brandingRow}
-      <h1>${escapeHtml(title)}</h1>
-      ${description ? `<p class="openboard-description">${escapeHtml(description)}</p>` : ""}
+  const themeToggle = devMode
+    ? `<div class="openboard-header-actions">
+        <button class="openboard-theme-toggle" data-action="toggle-theme" title="Toggle light/dark theme">
+          <span class="openboard-theme-icon">&#x263E;</span>
+        </button>
+      </div>`
+    : "";
+
+  return `<header class="openboard-header" style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">
+      <div>
+        ${brandingRow}
+        <h1>${escapeHtml(title)}</h1>
+        ${description ? `<p class="openboard-description">${escapeHtml(description)}</p>` : ""}
+      </div>
+      ${themeToggle}
     </header>`;
 }
 

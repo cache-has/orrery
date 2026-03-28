@@ -468,10 +468,50 @@ describe("renderPage", () => {
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
     // The branding class appears in the CSS stylesheet, so check the header HTML specifically
-    const headerMatch = html.match(/<header class="openboard-header">[\s\S]*?<\/header>/);
+    const headerMatch = html.match(/<header class="openboard-header[^"]*"[\s\S]*?<\/header>/);
     expect(headerMatch).toBeTruthy();
     expect(headerMatch![0]).not.toContain("openboard-header-branding");
     expect(headerMatch![0]).not.toContain("openboard-header-logo");
     expect(html).not.toContain('rel="icon"');
+  });
+
+  it("renders theme toggle button when devMode is true", () => {
+    const dashboard = makeDashboard("Dev Dashboard", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {}, devMode: true });
+
+    expect(html).toContain('data-action="toggle-theme"');
+    expect(html).toContain("openboard-theme-toggle");
+    expect(html).toContain("openboard-theme-icon");
+  });
+
+  it("does not render theme toggle when devMode is false or absent", () => {
+    const dashboard = makeDashboard("Prod Dashboard", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {} });
+
+    expect(html).not.toContain('data-action="toggle-theme"');
+    // The class name appears in CSS, but no button element should exist
+    const bodyMatch = html.match(/<body>[\s\S]*<\/body>/);
+    expect(bodyMatch).toBeTruthy();
+    expect(bodyMatch![0]).not.toContain('<button class="openboard-theme-toggle"');
+  });
+
+  it("includes print styles in CSS", () => {
+    const dashboard = makeDashboard("Print Test", []);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {} });
+
+    expect(html).toContain("@media print");
+    expect(html).toContain("break-inside: avoid");
+    // Interactive controls hidden in print
+    expect(html).toContain(".openboard-params");
+    expect(html).toContain(".openboard-component-actions");
   });
 });

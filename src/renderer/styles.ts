@@ -708,4 +708,129 @@ body {
   font-size: 0.8125rem;
   min-height: 80px;
 }
+
+/* =========================================================================
+   Theme toggle (dev mode)
+   ========================================================================= */
+
+.openboard-theme-toggle {
+  background: var(--ob-surface);
+  border: 1px solid var(--ob-border);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--ob-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.openboard-theme-toggle:hover {
+  background: var(--ob-bg);
+  color: var(--ob-text);
+}
+
+.openboard-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* =========================================================================
+   Print styles
+   ========================================================================= */
+
+@media print {
+  /* Force light theme colors */
+  :root {
+    --ob-bg: #ffffff !important;
+    --ob-surface: #ffffff !important;
+    --ob-border: #d1d5db !important;
+    --ob-text: #111827 !important;
+    --ob-text-muted: #4b5563 !important;
+    --ob-primary: #3b82f6 !important;
+    --ob-shadow: none !important;
+    --ob-loading-overlay: transparent !important;
+  }
+
+  body {
+    background: #ffffff;
+    color: #111827;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .openboard-root {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  /* Hide interactive controls */
+  .openboard-params,
+  .openboard-component-actions,
+  .openboard-table-toolbar,
+  .openboard-table-pagination,
+  .openboard-table-footer,
+  .openboard-loading,
+  .openboard-spinner,
+  .openboard-theme-toggle,
+  .openboard-header-actions,
+  .openboard-page-btn,
+  .openboard-table-csv-btn {
+    display: none !important;
+  }
+
+  /* Remove component footer (query time) */
+  .openboard-component-footer {
+    display: none !important;
+  }
+
+  /* Remove box shadows and simplify borders */
+  .openboard-component {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db;
+    break-inside: avoid;
+  }
+
+  /* Show all hidden table rows (pagination) */
+  .openboard-table-row-hidden {
+    display: table-row !important;
+  }
+
+  /* Page breaks between grid rows */
+  .openboard-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Ensure charts render well */
+  .openboard-chart-container svg {
+    max-height: none;
+    width: 100%;
+    height: auto;
+  }
+
+  /* Simplify header for print */
+  .openboard-header {
+    margin-bottom: 0.75rem;
+  }
+
+  /* Hide links underlines */
+  a { text-decoration: none !important; }
+
+  /* Ensure table headers repeat on page breaks */
+  .openboard-data-table thead,
+  .openboard-data-table-full thead {
+    display: table-header-group;
+  }
+
+  .openboard-data-table-full thead {
+    position: static;
+  }
+}
 `;
