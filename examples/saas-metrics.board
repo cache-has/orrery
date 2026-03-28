@@ -1,0 +1,150 @@
+# SaaS Metrics Dashboard
+# Tracks MRR, churn, signups, and trial conversion for a B2B SaaS product
+# Connection: a PostgreSQL database with subscriptions, users, and events tables
+
+dashboard "SaaS Metrics" {
+  description: "Monthly recurring revenue, churn, and growth KPIs"
+  connection: "app_db"
+
+  param date_range = daterange(default: "last 90 days")
+  param plan = select(
+    options: ["All", "Starter", "Pro", "Enterprise"]
+    default: "All"
+  )
+
+  text (span: 12) {
+    > **SaaS Metrics Dashboard** -- Key subscription and growth indicators.
+    > Revenue figures are calculated from active subscriptions at month end.
+  }
+
+  # Top-level KPIs
+  row {
+    metric "MRR" (span: 3) {
+      query: """
+        SELECT SUM(monthly_amount) as value
+        FROM subscriptions
+        WHERE status = 'active'
+          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+      """
+      format: currency
+      prefix: "$"
+      trend_query: """
+        SELECT SUM(monthly_amount) as value
+        FROM subscriptions
+        WHERE status = 'active'
+          AND created_at < date_trunc('month', CURRENT_DATE)
+          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+      """
+      trend_label: "vs last month"
+    }
+
+    metric "Active Subscriptions" (span: 3) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM subscriptions
+        WHERE status = 'active'
+          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+      """
+      format: number
+    }
+
+    metric "Churn Rate" (span: 3) {
+      query: """
+        SELECT
+          ROUND(
+            COUNT(*) FILTER (WHERE canceled_at >= date_trunc('month', CURRENT_DATE))::numeric
+            / NULLIF(COUNT(*) FILTER (WHERE created_at < date_trunc('month', CURRENT_DATE)), 0)
+            * 100, 2
+          ) as value
+        FROM subscriptions
+        WHERE ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+      """
+      format: percent
+      suffix: "%"
+    }
+
+    metric "Trial Conversion" (span: 3) {
+      query: """
+        SELECT
+          ROUND(
+            COUNT(*) FILTER (WHERE status = 'active')::numeric
+            / NULLIF(COUNT(*), 0) * 100, 1
+          ) as value
+        FROM subscriptions
+        WHERE trial_started_at >= CURRENT_DATE - INTERVAL '30 days'
+          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+      """
+      format: percent
+      suffix: "%"
+    }
+  }
+
+  # MRR trend and signups
+  row {
+    chart "MRR Growth" (span: 6, type: area) {
+      query: """
+        SELECT
+          date_trunc('month', created_at) as month,
+          SUM(monthly_amount) as mrr
+        FROM subscriptions
+        WHERE status = 'active'
+          AND {{date_range}}
+          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+        GROUP BY 1
+        ORDER BY 1
+      """
+      x: month
+      y: mrr
+      color: "#10B981"
+    }
+
+    chart "New Signups per Week" (span: 6, type: bar) {
+      query: """
+        SELECT
+          date_trunc('week', created_at) as week,
+          COUNT(*) as signups
+        FROM users
+        WHERE {{date_range}}
+        GROUP BY 1
+        ORDER BY 1
+      """
+      x: week
+      y: signups
+      color: "#6366F1"
+    }
+  }
+
+  # Plan distribution
+  row {
+    chart "Revenue by Plan" (span: 6, type: bar) {
+      query: """
+        SELECT
+          plan_name,
+          SUM(monthly_amount) as revenue
+        FROM subscriptions
+        WHERE status = 'active'
+        GROUP BY 1
+        ORDER BY 2 DESC
+      """
+      x: plan_name
+      y: revenue
+    }
+
+    chart "Churned Subscriptions" (span: 6, type: line) {
+      query: """
+        SELECT
+          date_trunc('month', canceled_at) as month,
+          COUNT(*) as churned
+        FROM subscriptions
+        WHERE canceled_at IS NOT NULL
+          AND {{date_range}}
+          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+        GROUP BY 1
+        ORDER BY 1
+      """
+      x: month
+      y: churned
+      color: "#EF4444"
+    }
+  }
+}

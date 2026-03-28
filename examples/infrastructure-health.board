@@ -1,0 +1,145 @@
+# Infrastructure Health Dashboard
+# Monitors API performance, error rates, and system health
+# Connection: a ClickHouse or DuckDB analytics database with request logs
+
+dashboard "Infrastructure Health" {
+  description: "API latency, error rates, and system health metrics"
+  connection: "logs_db"
+  refresh: 60
+
+  param date_range = daterange(default: "last 24 hours")
+  param service = select(
+    query: "SELECT DISTINCT service_name FROM request_logs ORDER BY service_name"
+    default_first: true
+  )
+  param endpoint_search = text(placeholder: "Filter endpoints...")
+
+  # Health summary
+  row {
+    metric "Requests" (span: 3) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM request_logs
+        WHERE {{date_range}} AND service_name = '{{service}}'
+      """
+      format: number
+    }
+
+    metric "p50 Latency" (span: 3) {
+      query: """
+        SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_ms) as value
+        FROM request_logs
+        WHERE {{date_range}} AND service_name = '{{service}}'
+      """
+      format: number
+      suffix: "ms"
+    }
+
+    metric "p99 Latency" (span: 3) {
+      query: """
+        SELECT PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms) as value
+        FROM request_logs
+        WHERE {{date_range}} AND service_name = '{{service}}'
+      """
+      format: number
+      suffix: "ms"
+    }
+
+    metric "Error Rate" (span: 3) {
+      query: """
+        SELECT
+          ROUND(
+            COUNT(*) FILTER (WHERE status_code >= 500)::numeric
+            / NULLIF(COUNT(*), 0) * 100, 2
+          ) as value
+        FROM request_logs
+        WHERE {{date_range}} AND service_name = '{{service}}'
+      """
+      format: percent
+      suffix: "%"
+    }
+  }
+
+  # Latency and error trends
+  row {
+    chart "Latency Over Time" (span: 6, type: line) {
+      query: """
+        SELECT
+          date_trunc('hour', timestamp) as hour,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_ms) as p50,
+          PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms) as p95,
+          PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms) as p99
+        FROM request_logs
+        WHERE {{date_range}} AND service_name = '{{service}}'
+        GROUP BY 1
+        ORDER BY 1
+      """
+      x: hour
+      y: p50
+      color: "#3B82F6"
+    }
+
+    chart "Errors per Hour" (span: 6, type: bar) {
+      query: """
+        SELECT
+          date_trunc('hour', timestamp) as hour,
+          COUNT(*) FILTER (WHERE status_code >= 400 AND status_code < 500) as client_errors,
+          COUNT(*) FILTER (WHERE status_code >= 500) as server_errors
+        FROM request_logs
+        WHERE {{date_range}} AND service_name = '{{service}}'
+        GROUP BY 1
+        ORDER BY 1
+      """
+      x: hour
+      y: server_errors
+      series: status_type
+      color: "#EF4444"
+    }
+  }
+
+  # Status code breakdown and top endpoints
+  row {
+    chart "Status Code Distribution" (span: 4, type: donut) {
+      query: """
+        SELECT
+          CASE
+            WHEN status_code >= 200 AND status_code < 300 THEN '2xx'
+            WHEN status_code >= 300 AND status_code < 400 THEN '3xx'
+            WHEN status_code >= 400 AND status_code < 500 THEN '4xx'
+            WHEN status_code >= 500 THEN '5xx'
+          END as status_group,
+          COUNT(*) as count
+        FROM request_logs
+        WHERE {{date_range}} AND service_name = '{{service}}'
+        GROUP BY 1
+      """
+      x: status_group
+      y: count
+    }
+
+    table "Slowest Endpoints" (span: 8) {
+      query: """
+        SELECT
+          endpoint,
+          COUNT(*) as requests,
+          ROUND(AVG(duration_ms)) as avg_ms,
+          ROUND(PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms)) as p99_ms,
+          COUNT(*) FILTER (WHERE status_code >= 500) as errors
+        FROM request_logs
+        WHERE {{date_range}}
+          AND service_name = '{{service}}'
+          AND endpoint ILIKE '%' || '{{endpoint_search}}' || '%'
+        GROUP BY 1
+        ORDER BY 4 DESC
+        LIMIT 50
+      """
+      sortable: true
+      page_size: 10
+      columns {
+        avg_ms { format: number, label: "Avg (ms)" }
+        p99_ms { format: number, label: "p99 (ms)" }
+        errors { format: number }
+      }
+    }
+  }
+}
