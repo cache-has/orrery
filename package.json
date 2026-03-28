@@ -15,7 +15,8 @@
     }
   },
   "scripts": {
-    "dev": "tsx src/cli/dev.ts",
+    "dev": "tsx src/cli/dev.ts dev",
+    "dev:pagila": "tsx src/cli/dev.ts dev --project examples/pagila",
     "build": "tsup",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
