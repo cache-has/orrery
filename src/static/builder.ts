@@ -14,6 +14,7 @@
 import { resolve, dirname } from "path";
 import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { parse } from "../parser/parser.js";
+import { resolveIncludes } from "../parser/resolver.js";
 import type { DashboardNode, ParamNode } from "../parser/ast.js";
 import { resolveLayout } from "../renderer/layout.js";
 import { fetchDashboardData, type ComponentData } from "../renderer/data.js";
@@ -202,7 +203,7 @@ async function buildDashboard(
 
   // Parse
   const source = readFileSync(discovered.filePath, "utf-8");
-  const dashboard = parse(source, discovered.filePath);
+  const dashboard = resolveIncludes(parse(source, discovered.filePath), discovered.filePath);
   const layout = resolveLayout(dashboard);
 
   // Resolve default parameter values

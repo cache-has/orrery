@@ -1,0 +1,373 @@
+# Financial Portfolio Analytics Dashboard
+# Portfolio performance, asset allocation, risk metrics, and trade activity
+# Exercises: toggle visibility, trend queries, compact format, multiple toggles, y_format, sort
+# Connection: PostgreSQL with positions, trades, prices, benchmarks, and accounts tables
+
+dashboard "Portfolio Analytics" {
+  description: "Investment portfolio performance, risk analysis, and trade monitoring"
+  connection: "finance_db"
+  refresh: 300
+  palette: ["#10B981", "#EF4444", "#3B82F6", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6", "#64748B"]
+
+  param date_range = daterange(default: "last 90 days")
+  param account = select(
+    query: "SELECT DISTINCT account_name FROM accounts WHERE status = 'active' ORDER BY account_name"
+    default_first: true
+  )
+  param asset_class = select(
+    options: ["All", "Equities", "Fixed Income", "Commodities", "Real Estate", "Crypto", "Cash"]
+    default: "All"
+    multiple: true
+  )
+  param benchmark = select(
+    options: ["S&P 500", "MSCI World", "Bloomberg Agg", "60/40 Blend"]
+    default: "S&P 500"
+  )
+  param show_risk = toggle(default: false, label: "Show risk metrics")
+  param show_trades = toggle(default: true, label: "Show trade activity")
+
+  # Portfolio summary
+  row {
+    metric "Portfolio Value" (span: 3) {
+      query: """
+        SELECT SUM(p.quantity * pr.close_price) as value
+        FROM positions p
+        JOIN prices pr ON p.ticker = pr.ticker AND pr.price_date = (SELECT MAX(price_date) FROM prices)
+        JOIN accounts a ON p.account_id = a.account_id
+        WHERE a.account_name = {{account}}
+          AND ({{asset_class}} = 'All' OR p.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+      """
+      format: compact
+      prefix: "$"
+      trend_query: """
+        SELECT SUM(p.quantity * pr.close_price) as value
+        FROM positions p
+        JOIN prices pr ON p.ticker = pr.ticker AND pr.price_date = (SELECT MAX(price_date) FROM prices) - INTERVAL '30 days'
+        JOIN accounts a ON p.account_id = a.account_id
+        WHERE a.account_name = {{account}}
+          AND ({{asset_class}} = 'All' OR p.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+      """
+      trend_label: "vs 30 days ago"
+    }
+
+    metric "Total Return" (span: 3) {
+      query: """
+        SELECT ROUND(
+          (SUM(p.quantity * pr_now.close_price) - SUM(p.quantity * pr_start.close_price))::numeric
+          / NULLIF(SUM(p.quantity * pr_start.close_price), 0) * 100, 2
+        ) as value
+        FROM positions p
+        JOIN prices pr_now ON p.ticker = pr_now.ticker AND pr_now.price_date = (SELECT MAX(price_date) FROM prices)
+        JOIN prices pr_start ON p.ticker = pr_start.ticker AND pr_start.price_date = {{date_range.start}}::date
+        JOIN accounts a ON p.account_id = a.account_id
+        WHERE a.account_name = {{account}}
+          AND ({{asset_class}} = 'All' OR p.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+      """
+      format: number
+      suffix: "%"
+    }
+
+    metric "Unrealized P&L" (span: 3) {
+      query: """
+        SELECT SUM(p.quantity * (pr.close_price - p.avg_cost_basis)) as value
+        FROM positions p
+        JOIN prices pr ON p.ticker = pr.ticker AND pr.price_date = (SELECT MAX(price_date) FROM prices)
+        JOIN accounts a ON p.account_id = a.account_id
+        WHERE a.account_name = {{account}}
+          AND ({{asset_class}} = 'All' OR p.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+      """
+      format: currency
+      prefix: "$"
+    }
+
+    metric "Positions" (span: 3) {
+      query: """
+        SELECT COUNT(DISTINCT p.ticker) as value
+        FROM positions p
+        JOIN accounts a ON p.account_id = a.account_id
+        WHERE a.account_name = {{account}}
+          AND p.quantity > 0
+          AND ({{asset_class}} = 'All' OR p.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+      """
+      format: number
+    }
+  }
+
+  # Performance chart vs benchmark
+  row {
+    chart "Portfolio vs Benchmark" (span: 8, type: line) {
+      query: """
+        WITH portfolio_daily AS (
+          SELECT
+            pr.price_date as date,
+            SUM(p.quantity * pr.close_price) as portfolio_value
+          FROM positions p
+          JOIN prices pr ON p.ticker = pr.ticker
+          JOIN accounts a ON p.account_id = a.account_id
+          WHERE a.account_name = {{account}}
+            AND pr.price_date >= {{date_range.start}}::date AND pr.price_date <= {{date_range.end}}::date
+            AND ({{asset_class}} = 'All' OR p.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+          GROUP BY pr.price_date
+        ),
+        base AS (
+          SELECT portfolio_value as base_value FROM portfolio_daily ORDER BY date LIMIT 1
+        )
+        SELECT
+          pd.date,
+          'Portfolio' as series,
+          ROUND(((pd.portfolio_value / b.base_value - 1) * 100)::numeric, 2) as return_pct
+        FROM portfolio_daily pd, base b
+        UNION ALL
+        SELECT
+          bm.price_date as date,
+          {{benchmark}} as series,
+          ROUND(((bm.close_price / FIRST_VALUE(bm.close_price) OVER (ORDER BY bm.price_date) - 1) * 100)::numeric, 2)
+        FROM benchmarks bm
+        WHERE bm.benchmark_name = {{benchmark}} AND bm.price_date >= {{date_range.start}}::date AND bm.price_date <= {{date_range.end}}::date
+        ORDER BY date
+      """
+      x: date
+      y: return_pct
+      series: series
+      y_format: percent
+    }
+
+    chart "Asset Allocation" (span: 4, type: donut) {
+      query: """
+        SELECT
+          p.asset_class,
+          SUM(p.quantity * pr.close_price) as market_value
+        FROM positions p
+        JOIN prices pr ON p.ticker = pr.ticker AND pr.price_date = (SELECT MAX(price_date) FROM prices)
+        JOIN accounts a ON p.account_id = a.account_id
+        WHERE a.account_name = {{account}} AND p.quantity > 0
+        GROUP BY p.asset_class
+        ORDER BY market_value DESC
+      """
+      x: asset_class
+      y: market_value
+    }
+  }
+
+  # Risk metrics — toggled
+  row {
+    metric "Sharpe Ratio" (span: 3, visible: show_risk == true) {
+      query: """
+        SELECT ROUND(
+          ((AVG(daily_return) - 0.0002) / NULLIF(STDDEV(daily_return), 0) * SQRT(252))::numeric, 2
+        ) as value
+        FROM (
+          SELECT
+            pr.price_date,
+            (SUM(p.quantity * pr.close_price) / LAG(SUM(p.quantity * pr.close_price)) OVER (ORDER BY pr.price_date) - 1) as daily_return
+          FROM positions p
+          JOIN prices pr ON p.ticker = pr.ticker
+          JOIN accounts a ON p.account_id = a.account_id
+          WHERE a.account_name = {{account}} AND pr.price_date >= {{date_range.start}}::date AND pr.price_date <= {{date_range.end}}::date
+          GROUP BY pr.price_date
+        ) sub
+      """
+      format: number
+    }
+
+    metric "Max Drawdown" (span: 3, visible: show_risk == true) {
+      query: """
+        WITH daily_values AS (
+          SELECT
+            pr.price_date,
+            SUM(p.quantity * pr.close_price) as portfolio_value
+          FROM positions p
+          JOIN prices pr ON p.ticker = pr.ticker
+          JOIN accounts a ON p.account_id = a.account_id
+          WHERE a.account_name = {{account}} AND pr.price_date >= {{date_range.start}}::date AND pr.price_date <= {{date_range.end}}::date
+          GROUP BY pr.price_date
+        ),
+        running AS (
+          SELECT
+            price_date,
+            portfolio_value,
+            MAX(portfolio_value) OVER (ORDER BY price_date) as running_max
+          FROM daily_values
+        )
+        SELECT ROUND(MIN((portfolio_value - running_max) / running_max * 100)::numeric, 2) as value
+        FROM running
+      """
+      format: number
+      suffix: "%"
+    }
+
+    metric "Beta" (span: 3, visible: show_risk == true) {
+      query: """
+        WITH port_returns AS (
+          SELECT pr.price_date, (SUM(p.quantity * pr.close_price) / LAG(SUM(p.quantity * pr.close_price)) OVER (ORDER BY pr.price_date) - 1) as ret
+          FROM positions p JOIN prices pr ON p.ticker = pr.ticker JOIN accounts a ON p.account_id = a.account_id
+          WHERE a.account_name = {{account}} AND pr.price_date >= {{date_range.start}}::date AND pr.price_date <= {{date_range.end}}::date
+          GROUP BY pr.price_date
+        ),
+        bench_returns AS (
+          SELECT price_date, (close_price / LAG(close_price) OVER (ORDER BY price_date) - 1) as ret
+          FROM benchmarks WHERE benchmark_name = {{benchmark}} AND price_date >= {{date_range.start}}::date AND price_date <= {{date_range.end}}::date
+        )
+        SELECT ROUND(
+          (COVAR_POP(p.ret, b.ret) / NULLIF(VAR_POP(b.ret), 0))::numeric, 2
+        ) as value
+        FROM port_returns p JOIN bench_returns b ON p.price_date = b.price_date
+      """
+      format: number
+    }
+
+    metric "Volatility (Ann.)" (span: 3, visible: show_risk == true) {
+      query: """
+        SELECT ROUND(
+          (STDDEV(daily_return) * SQRT(252) * 100)::numeric, 2
+        ) as value
+        FROM (
+          SELECT (SUM(p.quantity * pr.close_price) / LAG(SUM(p.quantity * pr.close_price)) OVER (ORDER BY pr.price_date) - 1) as daily_return
+          FROM positions p JOIN prices pr ON p.ticker = pr.ticker JOIN accounts a ON p.account_id = a.account_id
+          WHERE a.account_name = {{account}} AND pr.price_date >= {{date_range.start}}::date AND pr.price_date <= {{date_range.end}}::date
+          GROUP BY pr.price_date
+        ) sub
+      """
+      format: number
+      suffix: "%"
+    }
+  }
+
+  # Top / bottom holdings
+  row {
+    chart "Top 10 Holdings" (span: 6, type: bar) {
+      query: """
+        SELECT
+          p.ticker,
+          SUM(p.quantity * pr.close_price) as market_value
+        FROM positions p
+        JOIN prices pr ON p.ticker = pr.ticker AND pr.price_date = (SELECT MAX(price_date) FROM prices)
+        JOIN accounts a ON p.account_id = a.account_id
+        WHERE a.account_name = {{account}} AND p.quantity > 0
+          AND ({{asset_class}} = 'All' OR p.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+        GROUP BY p.ticker
+        ORDER BY market_value DESC
+        LIMIT 10
+      """
+      x: ticker
+      y: market_value
+      sort: desc
+      orientation: horizontal
+      y_format: compact
+    }
+
+    chart "Sector Exposure" (span: 6, type: bar) {
+      query: """
+        SELECT
+          p.sector,
+          SUM(p.quantity * pr.close_price) as exposure
+        FROM positions p
+        JOIN prices pr ON p.ticker = pr.ticker AND pr.price_date = (SELECT MAX(price_date) FROM prices)
+        JOIN accounts a ON p.account_id = a.account_id
+        WHERE a.account_name = {{account}} AND p.quantity > 0
+          AND p.asset_class = 'Equities'
+        GROUP BY p.sector
+        ORDER BY exposure DESC
+      """
+      x: sector
+      y: exposure
+      sort: desc
+      y_format: compact
+      color: "#3B82F6"
+    }
+  }
+
+  # Trade activity — toggled
+  row {
+    chart "Trade Volume" (span: 5, type: bar, visible: show_trades == true) {
+      query: """
+        SELECT
+          t.trade_date as date,
+          t.side as series,
+          COUNT(*) as trades
+        FROM trades t
+        JOIN accounts a ON t.account_id = a.account_id
+        WHERE a.account_name = {{account}} AND t.trade_date >= {{date_range.start}}::date AND t.trade_date <= {{date_range.end}}::date
+        GROUP BY t.trade_date, t.side
+        ORDER BY t.trade_date
+      """
+      x: date
+      y: trades
+      series: series
+    }
+
+    table "Recent Trades" (span: 7, visible: show_trades == true) {
+      query: """
+        SELECT
+          t.trade_date,
+          t.ticker,
+          t.side,
+          t.quantity,
+          t.price,
+          t.quantity * t.price as notional,
+          t.asset_class,
+          t.status
+        FROM trades t
+        JOIN accounts a ON t.account_id = a.account_id
+        WHERE a.account_name = {{account}} AND t.trade_date >= {{date_range.start}}::date AND t.trade_date <= {{date_range.end}}::date
+          AND ({{asset_class}} = 'All' OR t.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+        ORDER BY t.trade_date DESC, t.created_at DESC
+        LIMIT 100
+      """
+      sortable: true
+      filterable: true
+      page_size: 15
+      columns {
+        trade_date { format: date, label: "Date" }
+        price { format: currency, prefix: "$" }
+        notional { format: currency, prefix: "$", label: "Notional" }
+        side { format: badge }
+        status { format: badge }
+      }
+    }
+  }
+
+  # Holdings detail table
+  row {
+    table "All Holdings" (span: 12) {
+      query: """
+        SELECT
+          p.ticker,
+          p.name as security,
+          p.asset_class,
+          p.sector,
+          p.quantity as shares,
+          pr.close_price as price,
+          p.quantity * pr.close_price as market_value,
+          p.avg_cost_basis as cost_basis,
+          ROUND(((pr.close_price / p.avg_cost_basis - 1) * 100)::numeric, 2) as gain_loss_pct,
+          p.quantity * (pr.close_price - p.avg_cost_basis) as unrealized_pnl,
+          ROUND((p.quantity * pr.close_price / total.total_value * 100)::numeric, 2) as weight_pct
+        FROM positions p
+        JOIN prices pr ON p.ticker = pr.ticker AND pr.price_date = (SELECT MAX(price_date) FROM prices)
+        JOIN accounts a ON p.account_id = a.account_id
+        CROSS JOIN (
+          SELECT SUM(pos.quantity * pri.close_price) as total_value
+          FROM positions pos JOIN prices pri ON pos.ticker = pri.ticker AND pri.price_date = (SELECT MAX(price_date) FROM prices)
+          JOIN accounts acc ON pos.account_id = acc.account_id
+          WHERE acc.account_name = {{account}}
+        ) total
+        WHERE a.account_name = {{account}}
+          AND p.quantity > 0
+          AND ({{asset_class}} = 'All' OR p.asset_class = ANY(string_to_array({{asset_class}}, ',')))
+        ORDER BY market_value DESC
+      """
+      sortable: true
+      filterable: true
+      page_size: 25
+      columns {
+        price { format: currency, prefix: "$" }
+        market_value { format: currency, prefix: "$", label: "Mkt Value" }
+        cost_basis { format: currency, prefix: "$", label: "Cost Basis" }
+        gain_loss_pct { format: number, suffix: "%", label: "G/L %" }
+        unrealized_pnl { format: currency, prefix: "$", label: "Unrealized P&L" }
+        weight_pct { format: number, suffix: "%", label: "Weight", align: "right" }
+      }
+    }
+  }
+}

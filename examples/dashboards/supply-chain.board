@@ -1,0 +1,314 @@
+# Supply Chain & Logistics Dashboard
+# Tracks inventory, shipments, fulfillment, and supplier performance
+# Exercises: file() references, number params, custom palette, sort, horizontal bars, y_format
+# Connection: PostgreSQL with orders, shipments, inventory, warehouses, carriers, suppliers tables
+
+dashboard "Supply Chain Operations" {
+  description: "End-to-end supply chain visibility — inventory, fulfillment, and logistics"
+  connection: "ops_db"
+  refresh: 120
+  palette: ["#0EA5E9", "#F97316", "#22C55E", "#A855F7", "#EF4444", "#EAB308", "#06B6D4", "#F43F5E"]
+
+  param date_range = daterange(default: "last 7 days")
+  param warehouse = select(
+    query: "SELECT DISTINCT name FROM warehouses ORDER BY name"
+    default_first: true
+  )
+  param category = select(
+    options: ["All", "Electronics", "Apparel", "Food & Beverage", "Industrial", "Pharmaceuticals"]
+    default: "All"
+  )
+  param min_units = number(default: 10, min: 0, max: 10000)
+  param show_suppliers = toggle(default: false, label: "Show supplier metrics")
+
+  text (span: 12) {
+    > **Supply Chain Command Center** -- Real-time inventory and logistics monitoring.
+    > Warehouse: **{{warehouse}}** | Category: **{{category}}** | Period: {{date_range}}
+  }
+
+  # Fulfillment KPIs
+  row {
+    metric "Orders Today" (span: 2) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM orders
+        WHERE order_date = CURRENT_DATE
+          AND ({{warehouse}} = 'All' OR fulfillment_warehouse = {{warehouse}})
+      """
+      format: number
+      trend_query: """
+        SELECT COUNT(*) as value
+        FROM orders
+        WHERE order_date = CURRENT_DATE - INTERVAL '1 day'
+          AND ({{warehouse}} = 'All' OR fulfillment_warehouse = {{warehouse}})
+      """
+      trend_label: "vs yesterday"
+    }
+
+    metric "Fulfillment Rate" (span: 2) {
+      query: """
+        SELECT ROUND(
+          COUNT(*) FILTER (WHERE shipped_at IS NOT NULL)::numeric
+          / NULLIF(COUNT(*), 0) * 100, 1
+        ) as value
+        FROM orders
+        WHERE order_date >= {{date_range.start}}::date AND order_date <= {{date_range.end}}::date
+          AND ({{warehouse}} = 'All' OR fulfillment_warehouse = {{warehouse}})
+      """
+      format: number
+      suffix: "%"
+    }
+
+    metric "Avg Ship Time" (span: 2) {
+      query: """
+        SELECT ROUND(AVG(EXTRACT(EPOCH FROM (shipped_at - order_date)) / 3600)::numeric, 1) as value
+        FROM orders
+        WHERE shipped_at IS NOT NULL
+          AND order_date >= {{date_range.start}}::date AND order_date <= {{date_range.end}}::date
+          AND ({{warehouse}} = 'All' OR fulfillment_warehouse = {{warehouse}})
+      """
+      format: number
+      suffix: " hrs"
+    }
+
+    metric "On-Time Delivery" (span: 2) {
+      query: """
+        SELECT ROUND(
+          COUNT(*) FILTER (WHERE s.delivered_at <= s.estimated_delivery)::numeric
+          / NULLIF(COUNT(*) FILTER (WHERE s.delivered_at IS NOT NULL), 0) * 100, 1
+        ) as value
+        FROM shipments s
+        WHERE s.shipped_at >= {{date_range.start}} AND s.shipped_at <= {{date_range.end}}
+          AND ({{warehouse}} = 'All' OR s.origin_warehouse = {{warehouse}})
+      """
+      format: number
+      suffix: "%"
+    }
+
+    metric "Backorders" (span: 2) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM orders
+        WHERE status = 'backordered'
+          AND ({{warehouse}} = 'All' OR fulfillment_warehouse = {{warehouse}})
+      """
+      format: number
+    }
+
+    metric "Inventory Value" (span: 2) {
+      query: """
+        SELECT SUM(i.quantity_on_hand * p.unit_cost) as value
+        FROM inventory i
+        JOIN products p ON i.sku = p.sku
+        JOIN warehouses w ON i.warehouse_id = w.warehouse_id
+        WHERE ({{warehouse}} = 'All' OR w.name = {{warehouse}})
+          AND ({{category}} = 'All' OR p.category = {{category}})
+      """
+      format: compact
+      prefix: "$"
+    }
+  }
+
+  # Order and shipment trends
+  row {
+    chart "Daily Order Volume" (span: 6, type: bar) {
+      query: """
+        SELECT
+          o.order_date as date,
+          o.status as series,
+          COUNT(*) as orders
+        FROM orders o
+        WHERE o.order_date >= {{date_range.start}}::date AND o.order_date <= {{date_range.end}}::date
+          AND ({{warehouse}} = 'All' OR o.fulfillment_warehouse = {{warehouse}})
+        GROUP BY o.order_date, o.status
+        ORDER BY o.order_date
+      """
+      x: date
+      y: orders
+      series: series
+    }
+
+    chart "Shipments by Carrier" (span: 6, type: line) {
+      query: """
+        SELECT
+          s.shipped_at::date as date,
+          c.name as series,
+          COUNT(*) as shipments
+        FROM shipments s
+        JOIN carriers c ON s.carrier_id = c.carrier_id
+        WHERE s.shipped_at >= {{date_range.start}} AND s.shipped_at <= {{date_range.end}}
+          AND ({{warehouse}} = 'All' OR s.origin_warehouse = {{warehouse}})
+        GROUP BY 1, 2
+        ORDER BY 1
+      """
+      x: date
+      y: shipments
+      series: series
+    }
+  }
+
+  # Inventory analysis — uses file() for complex queries
+  row {
+    table "Warehouse Inventory Summary" (span: 12) {
+      query: file("../queries/warehouse-inventory.sql")
+      sortable: true
+      page_size: 10
+      columns {
+        inventory_value { format: currency, prefix: "$", label: "Value" }
+        avg_days_stale { format: number, label: "Avg Days Stale" }
+        items_below_reorder { format: number, label: "Below Reorder", align: "right" }
+      }
+    }
+  }
+
+  row {
+    chart "Inventory by Category" (span: 4, type: donut) {
+      query: """
+        SELECT
+          p.category,
+          SUM(i.quantity_on_hand * p.unit_cost) as value
+        FROM inventory i
+        JOIN products p ON i.sku = p.sku
+        JOIN warehouses w ON i.warehouse_id = w.warehouse_id
+        WHERE ({{warehouse}} = 'All' OR w.name = {{warehouse}})
+        GROUP BY p.category
+        ORDER BY value DESC
+      """
+      x: category
+      y: value
+    }
+
+    chart "Stock Levels vs Reorder Points" (span: 8, type: bar) {
+      query: """
+        SELECT
+          p.category,
+          'On Hand' as series,
+          SUM(i.quantity_on_hand) as quantity
+        FROM inventory i
+        JOIN products p ON i.sku = p.sku
+        JOIN warehouses w ON i.warehouse_id = w.warehouse_id
+        WHERE ({{warehouse}} = 'All' OR w.name = {{warehouse}})
+          AND ({{category}} = 'All' OR p.category = {{category}})
+        GROUP BY p.category
+        UNION ALL
+        SELECT
+          p.category,
+          'Reorder Point' as series,
+          SUM(i.reorder_point) as quantity
+        FROM inventory i
+        JOIN products p ON i.sku = p.sku
+        JOIN warehouses w ON i.warehouse_id = w.warehouse_id
+        WHERE ({{warehouse}} = 'All' OR w.name = {{warehouse}})
+          AND ({{category}} = 'All' OR p.category = {{category}})
+        GROUP BY p.category
+        ORDER BY category
+      """
+      x: category
+      y: quantity
+      series: series
+      y_format: compact
+    }
+  }
+
+  # Top movers — uses file() reference
+  row {
+    table "Top Products by Velocity" (span: 12) {
+      query: file("../queries/top-products-by-velocity.sql")
+      sortable: true
+      filterable: true
+      page_size: 15
+      columns {
+        daily_velocity { format: number, label: "Units/Day" }
+        current_stock { format: number, label: "Stock" }
+        days_of_supply { format: number, label: "Days of Supply", align: "right" }
+      }
+    }
+  }
+
+  # Carrier performance — uses file() reference
+  row {
+    table "Carrier Performance" (span: 7) {
+      query: file("../queries/shipment-performance.sql")
+      sortable: true
+      columns {
+        avg_transit_hours { format: number, label: "Avg Transit (hrs)" }
+        on_time_pct { format: number, suffix: "%", label: "On-Time %" }
+        avg_cost { format: currency, prefix: "$", label: "Avg Cost" }
+      }
+    }
+
+    chart "Carrier On-Time Rate" (span: 5, type: bar) {
+      query: """
+        SELECT
+          c.name as carrier,
+          ROUND(
+            COUNT(*) FILTER (WHERE s.delivered_at <= s.estimated_delivery)::numeric
+            / NULLIF(COUNT(*) FILTER (WHERE s.delivered_at IS NOT NULL), 0) * 100, 1
+          ) as on_time_pct
+        FROM shipments s
+        JOIN carriers c ON s.carrier_id = c.carrier_id
+        WHERE s.shipped_at >= {{date_range.start}} AND s.shipped_at <= {{date_range.end}}
+          AND ({{warehouse}} = 'All' OR s.origin_warehouse = {{warehouse}})
+        GROUP BY c.name
+        ORDER BY on_time_pct DESC
+      """
+      x: carrier
+      y: on_time_pct
+      orientation: horizontal
+      sort: desc
+      y_format: percent
+      color: "#22C55E"
+    }
+  }
+
+  # Supplier metrics — toggleable
+  row {
+    chart "Lead Time by Supplier" (span: 6, type: bar, visible: show_suppliers == true) {
+      query: """
+        SELECT
+          s.name as supplier,
+          ROUND(AVG(po.actual_lead_days)::numeric, 1) as avg_lead_days,
+          ROUND(AVG(po.quoted_lead_days)::numeric, 1) as quoted_lead_days
+        FROM purchase_orders po
+        JOIN suppliers s ON po.supplier_id = s.supplier_id
+        WHERE po.created_at >= {{date_range.start}} AND po.created_at <= {{date_range.end}}
+        GROUP BY s.name
+        ORDER BY avg_lead_days DESC
+      """
+      x: supplier
+      y: avg_lead_days
+      orientation: horizontal
+      sort: desc
+    }
+
+    table "Supplier Scorecard" (span: 6, visible: show_suppliers == true) {
+      query: """
+        SELECT
+          s.name as supplier,
+          COUNT(*) as orders,
+          ROUND(AVG(po.actual_lead_days)::numeric, 1) as avg_lead_days,
+          ROUND(
+            COUNT(*) FILTER (WHERE po.actual_lead_days <= po.quoted_lead_days)::numeric
+            / NULLIF(COUNT(*), 0) * 100, 1
+          ) as on_time_pct,
+          ROUND(
+            COUNT(*) FILTER (WHERE po.quality_status = 'rejected')::numeric
+            / NULLIF(COUNT(*), 0) * 100, 2
+          ) as defect_rate_pct,
+          ROUND(SUM(po.total_cost)::numeric, 2) as total_spend
+        FROM purchase_orders po
+        JOIN suppliers s ON po.supplier_id = s.supplier_id
+        WHERE po.created_at >= {{date_range.start}} AND po.created_at <= {{date_range.end}}
+        GROUP BY s.name
+        ORDER BY total_spend DESC
+      """
+      sortable: true
+      page_size: 10
+      columns {
+        on_time_pct { format: number, suffix: "%", label: "On-Time %" }
+        defect_rate_pct { format: number, suffix: "%", label: "Defect %" }
+        total_spend { format: currency, prefix: "$", label: "Spend" }
+      }
+    }
+  }
+}

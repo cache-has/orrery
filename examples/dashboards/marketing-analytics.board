@@ -1,0 +1,311 @@
+# Marketing & Advertising Analytics Dashboard
+# Tracks campaign performance across channels — spend, conversions, ROI
+# Exercises: toggle, visible, multiple select, horizontal bar, y_format, palette, trend queries
+# Connection: PostgreSQL with campaigns, ad_spend, conversions, and attribution tables
+
+dashboard "Marketing Analytics" {
+  description: "Campaign performance, ad spend efficiency, and conversion funnels"
+  connection: "marketing_db"
+  refresh: 600
+  palette: ["#7C3AED", "#2563EB", "#059669", "#D97706", "#DC2626", "#EC4899", "#8B5CF6", "#14B8A6"]
+
+  param date_range = daterange(default: "last 30 days")
+  param channel = select(
+    options: ["All", "Google Ads", "Meta Ads", "LinkedIn", "TikTok", "Email", "Organic Search", "Direct"]
+    default: "All"
+    multiple: true
+  )
+  param campaign_type = select(
+    options: ["All", "Brand", "Performance", "Retargeting", "Awareness"]
+    default: "All"
+  )
+  param show_costs = toggle(default: true, label: "Show cost metrics")
+  param show_attribution = toggle(default: false, label: "Show attribution detail")
+  param min_spend = number(default: 100, min: 0, max: 1000000)
+
+  text (span: 12) {
+    > **Marketing Performance** -- Cross-channel campaign metrics with attribution modeling.
+    > Toggle cost visibility for executive view. Enable attribution detail for deep-dive analysis.
+  }
+
+  # Top-level KPIs
+  row {
+    metric "Total Spend" (span: 2, visible: show_costs == true) {
+      query: """
+        SELECT ROUND(SUM(spend)::numeric, 2) as value
+        FROM ad_spend
+        WHERE date >= {{date_range.start}}::date AND date <= {{date_range.end}}::date
+          AND ({{channel}} = 'All' OR channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR campaign_type = {{campaign_type}})
+      """
+      format: currency
+      prefix: "$"
+      trend_query: """
+        SELECT ROUND(SUM(spend)::numeric, 2) as value
+        FROM ad_spend
+        WHERE date >= {{date_range.start}}::date - ({{date_range.end}}::date - {{date_range.start}}::date) AND date < {{date_range.start}}::date
+          AND ({{channel}} = 'All' OR channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR campaign_type = {{campaign_type}})
+      """
+      trend_label: "vs previous period"
+    }
+
+    metric "Impressions" (span: 2) {
+      query: """
+        SELECT SUM(impressions) as value
+        FROM ad_spend
+        WHERE date >= {{date_range.start}}::date AND date <= {{date_range.end}}::date
+          AND ({{channel}} = 'All' OR channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR campaign_type = {{campaign_type}})
+      """
+      format: compact
+    }
+
+    metric "Clicks" (span: 2) {
+      query: """
+        SELECT SUM(clicks) as value
+        FROM ad_spend
+        WHERE date >= {{date_range.start}}::date AND date <= {{date_range.end}}::date
+          AND ({{channel}} = 'All' OR channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR campaign_type = {{campaign_type}})
+      """
+      format: compact
+    }
+
+    metric "Conversions" (span: 2) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM conversions cv
+        JOIN campaigns c ON cv.campaign_id = c.campaign_id
+        WHERE cv.converted_at >= {{date_range.start}} AND cv.converted_at <= {{date_range.end}}
+          AND ({{channel}} = 'All' OR c.channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR c.campaign_type = {{campaign_type}})
+      """
+      format: compact
+      trend_query: """
+        SELECT COUNT(*) as value
+        FROM conversions cv
+        JOIN campaigns c ON cv.campaign_id = c.campaign_id
+        WHERE cv.converted_at >= {{date_range.start}}::timestamp - ({{date_range.end}}::timestamp - {{date_range.start}}::timestamp) AND cv.converted_at < {{date_range.start}}::timestamp
+          AND ({{channel}} = 'All' OR c.channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR c.campaign_type = {{campaign_type}})
+      """
+      trend_label: "vs previous period"
+    }
+
+    metric "CPA" (span: 2, visible: show_costs == true) {
+      query: """
+        SELECT ROUND(
+          SUM(a.spend)::numeric / NULLIF(COUNT(DISTINCT cv.conversion_id), 0), 2
+        ) as value
+        FROM ad_spend a
+        JOIN campaigns c ON a.campaign_id = c.campaign_id
+        LEFT JOIN conversions cv ON c.campaign_id = cv.campaign_id AND cv.converted_at::date = a.date
+        WHERE a.date >= {{date_range.start}}::date AND a.date <= {{date_range.end}}::date
+          AND ({{channel}} = 'All' OR c.channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR c.campaign_type = {{campaign_type}})
+      """
+      format: currency
+      prefix: "$"
+    }
+
+    metric "ROAS" (span: 2, visible: show_costs == true) {
+      query: """
+        SELECT ROUND(
+          SUM(cv.revenue)::numeric / NULLIF(SUM(a.spend), 0), 2
+        ) as value
+        FROM ad_spend a
+        JOIN campaigns c ON a.campaign_id = c.campaign_id
+        LEFT JOIN conversions cv ON c.campaign_id = cv.campaign_id AND cv.converted_at::date = a.date
+        WHERE a.date >= {{date_range.start}}::date AND a.date <= {{date_range.end}}::date
+          AND ({{channel}} = 'All' OR c.channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR c.campaign_type = {{campaign_type}})
+      """
+      format: number
+      suffix: "x"
+    }
+  }
+
+  # Spend and conversion trends
+  row {
+    chart "Daily Spend by Channel" (span: 6, type: area, visible: show_costs == true) {
+      query: """
+        SELECT
+          a.date,
+          c.channel as series,
+          SUM(a.spend) as spend
+        FROM ad_spend a
+        JOIN campaigns c ON a.campaign_id = c.campaign_id
+        WHERE a.date >= {{date_range.start}}::date AND a.date <= {{date_range.end}}::date
+          AND ({{channel}} = 'All' OR c.channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR c.campaign_type = {{campaign_type}})
+        GROUP BY a.date, c.channel
+        ORDER BY a.date
+      """
+      x: date
+      y: spend
+      series: series
+      y_format: currency
+    }
+
+    chart "Daily Conversions" (span: 6, type: line) {
+      query: """
+        SELECT
+          cv.converted_at::date as date,
+          c.channel as series,
+          COUNT(*) as conversions
+        FROM conversions cv
+        JOIN campaigns c ON cv.campaign_id = c.campaign_id
+        WHERE cv.converted_at >= {{date_range.start}} AND cv.converted_at <= {{date_range.end}}
+          AND ({{channel}} = 'All' OR c.channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR c.campaign_type = {{campaign_type}})
+        GROUP BY 1, 2
+        ORDER BY 1
+      """
+      x: date
+      y: conversions
+      series: series
+    }
+  }
+
+  # Channel performance comparison
+  row {
+    chart "Spend by Channel" (span: 6, type: bar, visible: show_costs == true) {
+      query: """
+        SELECT
+          c.channel,
+          SUM(a.spend) as spend
+        FROM ad_spend a
+        JOIN campaigns c ON a.campaign_id = c.campaign_id
+        WHERE a.date >= {{date_range.start}}::date AND a.date <= {{date_range.end}}::date
+          AND ({{channel}} = 'All' OR c.channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR c.campaign_type = {{campaign_type}})
+          AND a.spend >= {{min_spend}}
+        GROUP BY c.channel
+        ORDER BY spend DESC
+      """
+      x: channel
+      y: spend
+      orientation: horizontal
+      y_format: currency
+      sort: desc
+    }
+
+    chart "Conversion Funnel" (span: 6, type: bar) {
+      query: """
+        SELECT stage, count
+        FROM (
+          SELECT 'Impressions' as stage, SUM(impressions) as count, 1 as sort_order FROM ad_spend WHERE date >= {{date_range.start}}::date AND date <= {{date_range.end}}::date
+          UNION ALL
+          SELECT 'Clicks', SUM(clicks), 2 FROM ad_spend WHERE date >= {{date_range.start}}::date AND date <= {{date_range.end}}::date
+          UNION ALL
+          SELECT 'Leads', COUNT(*), 3 FROM conversions WHERE event_type = 'lead' AND converted_at >= {{date_range.start}} AND converted_at <= {{date_range.end}}
+          UNION ALL
+          SELECT 'Conversions', COUNT(*), 4 FROM conversions WHERE event_type = 'purchase' AND converted_at >= {{date_range.start}} AND converted_at <= {{date_range.end}}
+        ) funnel
+        ORDER BY sort_order
+      """
+      x: stage
+      y: count
+      y_format: compact
+      color: "#7C3AED"
+    }
+  }
+
+  # Attribution detail — only visible when toggled
+  row {
+    chart "First-Touch vs Last-Touch Attribution" (span: 6, type: bar, visible: show_attribution == true) {
+      query: """
+        SELECT
+          c.channel,
+          'First Touch' as series,
+          COUNT(*) as conversions
+        FROM attribution_events ae
+        JOIN campaigns c ON ae.first_touch_campaign_id = c.campaign_id
+        WHERE ae.first_touch_at >= {{date_range.start}} AND ae.first_touch_at <= {{date_range.end}} AND ae.event_type = 'purchase'
+        GROUP BY c.channel
+        UNION ALL
+        SELECT
+          c.channel,
+          'Last Touch' as series,
+          COUNT(*) as conversions
+        FROM attribution_events ae
+        JOIN campaigns c ON ae.last_touch_campaign_id = c.campaign_id
+        WHERE ae.first_touch_at >= {{date_range.start}} AND ae.first_touch_at <= {{date_range.end}} AND ae.event_type = 'purchase'
+        GROUP BY c.channel
+        ORDER BY channel
+      """
+      x: channel
+      y: conversions
+      series: series
+    }
+
+    chart "Time to Conversion" (span: 6, type: bar, visible: show_attribution == true) {
+      query: """
+        SELECT
+          CASE
+            WHEN hours_to_convert < 1 THEN '< 1 hour'
+            WHEN hours_to_convert < 24 THEN '1-24 hours'
+            WHEN hours_to_convert < 72 THEN '1-3 days'
+            WHEN hours_to_convert < 168 THEN '3-7 days'
+            WHEN hours_to_convert < 720 THEN '1-4 weeks'
+            ELSE '4+ weeks'
+          END as time_bucket,
+          COUNT(*) as conversions
+        FROM (
+          SELECT
+            EXTRACT(EPOCH FROM (cv.converted_at - ae.first_touch_at)) / 3600 as hours_to_convert
+          FROM conversions cv
+          JOIN attribution_events ae ON cv.conversion_id = ae.conversion_id
+          WHERE cv.converted_at >= {{date_range.start}} AND cv.converted_at <= {{date_range.end}}
+        ) sub
+        GROUP BY time_bucket
+        ORDER BY MIN(hours_to_convert)
+      """
+      x: time_bucket
+      y: conversions
+      color: "#2563EB"
+    }
+  }
+
+  # Campaign detail table
+  row {
+    table "Campaign Performance" (span: 12) {
+      query: """
+        SELECT
+          c.name as campaign,
+          c.channel,
+          c.campaign_type as type,
+          c.status,
+          SUM(a.impressions) as impressions,
+          SUM(a.clicks) as clicks,
+          ROUND(SUM(a.clicks)::numeric / NULLIF(SUM(a.impressions), 0) * 100, 2) as ctr,
+          SUM(a.spend) as spend,
+          COUNT(DISTINCT cv.conversion_id) as conversions,
+          ROUND(SUM(a.spend)::numeric / NULLIF(COUNT(DISTINCT cv.conversion_id), 0), 2) as cpa,
+          ROUND(COALESCE(SUM(cv.revenue), 0)::numeric / NULLIF(SUM(a.spend), 0), 2) as roas
+        FROM campaigns c
+        JOIN ad_spend a ON c.campaign_id = a.campaign_id
+        LEFT JOIN conversions cv ON c.campaign_id = cv.campaign_id AND cv.converted_at::date = a.date
+        WHERE a.date >= {{date_range.start}}::date AND a.date <= {{date_range.end}}::date
+          AND ({{channel}} = 'All' OR c.channel = ANY(string_to_array({{channel}}, ',')))
+          AND ({{campaign_type}} = 'All' OR c.campaign_type = {{campaign_type}})
+        GROUP BY c.campaign_id, c.name, c.channel, c.campaign_type, c.status
+        HAVING SUM(a.spend) >= {{min_spend}}
+        ORDER BY SUM(a.spend) DESC
+      """
+      sortable: true
+      filterable: true
+      page_size: 20
+      columns {
+        impressions { format: compact }
+        clicks { format: compact }
+        ctr { format: number, suffix: "%", label: "CTR %" }
+        spend { format: currency, prefix: "$" }
+        cpa { format: currency, prefix: "$", label: "CPA" }
+        roas { format: number, label: "ROAS", align: "right" }
+        status { format: badge }
+      }
+    }
+  }
+}

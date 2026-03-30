@@ -24,7 +24,7 @@ dashboard "SaaS Metrics" {
         SELECT SUM(monthly_amount) as value
         FROM subscriptions
         WHERE status = 'active'
-          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+          AND ({{plan}} = 'All' OR plan_name = {{plan}})
       """
       format: currency
       prefix: "$"
@@ -33,7 +33,7 @@ dashboard "SaaS Metrics" {
         FROM subscriptions
         WHERE status = 'active'
           AND created_at < date_trunc('month', CURRENT_DATE)
-          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+          AND ({{plan}} = 'All' OR plan_name = {{plan}})
       """
       trend_label: "vs last month"
     }
@@ -43,7 +43,7 @@ dashboard "SaaS Metrics" {
         SELECT COUNT(*) as value
         FROM subscriptions
         WHERE status = 'active'
-          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+          AND ({{plan}} = 'All' OR plan_name = {{plan}})
       """
       format: number
     }
@@ -57,7 +57,7 @@ dashboard "SaaS Metrics" {
             * 100, 2
           ) as value
         FROM subscriptions
-        WHERE ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+        WHERE ({{plan}} = 'All' OR plan_name = {{plan}})
       """
       format: percent
       suffix: "%"
@@ -72,7 +72,7 @@ dashboard "SaaS Metrics" {
           ) as value
         FROM subscriptions
         WHERE trial_started_at >= CURRENT_DATE - INTERVAL '30 days'
-          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+          AND ({{plan}} = 'All' OR plan_name = {{plan}})
       """
       format: percent
       suffix: "%"
@@ -88,8 +88,8 @@ dashboard "SaaS Metrics" {
           SUM(monthly_amount) as mrr
         FROM subscriptions
         WHERE status = 'active'
-          AND {{date_range}}
-          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+          AND created_at >= {{date_range.start}} AND created_at <= {{date_range.end}}
+          AND ({{plan}} = 'All' OR plan_name = {{plan}})
         GROUP BY 1
         ORDER BY 1
       """
@@ -104,7 +104,7 @@ dashboard "SaaS Metrics" {
           date_trunc('week', created_at) as week,
           COUNT(*) as signups
         FROM users
-        WHERE {{date_range}}
+        WHERE created_at >= {{date_range.start}} AND created_at <= {{date_range.end}}
         GROUP BY 1
         ORDER BY 1
       """
@@ -137,8 +137,8 @@ dashboard "SaaS Metrics" {
           COUNT(*) as churned
         FROM subscriptions
         WHERE canceled_at IS NOT NULL
-          AND {{date_range}}
-          AND ('{{plan}}' = 'All' OR plan_name = '{{plan}}')
+          AND canceled_at >= {{date_range.start}} AND canceled_at <= {{date_range.end}}
+          AND ({{plan}} = 'All' OR plan_name = {{plan}})
         GROUP BY 1
         ORDER BY 1
       """

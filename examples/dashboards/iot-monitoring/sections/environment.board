@@ -1,0 +1,98 @@
+# Environment sensors section — included by the main IoT dashboard
+
+row {
+  metric "Avg Temperature" (span: 3) {
+    query: """
+      SELECT ROUND(AVG(value)::numeric, 1) as value
+      FROM sensor_readings
+      WHERE sensor_type = 'temperature'
+        AND recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+    """
+    format: number
+    suffix: " C"
+    trend_query: """
+      SELECT ROUND(AVG(value)::numeric, 1) as value
+      FROM sensor_readings
+      WHERE sensor_type = 'temperature'
+        AND recorded_at >= {{date_range.start}}::timestamp - ({{date_range.end}}::timestamp - {{date_range.start}}::timestamp) AND recorded_at < {{date_range.start}}::timestamp
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+    """
+    trend_label: "vs previous period"
+  }
+
+  metric "Avg Humidity" (span: 3) {
+    query: """
+      SELECT ROUND(AVG(value)::numeric, 1) as value
+      FROM sensor_readings
+      WHERE sensor_type = 'humidity'
+        AND recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+    """
+    format: number
+    suffix: "%"
+  }
+
+  metric "Avg Air Quality (AQI)" (span: 3) {
+    query: """
+      SELECT ROUND(AVG(value)::numeric, 0) as value
+      FROM sensor_readings
+      WHERE sensor_type = 'air_quality'
+        AND recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+    """
+    format: number
+  }
+
+  metric "Noise Level" (span: 3) {
+    query: """
+      SELECT ROUND(AVG(value)::numeric, 1) as value
+      FROM sensor_readings
+      WHERE sensor_type = 'noise'
+        AND recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+    """
+    format: number
+    suffix: " dB"
+  }
+}
+
+row {
+  chart "Temperature Over Time" (span: 6, type: line) {
+    query: """
+      SELECT
+        date_trunc('hour', recorded_at) as hour,
+        zone_name as series,
+        ROUND(AVG(value)::numeric, 1) as temperature
+      FROM sensor_readings sr
+      JOIN zones z ON sr.zone_id = z.zone_id
+      WHERE sensor_type = 'temperature'
+        AND recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+        AND ({{facility}} = 'All' OR sr.facility_id = {{facility}})
+      GROUP BY 1, 2
+      ORDER BY 1
+    """
+    x: hour
+    y: temperature
+    series: series
+  }
+
+  chart "Humidity Over Time" (span: 6, type: area) {
+    query: """
+      SELECT
+        date_trunc('hour', recorded_at) as hour,
+        zone_name as series,
+        ROUND(AVG(value)::numeric, 1) as humidity
+      FROM sensor_readings sr
+      JOIN zones z ON sr.zone_id = z.zone_id
+      WHERE sensor_type = 'humidity'
+        AND recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+        AND ({{facility}} = 'All' OR sr.facility_id = {{facility}})
+      GROUP BY 1, 2
+      ORDER BY 1
+    """
+    x: hour
+    y: humidity
+    series: series
+  }
+}

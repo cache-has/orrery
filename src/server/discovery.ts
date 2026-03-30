@@ -10,7 +10,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { resolve, basename, extname, relative } from "path";
 import { parse as parseYaml } from "yaml";
-import { parse } from "../parser/parser.js";
+import { parse, parsePartial } from "../parser/parser.js";
 import type { DashboardNode } from "../parser/ast.js";
 
 // ---------------------------------------------------------------------------
@@ -137,6 +137,18 @@ export function parseDashboardInfo(
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("Expected 'dashboard' keyword")) {
+      // Likely a partial/include file. Validate it parses as a partial —
+      // if that also fails, warn so malformed includes aren't silently ignored.
+      try {
+        const source = readFileSync(filePath, "utf-8");
+        parsePartial(source, filePath);
+      } catch (partialErr) {
+        const partialMsg = partialErr instanceof Error ? partialErr.message : String(partialErr);
+        console.warn(`Warning: ${filePath} is not a dashboard and failed to parse as an include: ${partialMsg}`);
+      }
+      return null;
+    }
     console.warn(`Warning: Failed to parse ${filePath}: ${msg}`);
     return null;
   }

@@ -1,0 +1,286 @@
+# IoT Sensor Monitoring Dashboard
+# Real-time facility monitoring with environmental sensors, equipment, and alerts
+# Exercises: include directive, text search, toggle, area charts, compact format, high refresh
+# Connection: PostgreSQL/TimescaleDB with sensor_readings, sensors, zones, equipment, sensor_alerts
+
+dashboard "IoT Monitoring" {
+  description: "Real-time facility sensor monitoring — environment, equipment health, and alerts"
+  connection: "iot_db"
+  refresh: 30
+  palette: ["#06B6D4", "#F97316", "#22C55E", "#EF4444", "#A855F7", "#3B82F6", "#EAB308", "#EC4899"]
+
+  param date_range = daterange(default: "last 24 hours")
+  param facility = select(
+    query: "SELECT DISTINCT facility_id FROM sensors ORDER BY facility_id"
+    default_first: true
+  )
+  param zone_search = text(placeholder: "Filter zones...", debounce: 300)
+  param show_equipment = toggle(default: true, label: "Show equipment metrics")
+  param show_raw_data = toggle(default: false, label: "Show raw readings")
+
+  text (span: 12) {
+    > **Facility Monitoring** -- Live sensor data refreshing every 30 seconds.
+    > Facility: **{{facility}}** | Alerts are triggered when readings exceed configured thresholds.
+  }
+
+  # Sensor overview
+  row {
+    metric "Active Sensors" (span: 3) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM sensors
+        WHERE status = 'active'
+          AND ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      format: number
+    }
+
+    metric "Offline Sensors" (span: 3) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM sensors
+        WHERE status = 'offline'
+          AND ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      format: number
+    }
+
+    metric "Readings Today" (span: 3) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM sensor_readings
+        WHERE recorded_at >= CURRENT_DATE
+          AND ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      format: compact
+    }
+
+    metric "Anomalies Detected" (span: 3) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM sensor_readings
+        WHERE is_anomaly = true
+          AND recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+          AND ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      format: number
+    }
+  }
+
+  # Include environment section
+  include "sections/environment.board"
+
+  # Include alerts section
+  include "sections/alerts.board"
+
+  # Equipment health — toggled
+  row {
+    metric "Equipment Online" (span: 3, visible: show_equipment == true) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM equipment
+        WHERE status = 'running'
+          AND ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      format: number
+    }
+
+    metric "Avg Uptime" (span: 3, visible: show_equipment == true) {
+      query: """
+        SELECT ROUND(AVG(uptime_pct)::numeric, 1) as value
+        FROM equipment
+        WHERE ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      format: number
+      suffix: "%"
+      trend_query: """
+        SELECT ROUND(AVG(
+          EXTRACT(EPOCH FROM (last_uptime_check - last_downtime)) / EXTRACT(EPOCH FROM (last_uptime_check - installed_at)) * 100
+        )::numeric, 1) as value
+        FROM equipment
+        WHERE ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      trend_label: "lifetime avg"
+    }
+
+    metric "Maintenance Due" (span: 3, visible: show_equipment == true) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM equipment
+        WHERE next_maintenance_date <= CURRENT_DATE + INTERVAL '7 days'
+          AND ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      format: number
+    }
+
+    metric "Avg Power Draw" (span: 3, visible: show_equipment == true) {
+      query: """
+        SELECT ROUND(AVG(value)::numeric, 1) as value
+        FROM sensor_readings
+        WHERE sensor_type = 'power'
+          AND recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+          AND ({{facility}} = 'All' OR facility_id = {{facility}})
+      """
+      format: number
+      suffix: " kW"
+    }
+  }
+
+  row {
+    chart "Equipment Power Consumption" (span: 6, type: area, visible: show_equipment == true) {
+      query: """
+        SELECT
+          date_trunc('hour', sr.recorded_at) as hour,
+          eq.name as series,
+          ROUND(AVG(sr.value)::numeric, 1) as power_kw
+        FROM sensor_readings sr
+        JOIN sensors s ON sr.sensor_id = s.sensor_id
+        JOIN equipment eq ON s.equipment_id = eq.equipment_id
+        WHERE sr.sensor_type = 'power'
+          AND sr.recorded_at >= {{date_range.start}} AND sr.recorded_at <= {{date_range.end}}
+          AND ({{facility}} = 'All' OR sr.facility_id = {{facility}})
+        GROUP BY 1, 2
+        ORDER BY 1
+      """
+      x: hour
+      y: power_kw
+      series: series
+      y_format: number
+    }
+
+    chart "Equipment Vibration" (span: 6, type: line, visible: show_equipment == true) {
+      query: """
+        SELECT
+          date_trunc('hour', sr.recorded_at) as hour,
+          eq.name as series,
+          ROUND(AVG(sr.value)::numeric, 2) as vibration_mm_s
+        FROM sensor_readings sr
+        JOIN sensors s ON sr.sensor_id = s.sensor_id
+        JOIN equipment eq ON s.equipment_id = eq.equipment_id
+        WHERE sr.sensor_type = 'vibration'
+          AND sr.recorded_at >= {{date_range.start}} AND sr.recorded_at <= {{date_range.end}}
+          AND ({{facility}} = 'All' OR sr.facility_id = {{facility}})
+        GROUP BY 1, 2
+        ORDER BY 1
+      """
+      x: hour
+      y: vibration_mm_s
+      series: series
+    }
+  }
+
+  # Zone overview
+  row {
+    chart "Readings by Sensor Type" (span: 4, type: donut) {
+      query: """
+        SELECT sensor_type, COUNT(*) as readings
+        FROM sensor_readings
+        WHERE recorded_at >= {{date_range.start}} AND recorded_at <= {{date_range.end}}
+          AND ({{facility}} = 'All' OR facility_id = {{facility}})
+        GROUP BY sensor_type
+      """
+      x: sensor_type
+      y: readings
+    }
+
+    table "Zone Status" (span: 8) {
+      query: """
+        SELECT
+          z.zone_name as zone,
+          z.floor,
+          COUNT(DISTINCT s.sensor_id) as sensors,
+          ROUND(AVG(CASE WHEN sr.sensor_type = 'temperature' THEN sr.value END)::numeric, 1) as avg_temp,
+          ROUND(AVG(CASE WHEN sr.sensor_type = 'humidity' THEN sr.value END)::numeric, 1) as avg_humidity,
+          ROUND(AVG(CASE WHEN sr.sensor_type = 'air_quality' THEN sr.value END)::numeric, 0) as aqi,
+          COUNT(*) FILTER (WHERE sr.is_anomaly = true) as anomalies
+        FROM zones z
+        JOIN sensors s ON z.zone_id = s.zone_id
+        LEFT JOIN sensor_readings sr ON s.sensor_id = sr.sensor_id AND sr.recorded_at >= NOW() - INTERVAL '1 hour'
+        WHERE ({{facility}} = 'All' OR z.facility_id = {{facility}})
+          AND ({{zone_search}} = '' OR z.zone_name ILIKE '%' || {{zone_search}} || '%')
+        GROUP BY z.zone_id, z.zone_name, z.floor
+        ORDER BY z.floor, z.zone_name
+      """
+      sortable: true
+      filterable: true
+      page_size: 15
+      columns {
+        avg_temp { format: number, suffix: " C", label: "Temp" }
+        avg_humidity { format: number, suffix: "%", label: "Humidity" }
+        aqi { format: number, label: "AQI" }
+        anomalies { format: number, align: "right" }
+      }
+    }
+  }
+
+  # Raw sensor data — toggled for debugging
+  row {
+    table "Raw Sensor Readings" (span: 12, visible: show_raw_data == true) {
+      query: """
+        SELECT
+          sr.recorded_at,
+          s.name as sensor,
+          sr.sensor_type,
+          z.zone_name as zone,
+          sr.value,
+          sr.unit,
+          CASE WHEN sr.is_anomaly THEN 'Anomaly' ELSE 'Normal' END as status,
+          sr.battery_pct
+        FROM sensor_readings sr
+        JOIN sensors s ON sr.sensor_id = s.sensor_id
+        JOIN zones z ON s.zone_id = z.zone_id
+        WHERE sr.recorded_at >= {{date_range.start}} AND sr.recorded_at <= {{date_range.end}}
+          AND ({{facility}} = 'All' OR sr.facility_id = {{facility}})
+          AND ({{zone_search}} = '' OR z.zone_name ILIKE '%' || {{zone_search}} || '%')
+        ORDER BY sr.recorded_at DESC
+        LIMIT 200
+      """
+      sortable: true
+      filterable: true
+      page_size: 25
+      columns {
+        recorded_at { format: datetime, label: "Time" }
+        value { format: number }
+        battery_pct { format: number, suffix: "%", label: "Battery" }
+        status { format: badge }
+      }
+    }
+  }
+
+  # Sensor health table
+  row {
+    table "Sensor Inventory" (span: 12) {
+      query: """
+        SELECT
+          s.sensor_id as id,
+          s.name,
+          s.sensor_type as type,
+          z.zone_name as zone,
+          z.floor,
+          s.status,
+          s.firmware_version as firmware,
+          s.last_reading_at,
+          s.battery_pct,
+          CASE
+            WHEN s.last_reading_at < NOW() - INTERVAL '1 hour' THEN 'Stale'
+            WHEN s.battery_pct < 20 THEN 'Low Battery'
+            ELSE 'OK'
+          END as health
+        FROM sensors s
+        JOIN zones z ON s.zone_id = z.zone_id
+        WHERE ({{facility}} = 'All' OR s.facility_id = {{facility}})
+          AND ({{zone_search}} = '' OR z.zone_name ILIKE '%' || {{zone_search}} || '%')
+        ORDER BY s.status DESC, z.zone_name, s.name
+      """
+      sortable: true
+      filterable: true
+      page_size: 20
+      columns {
+        last_reading_at { format: datetime, label: "Last Reading" }
+        battery_pct { format: number, suffix: "%", label: "Battery", align: "right" }
+        status { format: badge }
+        health { format: badge }
+      }
+    }
+  }
+}

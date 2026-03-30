@@ -169,8 +169,19 @@ export async function fetchDashboardData(
   const components = collectComponents(dashboard);
   const dataMap = new Map<string, ComponentData>();
 
-  // Resolve query-driven select params
+  // Resolve query-driven select params (runs their queries to populate options)
   await resolveQueryDrivenParams(params, executor, connection);
+
+  // Update paramValues with any newly resolved defaults from query-driven params
+  for (const p of params) {
+    if (p.options.default !== undefined && !(p.name in paramValues)) {
+      paramValues[p.name] = p.options.default;
+    }
+    // Also update if the current value is empty string (our fallback) and we now have a real default
+    if (paramValues[p.name] === "" && p.options.default !== undefined) {
+      paramValues[p.name] = p.options.default;
+    }
+  }
 
   // Build list of queries to execute
   const queryJobs: { id: string; sql: string; kind: "primary" | "trend" }[] = [];

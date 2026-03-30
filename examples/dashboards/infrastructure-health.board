@@ -20,7 +20,7 @@ dashboard "Infrastructure Health" {
       query: """
         SELECT COUNT(*) as value
         FROM request_logs
-        WHERE {{date_range}} AND service_name = '{{service}}'
+        WHERE timestamp >= {{date_range.start}} AND timestamp <= {{date_range.end}} AND service_name = {{service}}
       """
       format: number
     }
@@ -29,7 +29,7 @@ dashboard "Infrastructure Health" {
       query: """
         SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_ms) as value
         FROM request_logs
-        WHERE {{date_range}} AND service_name = '{{service}}'
+        WHERE timestamp >= {{date_range.start}} AND timestamp <= {{date_range.end}} AND service_name = {{service}}
       """
       format: number
       suffix: "ms"
@@ -39,7 +39,7 @@ dashboard "Infrastructure Health" {
       query: """
         SELECT PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms) as value
         FROM request_logs
-        WHERE {{date_range}} AND service_name = '{{service}}'
+        WHERE timestamp >= {{date_range.start}} AND timestamp <= {{date_range.end}} AND service_name = {{service}}
       """
       format: number
       suffix: "ms"
@@ -53,7 +53,7 @@ dashboard "Infrastructure Health" {
             / NULLIF(COUNT(*), 0) * 100, 2
           ) as value
         FROM request_logs
-        WHERE {{date_range}} AND service_name = '{{service}}'
+        WHERE timestamp >= {{date_range.start}} AND timestamp <= {{date_range.end}} AND service_name = {{service}}
       """
       format: percent
       suffix: "%"
@@ -70,7 +70,7 @@ dashboard "Infrastructure Health" {
           PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms) as p95,
           PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms) as p99
         FROM request_logs
-        WHERE {{date_range}} AND service_name = '{{service}}'
+        WHERE timestamp >= {{date_range.start}} AND timestamp <= {{date_range.end}} AND service_name = {{service}}
         GROUP BY 1
         ORDER BY 1
       """
@@ -86,7 +86,7 @@ dashboard "Infrastructure Health" {
           COUNT(*) FILTER (WHERE status_code >= 400 AND status_code < 500) as client_errors,
           COUNT(*) FILTER (WHERE status_code >= 500) as server_errors
         FROM request_logs
-        WHERE {{date_range}} AND service_name = '{{service}}'
+        WHERE timestamp >= {{date_range.start}} AND timestamp <= {{date_range.end}} AND service_name = {{service}}
         GROUP BY 1
         ORDER BY 1
       """
@@ -110,7 +110,7 @@ dashboard "Infrastructure Health" {
           END as status_group,
           COUNT(*) as count
         FROM request_logs
-        WHERE {{date_range}} AND service_name = '{{service}}'
+        WHERE timestamp >= {{date_range.start}} AND timestamp <= {{date_range.end}} AND service_name = {{service}}
         GROUP BY 1
       """
       x: status_group
@@ -126,9 +126,9 @@ dashboard "Infrastructure Health" {
           ROUND(PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms)) as p99_ms,
           COUNT(*) FILTER (WHERE status_code >= 500) as errors
         FROM request_logs
-        WHERE {{date_range}}
-          AND service_name = '{{service}}'
-          AND endpoint ILIKE '%' || '{{endpoint_search}}' || '%'
+        WHERE timestamp >= {{date_range.start}} AND timestamp <= {{date_range.end}}
+          AND service_name = {{service}}
+          AND endpoint ILIKE '%' || {{endpoint_search}} || '%'
         GROUP BY 1
         ORDER BY 4 DESC
         LIMIT 50

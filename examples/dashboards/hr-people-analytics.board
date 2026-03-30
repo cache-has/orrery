@@ -1,0 +1,458 @@
+# HR People Analytics Dashboard
+# Workforce demographics, headcount trends, attrition, compensation, and engagement
+# Exercises: all param types, filterable tables, column align, badge format, visible, text content
+# Connection: PostgreSQL with employees, departments, positions, reviews, surveys tables
+
+dashboard "People Analytics" {
+  description: "Workforce insights — headcount, diversity, compensation, attrition, and engagement"
+  connection: "hr_db"
+  refresh: 3600
+  palette: ["#6366F1", "#EC4899", "#F59E0B", "#10B981", "#EF4444", "#3B82F6", "#8B5CF6", "#14B8A6"]
+
+  param date_range = daterange(default: "last 365 days")
+  param department = select(
+    query: "SELECT DISTINCT name FROM departments WHERE active = true ORDER BY name"
+    default_first: true
+  )
+  param location = select(
+    options: ["All", "New York", "San Francisco", "London", "Berlin", "Singapore", "Sydney", "Remote"]
+    default: "All"
+    multiple: true
+  )
+  param level = select(
+    options: ["All", "IC1", "IC2", "IC3", "IC4", "IC5", "M1", "M2", "M3", "Director", "VP", "C-Suite"]
+    default: "All"
+  )
+  param search = text(placeholder: "Search by name or employee ID...", debounce: 500)
+  param min_tenure_months = number(default: 0, min: 0, max: 360)
+  param active_only = toggle(default: true, label: "Active employees only")
+  param show_compensation = toggle(default: false, label: "Show compensation data")
+
+  text (span: 12) {
+    > **People Analytics** -- Confidential HR data. Compensation metrics hidden by default.
+    > Filters: **{{department}}** department | Location: **{{location}}** | Level: **{{level}}**
+  }
+
+  # Headcount summary
+  row {
+    metric "Total Headcount" (span: 2) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE (NOT {{active_only}} OR e.status = 'active')
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+          AND ({{level}} = 'All' OR e.level = {{level}})
+          AND EXTRACT(MONTH FROM AGE(CURRENT_DATE, e.hire_date)) >= {{min_tenure_months}}
+      """
+      format: number
+      trend_query: """
+        SELECT COUNT(*) as value
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE e.status = 'active'
+          AND e.hire_date < {{date_range.start}}::date
+          AND ({{department}} = 'All' OR d.name = {{department}})
+      """
+      trend_label: "vs period start"
+    }
+
+    metric "New Hires" (span: 2) {
+      query: """
+        SELECT COUNT(*) as value
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE e.hire_date >= {{date_range.start}}::date AND e.hire_date <= {{date_range.end}}::date
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+      """
+      format: number
+    }
+
+    metric "Attrition Rate" (span: 2) {
+      query: """
+        SELECT ROUND(
+          COUNT(*) FILTER (WHERE e.termination_date >= {{date_range.start}}::date AND e.termination_date <= {{date_range.end}}::date)::numeric
+          / NULLIF(COUNT(*) FILTER (WHERE e.hire_date < {{date_range.end}}::date), 0) * 100, 1
+        ) as value
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+      """
+      format: number
+      suffix: "%"
+    }
+
+    metric "Avg Tenure" (span: 2) {
+      query: """
+        SELECT ROUND(AVG(EXTRACT(YEAR FROM AGE(COALESCE(e.termination_date, CURRENT_DATE), e.hire_date)))::numeric, 1) as value
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE (NOT {{active_only}} OR e.status = 'active')
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+      """
+      format: number
+      suffix: " yrs"
+    }
+
+    metric "Avg Salary" (span: 2, visible: show_compensation == true) {
+      query: """
+        SELECT ROUND(AVG(e.base_salary)::numeric, 0) as value
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE e.status = 'active'
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+          AND ({{level}} = 'All' OR e.level = {{level}})
+      """
+      format: compact
+      prefix: "$"
+    }
+
+    metric "Engagement Score" (span: 2) {
+      query: """
+        SELECT ROUND(AVG(s.overall_score)::numeric, 1) as value
+        FROM engagement_surveys s
+        JOIN employees e ON s.employee_id = e.employee_id
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE s.survey_date = (SELECT MAX(survey_date) FROM engagement_surveys)
+          AND e.status = 'active'
+          AND ({{department}} = 'All' OR d.name = {{department}})
+      """
+      format: number
+      suffix: "/5"
+    }
+  }
+
+  # Headcount trends and demographics
+  row {
+    chart "Headcount Over Time" (span: 6, type: area) {
+      query: """
+        WITH months AS (
+          SELECT generate_series(
+            {{date_range.start}}::date,
+            {{date_range.end}}::date,
+            '1 month'::interval
+          )::date as month_start
+        )
+        SELECT
+          m.month_start as date,
+          d.name as series,
+          COUNT(*) as headcount
+        FROM months m
+        CROSS JOIN departments d
+        JOIN employees e ON e.department_id = d.department_id
+          AND e.hire_date <= m.month_start
+          AND (e.termination_date IS NULL OR e.termination_date > m.month_start)
+        WHERE ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+        GROUP BY m.month_start, d.name
+        ORDER BY m.month_start
+      """
+      x: date
+      y: headcount
+      series: series
+    }
+
+    chart "Hires vs Departures" (span: 6, type: bar) {
+      query: """
+        SELECT
+          TO_CHAR(date_trunc('month', event_date), 'YYYY-MM') as month,
+          event_type as series,
+          COUNT(*) as count
+        FROM (
+          SELECT hire_date as event_date, 'Hires' as event_type FROM employees e
+          JOIN departments d ON e.department_id = d.department_id
+          WHERE hire_date >= {{date_range.start}}::date AND hire_date <= {{date_range.end}}::date AND ({{department}} = 'All' OR d.name = {{department}})
+          UNION ALL
+          SELECT termination_date, 'Departures' FROM employees e
+          JOIN departments d ON e.department_id = d.department_id
+          WHERE termination_date IS NOT NULL AND termination_date >= {{date_range.start}}::date AND termination_date <= {{date_range.end}}::date AND ({{department}} = 'All' OR d.name = {{department}})
+        ) events
+        GROUP BY 1, 2
+        ORDER BY 1
+      """
+      x: month
+      y: count
+      series: series
+    }
+  }
+
+  # Demographics
+  row {
+    chart "Headcount by Location" (span: 4, type: bar) {
+      query: """
+        SELECT e.location, COUNT(*) as headcount
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE e.status = 'active'
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+        GROUP BY e.location
+        ORDER BY headcount DESC
+      """
+      x: location
+      y: headcount
+      orientation: horizontal
+      sort: desc
+    }
+
+    chart "Level Distribution" (span: 4, type: bar) {
+      query: """
+        SELECT e.level, COUNT(*) as headcount
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE e.status = 'active'
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+        GROUP BY e.level
+        ORDER BY
+          CASE e.level
+            WHEN 'IC1' THEN 1 WHEN 'IC2' THEN 2 WHEN 'IC3' THEN 3 WHEN 'IC4' THEN 4 WHEN 'IC5' THEN 5
+            WHEN 'M1' THEN 6 WHEN 'M2' THEN 7 WHEN 'M3' THEN 8
+            WHEN 'Director' THEN 9 WHEN 'VP' THEN 10 WHEN 'C-Suite' THEN 11
+          END
+      """
+      x: level
+      y: headcount
+      color: "#6366F1"
+    }
+
+    chart "Tenure Distribution" (span: 4, type: donut) {
+      query: """
+        SELECT
+          CASE
+            WHEN tenure_years < 1 THEN '< 1 year'
+            WHEN tenure_years < 2 THEN '1-2 years'
+            WHEN tenure_years < 5 THEN '2-5 years'
+            WHEN tenure_years < 10 THEN '5-10 years'
+            ELSE '10+ years'
+          END as bucket,
+          COUNT(*) as employees
+        FROM (
+          SELECT EXTRACT(YEAR FROM AGE(CURRENT_DATE, e.hire_date)) as tenure_years
+          FROM employees e
+          JOIN departments d ON e.department_id = d.department_id
+          WHERE e.status = 'active'
+            AND ({{department}} = 'All' OR d.name = {{department}})
+        ) sub
+        GROUP BY bucket
+        ORDER BY MIN(tenure_years)
+      """
+      x: bucket
+      y: employees
+    }
+  }
+
+  # Compensation — toggled
+  row {
+    chart "Salary Distribution by Level" (span: 6, type: bar, visible: show_compensation == true) {
+      query: """
+        SELECT
+          e.level,
+          ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY e.base_salary)::numeric, 0) as p25_salary,
+          ROUND(PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY e.base_salary)::numeric, 0) as median_salary,
+          ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY e.base_salary)::numeric, 0) as p75_salary
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE e.status = 'active'
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+        GROUP BY e.level
+        ORDER BY CASE e.level
+          WHEN 'IC1' THEN 1 WHEN 'IC2' THEN 2 WHEN 'IC3' THEN 3 WHEN 'IC4' THEN 4 WHEN 'IC5' THEN 5
+          WHEN 'M1' THEN 6 WHEN 'M2' THEN 7 WHEN 'M3' THEN 8
+          WHEN 'Director' THEN 9 WHEN 'VP' THEN 10 WHEN 'C-Suite' THEN 11
+        END
+      """
+      x: level
+      y: median_salary
+      y_format: compact
+    }
+
+    chart "Total Comp by Department" (span: 6, type: bar, visible: show_compensation == true) {
+      query: """
+        SELECT
+          d.name as department,
+          SUM(e.base_salary + COALESCE(e.bonus_target, 0) + COALESCE(e.equity_value, 0)) as total_comp
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE e.status = 'active'
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+        GROUP BY d.name
+        ORDER BY total_comp DESC
+      """
+      x: department
+      y: total_comp
+      orientation: horizontal
+      sort: desc
+      y_format: compact
+    }
+  }
+
+  # Engagement and reviews
+  row {
+    chart "Engagement Score Trend" (span: 6, type: line) {
+      query: """
+        SELECT
+          TO_CHAR(s.survey_date, 'YYYY-MM') as month,
+          d.name as series,
+          ROUND(AVG(s.overall_score)::numeric, 2) as score
+        FROM engagement_surveys s
+        JOIN employees e ON s.employee_id = e.employee_id
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE s.survey_date >= {{date_range.start}}::date AND s.survey_date <= {{date_range.end}}::date
+          AND ({{department}} = 'All' OR d.name = {{department}})
+        GROUP BY 1, 2
+        ORDER BY 1
+      """
+      x: month
+      y: score
+      series: series
+    }
+
+    chart "Performance Rating Distribution" (span: 6, type: bar) {
+      query: """
+        SELECT
+          r.rating,
+          COUNT(*) as employees
+        FROM performance_reviews r
+        JOIN employees e ON r.employee_id = e.employee_id
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE r.review_cycle = (SELECT MAX(review_cycle) FROM performance_reviews)
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+        GROUP BY r.rating
+        ORDER BY r.rating
+      """
+      x: rating
+      y: employees
+      color: "#10B981"
+    }
+  }
+
+  # Attrition detail
+  row {
+    chart "Attrition by Reason" (span: 4, type: donut) {
+      query: """
+        SELECT
+          e.termination_reason as reason,
+          COUNT(*) as departures
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        WHERE e.termination_date IS NOT NULL
+          AND e.termination_date >= {{date_range.start}}::date AND e.termination_date <= {{date_range.end}}::date
+          AND ({{department}} = 'All' OR d.name = {{department}})
+        GROUP BY e.termination_reason
+        ORDER BY departures DESC
+      """
+      x: reason
+      y: departures
+    }
+
+    chart "Attrition by Tenure" (span: 4, type: bar) {
+      query: """
+        SELECT
+          CASE
+            WHEN months < 6 THEN '0-6 mo'
+            WHEN months < 12 THEN '6-12 mo'
+            WHEN months < 24 THEN '1-2 yr'
+            WHEN months < 48 THEN '2-4 yr'
+            ELSE '4+ yr'
+          END as tenure_bucket,
+          COUNT(*) as departures
+        FROM (
+          SELECT EXTRACT(MONTH FROM AGE(e.termination_date, e.hire_date)) as months
+          FROM employees e
+          JOIN departments d ON e.department_id = d.department_id
+          WHERE e.termination_date IS NOT NULL
+            AND e.termination_date >= {{date_range.start}}::date AND e.termination_date <= {{date_range.end}}::date
+            AND ({{department}} = 'All' OR d.name = {{department}})
+        ) sub
+        GROUP BY tenure_bucket
+        ORDER BY MIN(months)
+      """
+      x: tenure_bucket
+      y: departures
+      color: "#EF4444"
+    }
+
+    chart "Monthly Attrition Rate" (span: 4, type: line) {
+      query: """
+        WITH monthly_terms AS (
+          SELECT
+            date_trunc('month', e.termination_date) as term_month,
+            COUNT(*) as departures
+          FROM employees e
+          JOIN departments d ON e.department_id = d.department_id
+          WHERE e.termination_date IS NOT NULL
+            AND e.termination_date >= {{date_range.start}}::date AND e.termination_date <= {{date_range.end}}::date
+            AND ({{department}} = 'All' OR d.name = {{department}})
+          GROUP BY date_trunc('month', e.termination_date)
+        ),
+        monthly_headcount AS (
+          SELECT
+            mt.term_month,
+            COUNT(*) as active_start
+          FROM monthly_terms mt
+          JOIN employees e2 ON e2.hire_date < mt.term_month
+            AND (e2.termination_date IS NULL OR e2.termination_date >= mt.term_month)
+          GROUP BY mt.term_month
+        )
+        SELECT
+          TO_CHAR(mt.term_month, 'YYYY-MM') as month,
+          ROUND(mt.departures::numeric / NULLIF(mh.active_start, 0) * 100, 2) as attrition_rate
+        FROM monthly_terms mt
+        JOIN monthly_headcount mh ON mt.term_month = mh.term_month
+        ORDER BY month
+      """
+      x: month
+      y: attrition_rate
+      color: "#EF4444"
+      y_format: percent
+    }
+  }
+
+  # Employee directory
+  row {
+    table "Employee Directory" (span: 12) {
+      query: """
+        SELECT
+          e.employee_id as id,
+          e.first_name || ' ' || e.last_name as name,
+          d.name as department,
+          e.title,
+          e.level,
+          e.location,
+          e.status,
+          TO_CHAR(e.hire_date, 'YYYY-MM-DD') as hire_date,
+          ROUND(EXTRACT(YEAR FROM AGE(COALESCE(e.termination_date, CURRENT_DATE), e.hire_date))::numeric, 1) as tenure_years,
+          COALESCE(r.rating, 'N/A') as last_review
+        FROM employees e
+        JOIN departments d ON e.department_id = d.department_id
+        LEFT JOIN LATERAL (
+          SELECT rating FROM performance_reviews pr WHERE pr.employee_id = e.employee_id ORDER BY review_cycle DESC LIMIT 1
+        ) r ON true
+        WHERE (NOT {{active_only}} OR e.status = 'active')
+          AND ({{department}} = 'All' OR d.name = {{department}})
+          AND ({{location}} = 'All' OR e.location = ANY(string_to_array({{location}}, ',')))
+          AND ({{level}} = 'All' OR e.level = {{level}})
+          AND EXTRACT(MONTH FROM AGE(CURRENT_DATE, e.hire_date)) >= {{min_tenure_months}}
+          AND ({{search}} = '' OR e.first_name || ' ' || e.last_name ILIKE '%' || {{search}} || '%' OR e.employee_id::text = {{search}})
+        ORDER BY e.last_name, e.first_name
+      """
+      sortable: true
+      filterable: true
+      page_size: 25
+      columns {
+        hire_date { format: date, label: "Hire Date" }
+        tenure_years { format: number, label: "Tenure (yrs)", align: "right" }
+        status { format: badge }
+        last_review { format: badge, label: "Review" }
+      }
+    }
+  }
+}
