@@ -33,6 +33,16 @@ export function parse(source: string, file?: string): DashboardNode {
   return parser.parse();
 }
 
+/**
+ * Parse a partial .board file (no `dashboard "..." { }` wrapper).
+ * Returns a flat array of DashboardItems — rows, components, params, etc.
+ * Used for `include` directive targets.
+ */
+export function parsePartial(source: string, file?: string): DashboardItem[] {
+  const parser = new Parser(source, file);
+  return parser.parseItems();
+}
+
 class Parser {
   private lexer: Lexer;
   private current: Token;
@@ -48,6 +58,15 @@ class Parser {
 
   parse(): DashboardNode {
     return this.parseDashboard();
+  }
+
+  /** Parse a sequence of DashboardItems until EOF (for partial/include files). */
+  parseItems(): DashboardItem[] {
+    const items: DashboardItem[] = [];
+    while (!this.check("eof")) {
+      items.push(this.parseDashboardItem());
+    }
+    return items;
   }
 
   // --- Grammar productions ---

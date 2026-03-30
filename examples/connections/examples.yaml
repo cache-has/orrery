@@ -1,0 +1,62 @@
+# All example dashboards share the same PostgreSQL database.
+# Edit the values below to match your local PostgreSQL setup,
+# or use environment variables: ${OB_USER}, ${OB_PASSWORD}, etc.
+#
+# Database setup: psql -c "CREATE DATABASE openboard_examples" && psql -d openboard_examples -f seed.sql
+
+connections:
+  - name: warehouse
+    type: postgres
+    host: localhost
+    port: 5432
+    database: openboard_examples
+    username: cachemcclure
+
+  - name: app_db
+    type: postgres
+    host: localhost
+    port: 5432
+    database: openboard_examples
+    username: cachemcclure
+
+  - name: logs_db
+    type: postgres
+    host: localhost
+    port: 5432
+    database: openboard_examples
+    username: cachemcclure
+
+  - name: marketing_db
+    type: postgres
+    host: localhost
+    port: 5432
+    database: openboard_examples
+    username: cachemcclure
+
+  - name: ops_db
+    type: postgres
+    host: localhost
+    port: 5432
+    database: openboard_examples
+    username: cachemcclure
+
+  - name: finance_db
+    type: postgres
+    host: localhost
+    port: 5432
+    database: openboard_examples
+    username: cachemcclure
+
+  - name: hr_db
+    type: postgres
+    host: localhost
+    port: 5432
+    database: openboard_examples
+    username: cachemcclure
+
+  - name: iot_db
+    type: postgres
+    host: localhost
+    port: 5432
+    database: openboard_examples
+    username: cachemcclure

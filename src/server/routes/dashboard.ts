@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { resolve, basename, extname, relative } from "path";
 import { parse } from "../../parser/parser.js";
+import { resolveIncludes } from "../../parser/resolver.js";
 import { resolveLayout } from "../../renderer/layout.js";
 import { renderPage, renderComponentFragment } from "../../renderer/html.js";
 import { fetchDashboardData, collectComponents } from "../../renderer/data.js";
@@ -133,7 +134,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
 
     try {
       const source = readFileSync(boardFile, "utf-8");
-      const dashboard = parse(source, boardFile);
+      const dashboard = resolveIncludes(parse(source, boardFile), boardFile);
       const layout = resolveLayout(dashboard);
 
       // Collect param defaults as current values
@@ -226,7 +227,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
       }
 
       const source = readFileSync(boardFile, "utf-8");
-      const dashboard = parse(source, boardFile);
+      const dashboard = resolveIncludes(parse(source, boardFile), boardFile);
 
       // Resolve daterange params
       const resolvedParams = resolveParamsWithDateRanges(dashboard, body.params);
@@ -323,6 +324,34 @@ function resolveDefaultParams(dashboard: DashboardNode): Record<string, unknown>
           }
         } else if (defaultProp.value.kind === "number") defaults[param.name] = defaultProp.value.value;
         else if (defaultProp.value.kind === "boolean") defaults[param.name] = defaultProp.value.value;
+      } else {
+        // No explicit default — initialize to a sensible fallback so the
+        // parameterizer doesn't throw "Unknown parameter" on first render.
+        switch (param.paramType) {
+          case "daterange":
+            defaults[param.name] = { ...resolveDateRange("last 30 days"), preset: "last_30_days" };
+            break;
+          case "select": {
+            // If options array is provided, use the first option as default
+            const optsProp = param.options.find((o) => o.key === "options");
+            if (optsProp && optsProp.value.kind === "array" && optsProp.value.elements.length > 0) {
+              const first = optsProp.value.elements[0];
+              defaults[param.name] = first.kind === "string" ? first.value : "";
+            } else {
+              defaults[param.name] = "";
+            }
+            break;
+          }
+          case "text":
+            defaults[param.name] = "";
+            break;
+          case "number":
+            defaults[param.name] = 0;
+            break;
+          case "toggle":
+            defaults[param.name] = false;
+            break;
+        }
       }
     }
   }

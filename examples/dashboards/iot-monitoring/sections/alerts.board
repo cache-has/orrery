@@ -1,0 +1,78 @@
+# Alerts section — included by the main IoT dashboard
+
+row {
+  metric "Active Alerts" (span: 4) {
+    query: """
+      SELECT COUNT(*) as value
+      FROM sensor_alerts
+      WHERE resolved_at IS NULL
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+    """
+    format: number
+  }
+
+  metric "Critical Alerts" (span: 4) {
+    query: """
+      SELECT COUNT(*) as value
+      FROM sensor_alerts
+      WHERE resolved_at IS NULL
+        AND severity = 'critical'
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+    """
+    format: number
+  }
+
+  metric "Avg Resolution Time" (span: 4) {
+    query: """
+      SELECT ROUND(AVG(EXTRACT(EPOCH FROM (resolved_at - triggered_at)) / 60)::numeric, 1) as value
+      FROM sensor_alerts
+      WHERE resolved_at IS NOT NULL
+        AND triggered_at >= {{date_range.start}} AND triggered_at <= {{date_range.end}}
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+    """
+    format: number
+    suffix: " min"
+  }
+}
+
+row {
+  chart "Alerts by Severity" (span: 4, type: donut) {
+    query: """
+      SELECT severity, COUNT(*) as count
+      FROM sensor_alerts
+      WHERE triggered_at >= {{date_range.start}} AND triggered_at <= {{date_range.end}}
+        AND ({{facility}} = 'All' OR facility_id = {{facility}})
+      GROUP BY severity
+    """
+    x: severity
+    y: count
+  }
+
+  table "Recent Alerts" (span: 8) {
+    query: """
+      SELECT
+        sa.triggered_at,
+        s.name as sensor,
+        z.zone_name as zone,
+        sa.severity,
+        sa.message,
+        CASE WHEN sa.resolved_at IS NULL THEN 'Open' ELSE 'Resolved' END as status,
+        ROUND(EXTRACT(EPOCH FROM (COALESCE(sa.resolved_at, NOW()) - sa.triggered_at)) / 60) as duration_min
+      FROM sensor_alerts sa
+      JOIN sensors s ON sa.sensor_id = s.sensor_id
+      JOIN zones z ON s.zone_id = z.zone_id
+      WHERE ({{facility}} = 'All' OR sa.facility_id = {{facility}})
+      ORDER BY sa.triggered_at DESC
+      LIMIT 50
+    """
+    sortable: true
+    filterable: true
+    page_size: 10
+    columns {
+      triggered_at { format: datetime, label: "Time" }
+      severity { format: badge }
+      status { format: badge }
+      duration_min { format: number, label: "Duration (min)" }
+    }
+  }
+}

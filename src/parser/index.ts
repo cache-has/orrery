@@ -1,4 +1,5 @@
-export { parse } from "./parser.js";
+export { parse, parsePartial } from "./parser.js";
+export { resolveIncludes } from "./resolver.js";
 export { Lexer } from "./lexer.js";
 export type { Token, TokenType } from "./lexer.js";
 export { ParseError, createPosition, createSpan } from "./errors.js";

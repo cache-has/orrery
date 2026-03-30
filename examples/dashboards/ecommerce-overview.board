@@ -9,7 +9,7 @@ dashboard "E-Commerce Overview" {
 
   param date_range = daterange(default: "last 30 days")
   param region = select(
-    query: "SELECT DISTINCT region FROM customers ORDER BY region"
+    query: "SELECT 'All' AS region UNION ALL SELECT DISTINCT region FROM customers ORDER BY region"
     default_first: true
   )
   param min_amount = number(default: 0, min: 0, max: 100000)
@@ -17,26 +17,26 @@ dashboard "E-Commerce Overview" {
   # KPI row — four metrics across the top
   row {
     metric "Total Revenue" (span: 3) {
-      query: "SELECT SUM(amount) as value FROM orders WHERE {{date_range}} AND region = '{{region}}'"
+      query: "SELECT SUM(amount) as value FROM orders WHERE created_at >= {{date_range.start}} AND created_at <= {{date_range.end}} AND ({{region}} = 'All' OR region = {{region}})"
       format: currency
       prefix: "$"
-      trend_query: "SELECT SUM(amount) as value FROM orders WHERE {{date_range.previous}} AND region = '{{region}}'"
+      trend_query: "SELECT SUM(amount) as value FROM orders WHERE created_at >= {{date_range.start}}::timestamp - ({{date_range.end}}::timestamp - {{date_range.start}}::timestamp) AND created_at < {{date_range.start}}::timestamp AND ({{region}} = 'All' OR region = {{region}})"
       trend_label: "vs previous period"
     }
 
     metric "Orders" (span: 3) {
-      query: "SELECT COUNT(*) as value FROM orders WHERE {{date_range}} AND region = '{{region}}'"
+      query: "SELECT COUNT(*) as value FROM orders WHERE created_at >= {{date_range.start}} AND created_at <= {{date_range.end}} AND ({{region}} = 'All' OR region = {{region}})"
       format: number
     }
 
     metric "Avg Order Value" (span: 3) {
-      query: "SELECT AVG(amount) as value FROM orders WHERE {{date_range}} AND region = '{{region}}'"
+      query: "SELECT AVG(amount) as value FROM orders WHERE created_at >= {{date_range.start}} AND created_at <= {{date_range.end}} AND ({{region}} = 'All' OR region = {{region}})"
       format: currency
       prefix: "$"
     }
 
     metric "Customers" (span: 3) {
-      query: "SELECT COUNT(DISTINCT customer_id) as value FROM orders WHERE {{date_range}} AND region = '{{region}}'"
+      query: "SELECT COUNT(DISTINCT customer_id) as value FROM orders WHERE created_at >= {{date_range.start}} AND created_at <= {{date_range.end}} AND ({{region}} = 'All' OR region = {{region}})"
       format: number
     }
   }
@@ -49,8 +49,8 @@ dashboard "E-Commerce Overview" {
           date_trunc('day', created_at) as date,
           SUM(amount) as revenue
         FROM orders
-        WHERE {{date_range}}
-          AND region = '{{region}}'
+        WHERE created_at >= {{date_range.start}} AND created_at <= {{date_range.end}}
+          AND ({{region}} = 'All' OR region = {{region}})
         GROUP BY 1
         ORDER BY 1
       """
@@ -66,8 +66,8 @@ dashboard "E-Commerce Overview" {
           SUM(o.amount) as revenue
         FROM orders o
         JOIN products p ON o.product_id = p.id
-        WHERE {{date_range}}
-          AND o.region = '{{region}}'
+        WHERE o.created_at >= {{date_range.start}} AND o.created_at <= {{date_range.end}}
+          AND ({{region}} = 'All' OR o.region = {{region}})
         GROUP BY 1
         ORDER BY 2 DESC
       """
@@ -88,8 +88,8 @@ dashboard "E-Commerce Overview" {
           o.created_at
         FROM orders o
         JOIN customers c ON o.customer_id = c.id
-        WHERE {{date_range}}
-          AND o.region = '{{region}}'
+        WHERE o.created_at >= {{date_range.start}} AND o.created_at <= {{date_range.end}}
+          AND ({{region}} = 'All' OR o.region = {{region}})
           AND o.amount >= {{min_amount}}
         ORDER BY o.created_at DESC
         LIMIT 100
