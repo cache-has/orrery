@@ -6,5 +6,5 @@ export { MySQLDriver } from "./drivers/mysql.js";
 export { SQLiteDriver } from "./drivers/sqlite.js";
 export { DuckDBDriver } from "./drivers/duckdb.js";
 export { loadEnvFiles, resolveEnvVar, resolveEnvVarsInConfig } from "./env.js";
-export { parseConnectionFile, loadConnectionFiles } from "./loader.js";
+export { parseConnectionFile, loadConnectionFiles, loadConnectionFilesFromSource } from "./loader.js";
 export type { LoadedConnection } from "./loader.js";

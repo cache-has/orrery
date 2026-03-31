@@ -28,6 +28,13 @@ export interface FileChange {
 export class FileWatcher extends EventEmitter {
   private watcher: ReturnType<typeof chokidar.watch> | null = null;
 
+  /**
+   * @param projectRoot — Project root directory
+   * @param dashboardsDir — Dashboards directory (watched for non-.board files only;
+   *        .board watching is handled by the DashboardSource)
+   * @param connectionsDir — Connections directory
+   * @param queriesDir — Queries directory
+   */
   constructor(
     private projectRoot: string,
     private dashboardsDir: string,
@@ -38,10 +45,10 @@ export class FileWatcher extends EventEmitter {
   }
 
   start(): void {
-    // Watch directories (chokidar v4 prefers directory paths over globs)
+    // Watch directories — dashboard .board files are watched by the DashboardSource,
+    // but we still watch the dashboards dir for non-.board changes if needed.
     const paths: string[] = [];
 
-    if (existsSync(this.dashboardsDir)) paths.push(this.dashboardsDir);
     if (existsSync(this.connectionsDir)) paths.push(this.connectionsDir);
     if (existsSync(this.queriesDir)) paths.push(this.queriesDir);
 

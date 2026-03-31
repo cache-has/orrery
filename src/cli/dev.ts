@@ -11,7 +11,7 @@ import { createServer } from "http";
 import open from "open";
 import { getRequestListener } from "@hono/node-server";
 import { createApp } from "../server/index.js";
-import { loadConfig, discoverDashboards, parseDashboardInfo, type DiscoveredDashboard, type ProjectConfig } from "../server/discovery.js";
+import { loadConfig, discoverDashboards, createLocalSource, type DiscoveredDashboard, type ProjectConfig } from "../server/discovery.js";
 import { ConnectionManager } from "../connections/manager.js";
 import { QueryExecutor } from "../query/executor.js";
 import { loadEnvFiles } from "../connections/env.js";
@@ -19,15 +19,31 @@ import { FileWatcher, type FileChange } from "../server/watcher.js";
 import { DevWebSocket } from "../server/websocket.js";
 import { parse } from "../parser/parser.js";
 import { loadThemeFile } from "../renderer/theme.js";
+import type { DashboardSource, DashboardSourceEvent } from "../sources/types.js";
+import { createSource, createConnectionSource } from "../sources/factory.js";
 
 // ---------------------------------------------------------------------------
 // Parse CLI arguments
 // ---------------------------------------------------------------------------
 
-function parseArgs(argv: string[]): { port?: number; project?: string; noOpen: boolean } {
+interface DevArgs {
+  port?: number;
+  project?: string;
+  noOpen: boolean;
+  source?: string;
+  sourcePoll?: number;
+  sourceEndpoint?: string;
+  connections?: string;
+}
+
+function parseArgs(argv: string[]): DevArgs {
   let port: number | undefined;
   let project: string | undefined;
   let noOpen = false;
+  let source: string | undefined;
+  let sourcePoll: number | undefined;
+  let sourceEndpoint: string | undefined;
+  let connections: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -43,10 +59,30 @@ function parseArgs(argv: string[]): { port?: number; project?: string; noOpen: b
       project = arg.split("=")[1];
     } else if (arg === "--no-open") {
       noOpen = true;
+    } else if (arg === "--source" && argv[i + 1]) {
+      source = argv[i + 1];
+      i++;
+    } else if (arg.startsWith("--source=")) {
+      source = arg.split("=").slice(1).join("=");
+    } else if (arg === "--source-poll" && argv[i + 1]) {
+      sourcePoll = parseInt(argv[i + 1], 10);
+      i++;
+    } else if (arg.startsWith("--source-poll=")) {
+      sourcePoll = parseInt(arg.split("=")[1], 10);
+    } else if (arg === "--source-endpoint" && argv[i + 1]) {
+      sourceEndpoint = argv[i + 1];
+      i++;
+    } else if (arg.startsWith("--source-endpoint=")) {
+      sourceEndpoint = arg.split("=").slice(1).join("=");
+    } else if (arg === "--connections" && argv[i + 1]) {
+      connections = argv[i + 1];
+      i++;
+    } else if (arg.startsWith("--connections=")) {
+      connections = arg.split("=").slice(1).join("=");
     }
   }
 
-  return { port, project, noOpen };
+  return { port, project, noOpen, source, sourcePoll, sourceEndpoint, connections };
 }
 
 // ---------------------------------------------------------------------------
@@ -68,14 +104,33 @@ const dashboardsDir = resolve(projectRoot, config.dashboards_dir);
 const connectionsDir = resolve(projectRoot, config.connections_dir);
 const queriesDir = resolve(projectRoot, config.queries_dir);
 
-let dashboards: DiscoveredDashboard[] = discoverDashboards(projectRoot, config);
+// Create dashboard source (remote if --source is set, otherwise local)
+const sourceUri = args.source ?? config.source;
+const dashboardSource: DashboardSource = sourceUri
+  ? await createSource({
+      uri: sourceUri,
+      pollInterval: args.sourcePoll ?? config.source_poll,
+      endpoint: args.sourceEndpoint ?? config.source_endpoint,
+    })
+  : createLocalSource(projectRoot, config);
+
+let dashboards: DiscoveredDashboard[] = await discoverDashboards(projectRoot, config, dashboardSource);
 
 // 4. Initialize connection manager (errors warn, don't crash)
 const connManager = new ConnectionManager();
 let executor: QueryExecutor;
+const connectionsUri = args.connections ?? config.connections_source;
+let connectionSource: DashboardSource | undefined;
 
 try {
-  if (existsSync(connectionsDir)) {
+  if (connectionsUri) {
+    connectionSource = await createConnectionSource({
+      uri: connectionsUri,
+      pollInterval: args.sourcePoll ?? config.source_poll,
+      endpoint: args.sourceEndpoint ?? config.source_endpoint,
+    });
+    await connManager.initFromSource(connectionSource, projectRoot);
+  } else if (existsSync(connectionsDir)) {
     await connManager.init(connectionsDir, projectRoot);
   }
 } catch (err) {
@@ -110,49 +165,75 @@ const server = createServer(getRequestListener(app.fetch));
 const devWs = new DevWebSocket();
 devWs.attach(server);
 
-// 8. Start file watcher
+// 8. Start file watcher (non-dashboard files) and source watcher (dashboards)
 const watcher = new FileWatcher(projectRoot, dashboardsDir, connectionsDir, queriesDir);
+
+// Dashboard watching via source
+dashboardSource.watch?.(async (event: DashboardSourceEvent) => {
+  const start = Date.now();
+  const filePath = event.path;
+
+  try {
+    const content = await dashboardSource.read(filePath);
+    parse(content, filePath); // validate parse succeeds
+
+    // Update dashboard list
+    const updated = await discoverDashboards(projectRoot, config, dashboardSource);
+    dashboards = updated;
+
+    // Clear any previous error overlay and trigger reload
+    devWs.broadcast({ type: "error-clear" });
+
+    const slug = dashboards.find((d) => d.filePath === filePath)?.slug ?? "unknown";
+    devWs.broadcast({ type: "reload", dashboard: slug });
+
+    console.log(`  Dashboard updated: ${filePath} (${Date.now() - start}ms)`);
+  } catch (err) {
+    // Send parse error to browser as overlay
+    const error = err instanceof Error ? err : new Error(String(err));
+    const sourceContext = await getSourceContextAsync(filePath, error, dashboardSource);
+    devWs.broadcast({
+      type: "error",
+      error: {
+        message: error.message,
+        file: filePath,
+        line: extractLine(error),
+        column: extractColumn(error),
+        source: sourceContext,
+      },
+    });
+    console.log(`  Parse error in ${filePath}: ${error.message}`);
+  }
+});
+
+// Remote connection source watching (polling-based reload)
+connectionSource?.watch?.(async (event: DashboardSourceEvent) => {
+  const start = Date.now();
+  console.log(`  Connection config changed (remote): ${event.path}`);
+  try {
+    await connManager.disconnectAll();
+    await connManager.initFromSource(connectionSource!, projectRoot);
+    executor.clearCache();
+    devWs.broadcast({ type: "reload", dashboard: "*" });
+    console.log(`  Connections reloaded from ${connectionSource!.describe()} (${Date.now() - start}ms)`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`  Warning: Remote connection reload failed: ${msg}`);
+  }
+});
 
 watcher.on("change", async (change: FileChange) => {
   const start = Date.now();
 
   switch (change.type) {
     case "dashboard": {
-      // Re-parse the changed file
-      try {
-        const source = readFileSync(change.filePath, "utf-8");
-        parse(source, change.filePath); // validate parse succeeds
-
-        // Update dashboard list
-        dashboards = discoverDashboards(projectRoot, config);
-
-        // Clear any previous error overlay and trigger reload
-        devWs.broadcast({ type: "error-clear" });
-
-        const slug = dashboards.find((d) => d.filePath === change.filePath)?.slug ?? "unknown";
-        devWs.broadcast({ type: "reload", dashboard: slug });
-
-        console.log(`  Dashboard updated: ${change.filePath} (${Date.now() - start}ms)`);
-      } catch (err) {
-        // Send parse error to browser as overlay
-        const error = err instanceof Error ? err : new Error(String(err));
-        const sourceContext = getSourceContext(change.filePath, error);
-        devWs.broadcast({
-          type: "error",
-          error: {
-            message: error.message,
-            file: change.filePath,
-            line: extractLine(error),
-            column: extractColumn(error),
-            source: sourceContext,
-          },
-        });
-        console.log(`  Parse error in ${change.filePath}: ${error.message}`);
-      }
+      // Dashboard changes handled by source watcher above — skip
       break;
     }
 
     case "connection": {
+      // Skip local file watcher events if connections are loaded from a remote source
+      if (connectionSource) break;
       console.log(`  Connection config changed: ${change.filePath}`);
       try {
         await connManager.disconnectAll();
@@ -181,7 +262,9 @@ watcher.on("change", async (change: FileChange) => {
       loadEnvFiles(projectRoot);
       try {
         await connManager.disconnectAll();
-        if (existsSync(connectionsDir)) {
+        if (connectionSource) {
+          await connManager.initFromSource(connectionSource, projectRoot);
+        } else if (existsSync(connectionsDir)) {
           await connManager.init(connectionsDir, projectRoot);
         }
         executor.clearCache();
@@ -214,7 +297,12 @@ watcher.start();
 // 9. Start server
 server.listen(port, () => {
   // 10. Print startup summary
-  console.log(`\n  OpenBoard dev server running\n`);
+  console.log(`\n  OpenBoard dev server running`);
+  console.log(`  Source: ${dashboardSource.describe()}`);
+  if (connectionSource) {
+    console.log(`  Connections source: ${connectionSource.describe()}`);
+  }
+  console.log("");
 
   // Dashboard URLs
   if (dashboards.length > 0) {
@@ -252,6 +340,8 @@ server.listen(port, () => {
 // Graceful shutdown
 function shutdown() {
   console.log("\n  Shutting down...");
+  dashboardSource.unwatch?.();
+  connectionSource?.unwatch?.();
   watcher.stop();
   devWs.close();
   connManager.disconnectAll().finally(() => {
@@ -267,10 +357,14 @@ process.on("SIGTERM", shutdown);
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getSourceContext(filePath: string, error: Error): string | undefined {
+async function getSourceContextAsync(
+  filePath: string,
+  error: Error,
+  source: DashboardSource,
+): Promise<string | undefined> {
   try {
-    const source = readFileSync(filePath, "utf-8");
-    const lines = source.split("\n");
+    const content = await source.read(filePath);
+    const lines = content.split("\n");
     const errorLine = extractLine(error);
     if (!errorLine) return undefined;
 

@@ -279,6 +279,43 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[], pale
 }
 
 // ---------------------------------------------------------------------------
+// Build ECharts option: donut / pie
+// ---------------------------------------------------------------------------
+
+function buildDonutOption(_component: ComponentNode, points: ChartDataPoint[], palette: string[]): Record<string, unknown> {
+  // Aggregate duplicate labels (e.g. multiple rows for the same category)
+  const agg = new Map<string, number>();
+  for (const p of points) {
+    agg.set(p.label, (agg.get(p.label) ?? 0) + p.value);
+  }
+
+  const data = [...agg.entries()].map(([name, value]) => ({ name, value }));
+
+  return {
+    color: palette,
+    series: [
+      {
+        type: "pie",
+        radius: ["40%", "70%"],
+        center: ["50%", "50%"],
+        data,
+        label: {
+          fontSize: 11,
+          formatter: "{b}: {d}%",
+        },
+        labelLine: { length: 12, length2: 8 },
+        itemStyle: { borderRadius: 4, borderColor: "#fff", borderWidth: 2 },
+      },
+    ],
+    legend: {
+      orient: "horizontal",
+      bottom: 0,
+      textStyle: { fontSize: 11 },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Exported renderer
 // ---------------------------------------------------------------------------
 
@@ -303,6 +340,10 @@ export const chartRenderer: ComponentRenderer = {
         break;
       case "bar":
         option = buildBarOption(component, extracted.points, palette);
+        break;
+      case "donut":
+      case "pie":
+        option = buildDonutOption(component, extracted.points, palette);
         break;
       default:
         return `<div class="openboard-placeholder">Unsupported chart type: ${escapeHtml(chartType)}</div>`;

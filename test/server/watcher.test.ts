@@ -16,8 +16,9 @@ afterEach(() => {
 });
 
 describe("FileWatcher", () => {
-  it("detects dashboard file changes", async () => {
-    // Create initial file
+  it("does not emit events for .board file changes (handled by DashboardSource)", async () => {
+    // Dashboard file watching is now delegated to DashboardSource.
+    // FileWatcher should NOT emit events for .board files.
     writeFileSync(resolve(TMP, "dashboards/test.board"), "initial");
 
     const watcher = new FileWatcher(
@@ -31,20 +32,14 @@ describe("FileWatcher", () => {
     watcher.on("change", (change: FileChange) => changes.push(change));
     watcher.start();
 
-    // Wait for watcher to initialize
     await new Promise((r) => setTimeout(r, 500));
-
-    // Modify file
     writeFileSync(resolve(TMP, "dashboards/test.board"), "modified");
-
-    // Wait for change detection (awaitWriteFinish adds delay)
     await new Promise((r) => setTimeout(r, 1000));
 
     await watcher.stop();
 
-    expect(changes.length).toBeGreaterThanOrEqual(1);
-    expect(changes[0].type).toBe("dashboard");
-    expect(changes[0].event).toBe("change");
+    const dashboardChanges = changes.filter((c) => c.type === "dashboard");
+    expect(dashboardChanges).toHaveLength(0);
   });
 
   it("detects connection file changes", async () => {

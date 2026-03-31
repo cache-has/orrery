@@ -12,6 +12,8 @@ import { resolve, basename, extname, relative } from "path";
 import { parse as parseYaml } from "yaml";
 import { parse, parsePartial } from "../parser/parser.js";
 import type { DashboardNode } from "../parser/ast.js";
+import type { DashboardSource } from "../sources/types.js";
+import { LocalSource } from "../sources/local.js";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -24,6 +26,14 @@ export interface ProjectConfig {
   port: number;
   theme: "light" | "dark";
   cache_ttl: number;
+  /** Remote source URI (e.g. "s3://bucket/prefix/"). Omit for local filesystem. */
+  source?: string;
+  /** Polling interval in seconds for remote sources. Default: 30. */
+  source_poll?: number;
+  /** Custom endpoint for S3-compatible stores (MinIO, R2). */
+  source_endpoint?: string;
+  /** Remote connections source URI (e.g. "s3://bucket/connections/"). Omit for local filesystem. */
+  connections_source?: string;
 }
 
 const DEFAULT_CONFIG: ProjectConfig = {
@@ -54,6 +64,10 @@ export function loadConfig(projectRoot: string): ProjectConfig {
       port: parsed.port ?? DEFAULT_CONFIG.port,
       theme: parsed.theme ?? DEFAULT_CONFIG.theme,
       cache_ttl: parsed.cache_ttl ?? DEFAULT_CONFIG.cache_ttl,
+      source: (parsed as any).source ?? undefined,
+      source_poll: (parsed as any).source_poll ?? undefined,
+      source_endpoint: (parsed as any).source_endpoint ?? undefined,
+      connections_source: (parsed as any).connections_source ?? undefined,
     };
   } catch {
     console.warn(`Warning: Failed to parse ${configPath}, using defaults`);
@@ -83,9 +97,22 @@ export interface DiscoveredDashboard {
 /**
  * Discover all .board files, parse them, and return metadata.
  * Parse errors are captured — they never crash discovery.
+ *
+ * When a DashboardSource is provided, files are listed and read through it.
+ * Otherwise falls back to direct filesystem access (legacy path).
  */
-export function discoverDashboards(projectRoot: string, config: ProjectConfig): DiscoveredDashboard[] {
+export async function discoverDashboards(
+  projectRoot: string,
+  config: ProjectConfig,
+  source?: DashboardSource,
+): Promise<DiscoveredDashboard[]> {
   const dashboardsDir = resolve(projectRoot, config.dashboards_dir);
+
+  if (source) {
+    return discoverFromSource(source, dashboardsDir);
+  }
+
+  // Legacy path: direct filesystem (used when no source is supplied)
   const results: DiscoveredDashboard[] = [];
 
   // Strategy 1: Look in configured dashboards directory
@@ -107,6 +134,42 @@ export function discoverDashboards(projectRoot: string, config: ProjectConfig): 
   }
 
   return results.sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+/**
+ * Discover dashboards through a DashboardSource.
+ */
+async function discoverFromSource(
+  source: DashboardSource,
+  baseDir: string,
+): Promise<DiscoveredDashboard[]> {
+  const files = await source.list();
+  const results: DiscoveredDashboard[] = [];
+
+  for (const filePath of files) {
+    try {
+      const content = await source.read(filePath);
+      const info = parseDashboardInfoFromContent(content, filePath, baseDir);
+      if (info) results.push(info);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`Warning: Failed to read ${filePath}: ${msg}`);
+    }
+  }
+
+  return results.sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+/**
+ * Create a LocalSource for the given project config.
+ * Falls back to projectRoot if the configured dashboards dir doesn't exist.
+ */
+export function createLocalSource(projectRoot: string, config: ProjectConfig): LocalSource {
+  const dashboardsDir = resolve(projectRoot, config.dashboards_dir);
+  if (existsSync(dashboardsDir)) {
+    return new LocalSource(dashboardsDir);
+  }
+  return new LocalSource(projectRoot);
 }
 
 /**
@@ -143,6 +206,53 @@ export function parseDashboardInfo(
       try {
         const source = readFileSync(filePath, "utf-8");
         parsePartial(source, filePath);
+      } catch (partialErr) {
+        const partialMsg = partialErr instanceof Error ? partialErr.message : String(partialErr);
+        console.warn(`Warning: ${filePath} is not a dashboard and failed to parse as an include: ${partialMsg}`);
+      }
+      return null;
+    }
+    console.warn(`Warning: Failed to parse ${filePath}: ${msg}`);
+    return null;
+  }
+}
+
+/**
+ * Parse dashboard metadata from already-read content.
+ * Used by source-based discovery where the source provides the content.
+ */
+export function parseDashboardInfoFromContent(
+  content: string,
+  filePath: string,
+  baseDir: string,
+): DiscoveredDashboard | null {
+  try {
+    const dashboard = parse(content, filePath);
+    const slug = fileToSlug(filePath, baseDir);
+    const rel = relative(baseDir, filePath);
+    const folder = rel.includes("/") || rel.includes("\\")
+      ? rel.replace(/[\\/][^\\/]+$/, "")
+      : "";
+
+    // Try to get mtime, but it may not exist for remote sources
+    let lastModified = new Date();
+    try {
+      lastModified = statSync(filePath).mtime;
+    } catch { /* remote files won't have local stat */ }
+
+    return {
+      slug,
+      filePath,
+      title: dashboard.title || slug,
+      description: getDashboardDescription(dashboard),
+      folder,
+      lastModified,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("Expected 'dashboard' keyword")) {
+      try {
+        parsePartial(content, filePath);
       } catch (partialErr) {
         const partialMsg = partialErr instanceof Error ? partialErr.message : String(partialErr);
         console.warn(`Warning: ${filePath} is not a dashboard and failed to parse as an include: ${partialMsg}`);
