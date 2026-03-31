@@ -6,7 +6,7 @@
  */
 
 import * as echarts from "echarts/core";
-import { LineChart, BarChart } from "echarts/charts";
+import { LineChart, BarChart, PieChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
@@ -17,6 +17,7 @@ import { SVGRenderer } from "echarts/renderers";
 echarts.use([
   LineChart,
   BarChart,
+  PieChart,
   GridComponent,
   LegendComponent,
   TooltipComponent,

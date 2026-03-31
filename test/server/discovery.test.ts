@@ -78,52 +78,52 @@ describe("discoverDashboards", () => {
     cache_ttl: 300,
   };
 
-  it("discovers .board files in dashboards directory", () => {
+  it("discovers .board files in dashboards directory", async () => {
     writeFileSync(resolve(TMP, "dashboards/test.board"), VALID_BOARD);
     writeFileSync(resolve(TMP, "dashboards/ops.board"), VALID_BOARD_2);
 
-    const dashboards = discoverDashboards(TMP, defaultConfig);
+    const dashboards = await discoverDashboards(TMP, defaultConfig);
     expect(dashboards).toHaveLength(2);
     expect(dashboards.map((d) => d.slug)).toContain("test");
     expect(dashboards.map((d) => d.slug)).toContain("ops");
   });
 
-  it("extracts title and description", () => {
+  it("extracts title and description", async () => {
     writeFileSync(resolve(TMP, "dashboards/test.board"), VALID_BOARD);
 
-    const dashboards = discoverDashboards(TMP, defaultConfig);
+    const dashboards = await discoverDashboards(TMP, defaultConfig);
     expect(dashboards[0].title).toBe("Test Dashboard");
     expect(dashboards[0].description).toBe("A test dashboard");
   });
 
-  it("falls back to root directory if dashboards dir is empty", () => {
+  it("falls back to root directory if dashboards dir is empty", async () => {
     writeFileSync(resolve(TMP, "test.board"), VALID_BOARD);
 
     const config = { ...defaultConfig, dashboards_dir: "./nonexistent" };
-    const dashboards = discoverDashboards(TMP, config);
+    const dashboards = await discoverDashboards(TMP, config);
     expect(dashboards).toHaveLength(1);
     expect(dashboards[0].title).toBe("Test Dashboard");
   });
 
-  it("skips files with parse errors without crashing", () => {
+  it("skips files with parse errors without crashing", async () => {
     writeFileSync(resolve(TMP, "dashboards/good.board"), VALID_BOARD);
     writeFileSync(resolve(TMP, "dashboards/bad.board"), "this is not valid board syntax {{{");
 
-    const dashboards = discoverDashboards(TMP, defaultConfig);
+    const dashboards = await discoverDashboards(TMP, defaultConfig);
     expect(dashboards).toHaveLength(1);
     expect(dashboards[0].title).toBe("Test Dashboard");
   });
 
-  it("returns empty array when no dashboards found", () => {
-    const dashboards = discoverDashboards(TMP, defaultConfig);
+  it("returns empty array when no dashboards found", async () => {
+    const dashboards = await discoverDashboards(TMP, defaultConfig);
     expect(dashboards).toHaveLength(0);
   });
 
-  it("discovers dashboards in subdirectories", () => {
+  it("discovers dashboards in subdirectories", async () => {
     mkdirSync(resolve(TMP, "dashboards/team"), { recursive: true });
     writeFileSync(resolve(TMP, "dashboards/team/sales.board"), VALID_BOARD);
 
-    const dashboards = discoverDashboards(TMP, defaultConfig);
+    const dashboards = await discoverDashboards(TMP, defaultConfig);
     expect(dashboards).toHaveLength(1);
     expect(dashboards[0].slug).toBe("team-sales");
   });

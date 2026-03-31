@@ -4,7 +4,8 @@ import { MySQLDriver } from "./drivers/mysql.js";
 import { SQLiteDriver } from "./drivers/sqlite.js";
 import { DuckDBDriver } from "./drivers/duckdb.js";
 import { loadEnvFiles } from "./env.js";
-import { loadConnectionFiles } from "./loader.js";
+import { loadConnectionFiles, loadConnectionFilesFromSource } from "./loader.js";
+import type { DashboardSource } from "../sources/types.js";
 
 const DRIVER_MAP: Record<string, new () => DatabaseDriver> = {
   postgres: PostgresDriver,
@@ -49,6 +50,32 @@ export class ConnectionManager {
     }
 
     // Non-fatal health check: warn on unreachable connections, don't crash
+    await this.warnUnhealthy();
+  }
+
+  /**
+   * Initialize all connections from a remote (or local) DashboardSource.
+   * Connection YAML files are read through the source; env vars are still
+   * resolved from local process.env.
+   */
+  async initFromSource(
+    source: DashboardSource,
+    projectRoot?: string,
+  ): Promise<void> {
+    if (projectRoot) {
+      loadEnvFiles(projectRoot);
+    }
+
+    const loaded = await loadConnectionFilesFromSource(source);
+
+    for (const conn of loaded) {
+      await this.register(conn.name, conn.config, conn.sourceFile);
+    }
+
+    await this.warnUnhealthy();
+  }
+
+  private async warnUnhealthy(): Promise<void> {
     const health = await this.healthCheck();
     for (const [name, status] of health) {
       if (!status.ok) {

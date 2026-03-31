@@ -68,5 +68,9 @@
     "pg": "^8.20.0",
     "ws": "^8.20.0",
     "yaml": "^2.8.3"
+  },
+  "optionalDependencies": {
+    "@aws-sdk/client-s3": "^3.1021.0",
+    "@google-cloud/storage": "^7.19.0"
   }
 }

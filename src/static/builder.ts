@@ -24,9 +24,12 @@ import { loadEnvFiles } from "../connections/env.js";
 import {
   loadConfig,
   discoverDashboards,
+  createLocalSource,
   type DiscoveredDashboard,
   type ProjectConfig,
 } from "../server/discovery.js";
+import type { DashboardSource } from "../sources/types.js";
+import { createSource, createConnectionSource } from "../sources/factory.js";
 import { resolveDateRange } from "../query/daterange.js";
 import {
   renderStaticPage,
@@ -52,6 +55,14 @@ export interface StaticBuildOptions {
   selfContained?: boolean;
   /** Threshold in bytes before splitting component data to external file (default 500KB) */
   splitThreshold?: number;
+  /** Remote source URI (e.g. "s3://bucket/prefix/") */
+  sourceUri?: string;
+  /** Polling interval in seconds for remote sources */
+  sourcePoll?: number;
+  /** Custom S3-compatible endpoint */
+  sourceEndpoint?: string;
+  /** Remote connections source URI (e.g. "s3://bucket/connections/") */
+  connectionsUri?: string;
 }
 
 export interface StaticBuildResult {
@@ -76,6 +87,10 @@ export async function staticBuild(options: StaticBuildOptions): Promise<StaticBu
     snapshotLabel,
     selfContained = false,
     splitThreshold = DEFAULT_SPLIT_THRESHOLD,
+    sourceUri,
+    sourcePoll,
+    sourceEndpoint,
+    connectionsUri,
   } = options;
 
   const builtAt = new Date();
@@ -92,7 +107,15 @@ export async function staticBuild(options: StaticBuildOptions): Promise<StaticBu
   loadEnvFiles(projectRoot);
 
   // 3. Discover dashboards
-  let dashboards = discoverDashboards(projectRoot, config);
+  const resolvedSourceUri = sourceUri ?? config.source;
+  const source: DashboardSource = resolvedSourceUri
+    ? await createSource({
+        uri: resolvedSourceUri,
+        pollInterval: sourcePoll ?? config.source_poll,
+        endpoint: sourceEndpoint ?? config.source_endpoint,
+      })
+    : createLocalSource(projectRoot, config);
+  let dashboards = await discoverDashboards(projectRoot, config, source);
   if (dashboardFilter) {
     dashboards = dashboards.filter((d) => d.slug === dashboardFilter);
     if (dashboards.length === 0) {
@@ -102,9 +125,19 @@ export async function staticBuild(options: StaticBuildOptions): Promise<StaticBu
 
   // 4. Initialize connections
   const connManager = new ConnectionManager();
-  const connectionsDir = resolve(projectRoot, config.connections_dir);
-  if (existsSync(connectionsDir)) {
-    await connManager.init(connectionsDir, projectRoot);
+  const resolvedConnectionsUri = connectionsUri ?? config.connections_source;
+  if (resolvedConnectionsUri) {
+    const connSource = await createConnectionSource({
+      uri: resolvedConnectionsUri,
+      pollInterval: 0, // no polling needed for build
+      endpoint: sourceEndpoint ?? config.source_endpoint,
+    });
+    await connManager.initFromSource(connSource, projectRoot);
+  } else {
+    const connectionsDir = resolve(projectRoot, config.connections_dir);
+    if (existsSync(connectionsDir)) {
+      await connManager.init(connectionsDir, projectRoot);
+    }
   }
 
   const executor = new QueryExecutor(connManager);
@@ -129,6 +162,7 @@ export async function staticBuild(options: StaticBuildOptions): Promise<StaticBu
       const { html, externalFiles } = await buildDashboard({
         discovered,
         executor,
+        source,
         snapshotLabel,
         builtAt,
         selfContained,
@@ -188,6 +222,7 @@ export async function staticBuild(options: StaticBuildOptions): Promise<StaticBu
 interface BuildDashboardOptions {
   discovered: DiscoveredDashboard;
   executor: QueryExecutor;
+  source: DashboardSource;
   snapshotLabel?: string;
   builtAt: Date;
   selfContained: boolean;
@@ -199,11 +234,11 @@ interface BuildDashboardOptions {
 async function buildDashboard(
   options: BuildDashboardOptions,
 ): Promise<{ html: string; externalFiles: Map<string, string> }> {
-  const { discovered, executor, snapshotLabel, builtAt, selfContained, splitThreshold, config, themeFile } = options;
+  const { discovered, executor, source, snapshotLabel, builtAt, selfContained, splitThreshold, config, themeFile } = options;
 
-  // Parse
-  const source = readFileSync(discovered.filePath, "utf-8");
-  const dashboard = resolveIncludes(parse(source, discovered.filePath), discovered.filePath);
+  // Parse — read through the source abstraction for remote compatibility
+  const fileContent = await source.read(discovered.filePath);
+  const dashboard = resolveIncludes(parse(fileContent, discovered.filePath), discovered.filePath);
   const layout = resolveLayout(dashboard);
 
   // Resolve default parameter values

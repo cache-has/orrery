@@ -21,6 +21,10 @@ interface BuildArgs {
   snapshotLabel?: string;
   selfContained: boolean;
   project: string;
+  source?: string;
+  sourcePoll?: number;
+  sourceEndpoint?: string;
+  connections?: string;
 }
 
 function parseArgs(argv: string[]): BuildArgs {
@@ -29,6 +33,10 @@ function parseArgs(argv: string[]): BuildArgs {
   let snapshotLabel: string | undefined;
   let selfContained = false;
   let project = ".";
+  let source: string | undefined;
+  let sourcePoll: number | undefined;
+  let sourceEndpoint: string | undefined;
+  let connections: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -54,10 +62,30 @@ function parseArgs(argv: string[]): BuildArgs {
       i++;
     } else if (arg.startsWith("--project=")) {
       project = arg.split("=").slice(1).join("=");
+    } else if (arg === "--source" && argv[i + 1]) {
+      source = argv[i + 1];
+      i++;
+    } else if (arg.startsWith("--source=")) {
+      source = arg.split("=").slice(1).join("=");
+    } else if (arg === "--source-poll" && argv[i + 1]) {
+      sourcePoll = parseInt(argv[i + 1], 10);
+      i++;
+    } else if (arg.startsWith("--source-poll=")) {
+      sourcePoll = parseInt(arg.split("=")[1], 10);
+    } else if (arg === "--source-endpoint" && argv[i + 1]) {
+      sourceEndpoint = argv[i + 1];
+      i++;
+    } else if (arg.startsWith("--source-endpoint=")) {
+      sourceEndpoint = arg.split("=").slice(1).join("=");
+    } else if (arg === "--connections" && argv[i + 1]) {
+      connections = argv[i + 1];
+      i++;
+    } else if (arg.startsWith("--connections=")) {
+      connections = arg.split("=").slice(1).join("=");
     }
   }
 
-  return { output, dashboard, snapshotLabel, selfContained, project };
+  return { output, dashboard, snapshotLabel, selfContained, project, source, sourcePoll, sourceEndpoint, connections };
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +110,10 @@ try {
     dashboardFilter: args.dashboard,
     snapshotLabel: args.snapshotLabel,
     selfContained: args.selfContained,
+    sourceUri: args.source,
+    sourcePoll: args.sourcePoll,
+    sourceEndpoint: args.sourceEndpoint,
+    connectionsUri: args.connections,
   });
 
   console.log("");

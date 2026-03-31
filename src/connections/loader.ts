@@ -3,6 +3,7 @@ import { resolve, extname } from "path";
 import { parse as parseYaml } from "yaml";
 import { resolveEnvVarsInConfig } from "./env.js";
 import type { ConnectionConfig } from "./drivers/base.js";
+import type { DashboardSource } from "../sources/types.js";
 
 /** Raw shape of a single connection in YAML (before env resolution). */
 interface RawConnectionEntry {
@@ -144,6 +145,41 @@ export function loadConnectionFiles(connectionsDir: string): LoadedConnection[] 
     const filePath = resolve(connectionsDir, file);
     const content = readFileSync(filePath, "utf-8");
     const connections = parseConnectionFile(filePath, content);
+
+    for (const conn of connections) {
+      if (seenNames.has(conn.name)) {
+        throw new Error(
+          `Duplicate connection name '${conn.name}' in '${conn.sourceFile}'. Connection names must be unique.`,
+        );
+      }
+      seenNames.add(conn.name);
+      allConnections.push(conn);
+    }
+  }
+
+  return allConnections;
+}
+
+/**
+ * Load all connection YAML files from a DashboardSource (remote or local).
+ * Same deduplication rules as loadConnectionFiles.
+ * Env vars (${VAR}) are still resolved from local process.env.
+ */
+export async function loadConnectionFilesFromSource(
+  source: DashboardSource,
+): Promise<LoadedConnection[]> {
+  const files = await source.list();
+
+  if (files.length === 0) {
+    return [];
+  }
+
+  const allConnections: LoadedConnection[] = [];
+  const seenNames = new Set<string>();
+
+  for (const file of files.sort()) {
+    const content = await source.read(file);
+    const connections = parseConnectionFile(file, content);
 
     for (const conn of connections) {
       if (seenNames.has(conn.name)) {
