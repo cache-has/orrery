@@ -6,6 +6,7 @@
  */
 
 import type { DashboardSource, DashboardSourceEvent } from "./types.js";
+import { SourceWriteError } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Types (avoid top-level import of @google-cloud/storage)
@@ -25,6 +26,8 @@ export interface GCSSourceOptions {
   pollInterval?: number;
   /** File extensions to match (default: [".board"]). */
   fileExtensions?: string[];
+  /** Enable write() — defaults to false (read-only). */
+  writable?: boolean;
 }
 
 export class GCSSource implements DashboardSource {
@@ -37,6 +40,7 @@ export class GCSSource implements DashboardSource {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private knownObjects = new Map<string, string>(); // key → generation
   private initialized = false;
+  public readonly writable: boolean;
 
   constructor(private options: GCSSourceOptions) {
     this.bucket = options.bucket;
@@ -45,6 +49,7 @@ export class GCSSource implements DashboardSource {
       : options.prefix + "/";
     this.pollInterval = options.pollInterval ?? 30;
     this.fileExtensions = options.fileExtensions ?? [".board"];
+    this.writable = options.writable ?? false;
   }
 
   /** Lazily create the Storage client (dynamic import so the SDK is only loaded when needed). */
@@ -78,6 +83,35 @@ export class GCSSource implements DashboardSource {
     return content.toString("utf-8");
   }
 
+  async write(path: string, content: string): Promise<void> {
+    if (!this.writable) {
+      throw new SourceWriteError("readonly", "Source is not writable");
+    }
+
+    await this.ensureClient();
+    const file = this.bucketHandle.file(path);
+
+    try {
+      await file.save(content, {
+        contentType: "text/plain; charset=utf-8",
+        resumable: false,
+      });
+    } catch (err) {
+      throw mapGcsError(err, path);
+    }
+
+    // Update generation cache so the poller doesn't report this self-write.
+    try {
+      const [metadata] = await file.getMetadata();
+      const generation = metadata?.generation ?? metadata?.metageneration;
+      if (generation !== undefined) {
+        this.knownObjects.set(path, String(generation));
+      }
+    } catch {
+      // Acceptable: poller may emit one spurious change event.
+    }
+  }
+
   watch(onChange: (event: DashboardSourceEvent) => void): void {
     if (this.pollInterval <= 0) return;
     this.seedAndPoll(onChange);
@@ -92,8 +126,9 @@ export class GCSSource implements DashboardSource {
 
   describe(): string {
     const base = `gs://${this.bucket}/${this.prefix}`;
-    const suffix = this.pollInterval > 0 ? ` (polling every ${this.pollInterval}s)` : "";
-    return base + suffix;
+    const poll = this.pollInterval > 0 ? ` (polling every ${this.pollInterval}s)` : "";
+    const write = this.writable ? " (writable)" : "";
+    return base + poll + write;
   }
 
   // ---------------------------------------------------------------------------
@@ -169,4 +204,21 @@ export class GCSSource implements DashboardSource {
     // Update state
     this.knownObjects = currentMap;
   }
+}
+
+function mapGcsError(err: unknown, path: string): SourceWriteError {
+  const e = err as any;
+  const status = e?.code ?? e?.response?.statusCode;
+  const msg = err instanceof Error ? err.message : String(err);
+
+  if (status === 403 || status === 401) {
+    return new SourceWriteError("permission", `Permission denied writing ${path}: ${msg}`, err);
+  }
+  if (status === 404) {
+    return new SourceWriteError("notfound", `Target not found writing ${path}: ${msg}`, err);
+  }
+  if (status === 408 || status === 429 || (typeof status === "number" && status >= 500 && status < 600)) {
+    return new SourceWriteError("transient", `Transient error writing ${path}: ${msg}`, err);
+  }
+  return new SourceWriteError("unknown", `Failed to write ${path}: ${msg}`, err);
 }

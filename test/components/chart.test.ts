@@ -293,7 +293,7 @@ describe("chartRenderer — bar chart", () => {
   });
 
   it("renders unsupported chart type with placeholder", () => {
-    const component = makeChart("Unknown", "scatter");
+    const component = makeChart("Unknown", "sunburst");
     const data: ComponentRenderData = {
       result: makeResult(["x", "y"], [{ x: 1, y: 2 }]),
     };
@@ -301,7 +301,345 @@ describe("chartRenderer — bar chart", () => {
     const html = chartRenderer.renderToString(component, data);
 
     expect(html).toContain("Unsupported chart type");
-    expect(html).toContain("scatter");
+    expect(html).toContain("sunburst");
+  });
+
+  it("renders stacked bars (stacked: true) — series share a stack name", () => {
+    const component = makeChart("Stacked", "bar", [
+      identProp("x", "quarter"),
+      identProp("y", "revenue"),
+      identProp("series", "product"),
+      { kind: "property", key: "stacked", value: { kind: "boolean", value: true, span }, span },
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["quarter", "revenue", "product"], [
+        { quarter: "Q1", revenue: 100, product: "Widget" },
+        { quarter: "Q1", revenue: 80, product: "Gadget" },
+        { quarter: "Q2", revenue: 120, product: "Widget" },
+        { quarter: "Q2", revenue: 90, product: "Gadget" },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    // The serialized client option should carry the stack name
+    expect(html).toContain("&quot;stack&quot;:&quot;total&quot;");
+    expect(html).toContain("<svg");
+  });
+
+  it("renders percent-stacked bars — values normalized to 100", () => {
+    const component = makeChart("Pct Stacked", "bar", [
+      identProp("x", "quarter"),
+      identProp("y", "revenue"),
+      identProp("series", "product"),
+      { kind: "property", key: "stacked", value: { kind: "string", value: "percent", span }, span },
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["quarter", "revenue", "product"], [
+        { quarter: "Q1", revenue: 75, product: "Widget" },
+        { quarter: "Q1", revenue: 25, product: "Gadget" },
+        { quarter: "Q2", revenue: 60, product: "Widget" },
+        { quarter: "Q2", revenue: 40, product: "Gadget" },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    // Stacked + axis pinned to 0..100 — a 100 max appears in serialized option
+    expect(html).toContain("&quot;stack&quot;:&quot;total&quot;");
+    expect(html).toContain("&quot;max&quot;:100");
+    // Normalized values: 75/(75+25)*100 = 75, 25 → the exact percent values appear as series data
+    expect(html).toMatch(/&quot;data&quot;:\[75,60\]/);
+    expect(html).toMatch(/&quot;data&quot;:\[25,40\]/);
+  });
+
+  it("stacked: false is a no-op (no stack key)", () => {
+    const component = makeChart("Not Stacked", "bar", [
+      identProp("x", "quarter"),
+      identProp("y", "revenue"),
+      identProp("series", "product"),
+      { kind: "property", key: "stacked", value: { kind: "boolean", value: false, span }, span },
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["quarter", "revenue", "product"], [
+        { quarter: "Q1", revenue: 100, product: "Widget" },
+        { quarter: "Q1", revenue: 80, product: "Gadget" },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).not.toContain("&quot;stack&quot;");
+  });
+
+  it("renders a funnel chart with stages in query order", () => {
+    const component = makeChart("Conversion", "funnel", [
+      identProp("label", "stage"),
+      identProp("value", "count"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["stage", "count"], [
+        { stage: "Visited", count: 1000 },
+        { stage: "Signed Up", count: 400 },
+        { stage: "Activated", count: 150 },
+        { stage: "Paid", count: 50 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    expect(html).toContain("openboard-chart-container");
+    // Funnel series type and sort:none (preserve query order) should appear in serialized option
+    expect(html).toContain("&quot;type&quot;:&quot;funnel&quot;");
+    expect(html).toContain("&quot;sort&quot;:&quot;none&quot;");
+    // Stage labels should be present
+    expect(html).toContain("Visited");
+    expect(html).toContain("Paid");
+  });
+
+  it("renders 'No data' for empty funnel", () => {
+    const component = makeChart("Empty Funnel", "funnel", [
+      identProp("label", "stage"),
+      identProp("value", "count"),
+    ]);
+    const data: ComponentRenderData = { result: makeResult(["stage", "count"], []) };
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toContain("No data");
+  });
+
+  it("renders a scatter chart with numeric x/y", () => {
+    const component = makeChart("Scatter", "scatter", [
+      identProp("x", "months_active"),
+      identProp("y", "total_spend"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["months_active", "total_spend"], [
+        { months_active: 1, total_spend: 50 },
+        { months_active: 6, total_spend: 220 },
+        { months_active: 12, total_spend: 480 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    expect(html).toContain("&quot;type&quot;:&quot;scatter&quot;");
+    // Numeric x/y data is emitted as [x,y] pairs in the serialized option
+    expect(html).toMatch(/&quot;data&quot;:\[\[1,50\],\[6,220\],\[12,480\]\]/);
+  });
+
+  it("renders 'No data' for empty scatter", () => {
+    const component = makeChart("Empty Scatter", "scatter", [
+      identProp("x", "x"),
+      identProp("y", "y"),
+    ]);
+    const data: ComponentRenderData = { result: makeResult(["x", "y"], []) };
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toContain("No data");
+  });
+
+  it("skips non-numeric rows in scatter", () => {
+    const component = makeChart("Scatter Skip", "scatter", [
+      identProp("x", "a"),
+      identProp("y", "b"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["a", "b"], [
+        { a: 1, b: 2 },
+        { a: "oops", b: 5 },
+        { a: 3, b: 4 },
+      ]),
+    };
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toMatch(/&quot;data&quot;:\[\[1,2\],\[3,4\]\]/);
+  });
+
+  it("color-codes scatter by series column", () => {
+    const component = makeChart("Scatter Multi", "scatter", [
+      identProp("x", "x"),
+      identProp("y", "y"),
+      identProp("series", "plan"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["x", "y", "plan"], [
+        { x: 1, y: 10, plan: "Pro" },
+        { x: 2, y: 20, plan: "Free" },
+        { x: 3, y: 30, plan: "Pro" },
+      ]),
+    };
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toContain("<svg");
+    expect(html).toContain("Pro");
+    expect(html).toContain("Free");
+    // Points are grouped into two series in the serialized option
+    expect(html).toMatch(/&quot;data&quot;:\[\[1,10\],\[3,30\]\]/);
+    expect(html).toMatch(/&quot;data&quot;:\[\[2,20\]\]/);
+  });
+
+  it("renders bubble-style scatter when size: is provided", () => {
+    const component = makeChart("Bubble", "scatter", [
+      identProp("x", "x"),
+      identProp("y", "y"),
+      identProp("size", "s"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["x", "y", "s"], [
+        { x: 1, y: 1, s: 10 },
+        { x: 2, y: 2, s: 100 },
+      ]),
+    };
+    const html = chartRenderer.renderToString(component, data);
+    // Data tuples include the size value as the third element
+    expect(html).toMatch(/&quot;data&quot;:\[\[1,1,10\],\[2,2,100\]\]/);
+    expect(html).toContain("<svg");
+  });
+
+  it("renders a heatmap with x/y categories and values", () => {
+    const component = makeChart("Order Heatmap", "heatmap", [
+      identProp("x", "hour_of_day"),
+      identProp("y", "day_of_week"),
+      identProp("value", "order_count"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["hour_of_day", "day_of_week", "order_count"], [
+        { hour_of_day: "9", day_of_week: "Mon", order_count: 10 },
+        { hour_of_day: "10", day_of_week: "Mon", order_count: 25 },
+        { hour_of_day: "9", day_of_week: "Tue", order_count: 5 },
+        { hour_of_day: "10", day_of_week: "Tue", order_count: 40 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    expect(html).toContain("&quot;type&quot;:&quot;heatmap&quot;");
+    // Data is emitted as [xIndex, yIndex, value] triples
+    expect(html).toMatch(/&quot;data&quot;:\[\[0,0,10\],\[1,0,25\],\[0,1,5\],\[1,1,40\]\]/);
+    // visualMap auto-pinned from data
+    expect(html).toContain("&quot;visualMap&quot;");
+    expect(html).toContain("&quot;min&quot;:5");
+    expect(html).toContain("&quot;max&quot;:40");
+  });
+
+  it("heatmap respects explicit min/max props", () => {
+    const component = makeChart("Heatmap Bounds", "heatmap", [
+      identProp("x", "x"),
+      identProp("y", "y"),
+      identProp("value", "v"),
+      { kind: "property", key: "min", value: { kind: "number", value: 0, span }, span },
+      { kind: "property", key: "max", value: { kind: "number", value: 100, span }, span },
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["x", "y", "v"], [
+        { x: "a", y: "1", v: 10 },
+        { x: "b", y: "1", v: 20 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toContain("&quot;min&quot;:0");
+    expect(html).toContain("&quot;max&quot;:100");
+  });
+
+  it("renders 'No data' for empty heatmap", () => {
+    const component = makeChart("Empty Heatmap", "heatmap", [
+      identProp("x", "x"),
+      identProp("y", "y"),
+      identProp("value", "v"),
+    ]);
+    const data: ComponentRenderData = { result: makeResult(["x", "y", "v"], []) };
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toContain("No data");
+  });
+
+  it("renders a gauge with literal max and thresholds", () => {
+    const component = makeChart("Monthly Target", "gauge", [
+      identProp("value", "current_value"),
+      { kind: "property", key: "max", value: { kind: "number", value: 100, span }, span },
+      {
+        kind: "property",
+        key: "thresholds",
+        value: {
+          kind: "array",
+          elements: [
+            { kind: "number", value: 0.5, span },
+            { kind: "number", value: 0.8, span },
+          ],
+          span,
+        },
+        span,
+      },
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["current_value"], [{ current_value: 72 }]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    expect(html).toContain("&quot;type&quot;:&quot;gauge&quot;");
+    expect(html).toContain("&quot;max&quot;:100");
+    // Three threshold bands with default danger/warn/ok colors
+    expect(html).toContain("#ef4444");
+    expect(html).toContain("#f59e0b");
+    expect(html).toContain("#10b981");
+  });
+
+  it("gauge reads max from a column name", () => {
+    const component = makeChart("Target", "gauge", [
+      identProp("value", "current"),
+      identProp("max", "target"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["current", "target"], [{ current: 40, target: 200 }]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toContain("&quot;max&quot;:200");
+  });
+
+  it("gauge respects custom threshold_colors", () => {
+    const component = makeChart("Colored Gauge", "gauge", [
+      identProp("value", "v"),
+      { kind: "property", key: "max", value: { kind: "number", value: 1, span }, span },
+      {
+        kind: "property",
+        key: "thresholds",
+        value: {
+          kind: "array",
+          elements: [{ kind: "number", value: 0.5, span }],
+          span,
+        },
+        span,
+      },
+      {
+        kind: "property",
+        key: "threshold_colors",
+        value: {
+          kind: "array",
+          elements: [
+            { kind: "string", value: "#111111", span },
+            { kind: "string", value: "#222222", span },
+          ],
+          span,
+        },
+        span,
+      },
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["v"], [{ v: 0.3 }]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toContain("#111111");
+    expect(html).toContain("#222222");
+  });
+
+  it("renders 'No data' for empty gauge", () => {
+    const component = makeChart("Empty Gauge", "gauge", [identProp("value", "v")]);
+    const data: ComponentRenderData = { result: makeResult(["v"], []) };
+    const html = chartRenderer.renderToString(component, data);
+    expect(html).toContain("No data");
   });
 
   it("applies custom color", () => {

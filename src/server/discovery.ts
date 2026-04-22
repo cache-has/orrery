@@ -32,8 +32,17 @@ export interface ProjectConfig {
   source_poll?: number;
   /** Custom endpoint for S3-compatible stores (MinIO, R2). */
   source_endpoint?: string;
+  /** Enable write() on the dashboard source (used by the web editor). Defaults to false. */
+  source_writable?: boolean;
   /** Remote connections source URI (e.g. "s3://bucket/connections/"). Omit for local filesystem. */
   connections_source?: string;
+  /** Web editor settings. */
+  editor?: EditorConfig;
+}
+
+export interface EditorConfig {
+  /** Enable the web editor routes (/edit/*, /api/save, /api/new, /api/validate, /api/connections). Default: false. */
+  enabled: boolean;
 }
 
 const DEFAULT_CONFIG: ProjectConfig = {
@@ -67,12 +76,20 @@ export function loadConfig(projectRoot: string): ProjectConfig {
       source: (parsed as any).source ?? undefined,
       source_poll: (parsed as any).source_poll ?? undefined,
       source_endpoint: (parsed as any).source_endpoint ?? undefined,
+      source_writable: (parsed as any).source_writable ?? undefined,
       connections_source: (parsed as any).connections_source ?? undefined,
+      editor: parseEditorConfig((parsed as any).editor),
     };
   } catch {
     console.warn(`Warning: Failed to parse ${configPath}, using defaults`);
     return { ...DEFAULT_CONFIG };
   }
+}
+
+function parseEditorConfig(raw: unknown): EditorConfig | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const enabled = (raw as { enabled?: unknown }).enabled;
+  return { enabled: enabled === true };
 }
 
 // ---------------------------------------------------------------------------
@@ -164,12 +181,17 @@ async function discoverFromSource(
  * Create a LocalSource for the given project config.
  * Falls back to projectRoot if the configured dashboards dir doesn't exist.
  */
-export function createLocalSource(projectRoot: string, config: ProjectConfig): LocalSource {
+export function createLocalSource(
+  projectRoot: string,
+  config: ProjectConfig,
+  options?: { writable?: boolean },
+): LocalSource {
+  const opts = { writable: options?.writable };
   const dashboardsDir = resolve(projectRoot, config.dashboards_dir);
   if (existsSync(dashboardsDir)) {
-    return new LocalSource(dashboardsDir);
+    return new LocalSource(dashboardsDir, undefined, opts);
   }
-  return new LocalSource(projectRoot);
+  return new LocalSource(projectRoot, undefined, opts);
 }
 
 /**

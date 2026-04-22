@@ -147,4 +147,34 @@ dashboard "SaaS Metrics" {
       color: "#EF4444"
     }
   }
+
+  row {
+    chart "MRR Target" (span: 4, type: gauge) {
+      query: """
+        SELECT
+          SUM(monthly_amount) as current_value,
+          500000 as target_value
+        FROM subscriptions
+        WHERE status = 'active'
+          AND ({{plan}} = 'All' OR plan_name = {{plan}})
+      """
+      value: current_value
+      max: target_value
+      format: compact
+      thresholds: [0.5, 0.8]
+    }
+
+    chart "Trial Conversion Rate" (span: 4, type: gauge) {
+      query: """
+        SELECT
+          CAST(SUM(CASE WHEN converted THEN 1 ELSE 0 END) AS DOUBLE) / NULLIF(COUNT(*), 0) as rate
+        FROM trials
+        WHERE started_at >= {{date_range.start}} AND started_at <= {{date_range.end}}
+      """
+      value: rate
+      max: 1
+      format: percent
+      thresholds: [0.15, 0.30]
+    }
+  }
 }

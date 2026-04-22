@@ -9,7 +9,7 @@ import type {
 } from "./ast.js";
 import { ParseError } from "./errors.js";
 
-const KNOWN_CHART_TYPES = new Set(["line", "bar", "area", "scatter", "pie", "donut", "heatmap"]);
+const KNOWN_CHART_TYPES = new Set(["line", "bar", "area", "scatter", "pie", "donut", "heatmap", "funnel", "gauge"]);
 const COMPONENTS_REQUIRING_QUERY = new Set(["metric", "chart", "table"]);
 
 export interface ValidationDiagnostic {
@@ -171,6 +171,33 @@ function validateComponent(
         span: comp.span,
         hint,
       });
+    }
+  }
+
+  // Validate `stacked` property (bar charts only; boolean or "percent")
+  const stackedProp = comp.properties.find((p) => p.key === "stacked");
+  if (stackedProp) {
+    if (comp.componentType !== "chart" || comp.opts.type !== "bar") {
+      diags.push({
+        level: "error",
+        message: `'stacked' is only valid on bar charts`,
+        span: stackedProp.span,
+        hint: "Remove 'stacked' or set the chart type to 'bar'",
+      });
+    } else {
+      const v = stackedProp.value;
+      const isBool = v.kind === "boolean";
+      const isPercent =
+        (v.kind === "string" && v.value === "percent") ||
+        (v.kind === "ident" && v.name === "percent");
+      if (!isBool && !isPercent) {
+        diags.push({
+          level: "error",
+          message: `Invalid 'stacked' value`,
+          span: stackedProp.span,
+          hint: "'stacked' must be true, false, or \"percent\"",
+        });
+      }
     }
   }
 

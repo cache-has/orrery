@@ -83,6 +83,33 @@ describe("Validator", () => {
     expect(diags[0].hint).toContain("bar"); // suggests 'bar'
   });
 
+  it("accepts funnel as a known chart type", () => {
+    const diags = parseAndValidate(`dashboard "D" {
+      row {
+        chart "Funnel" (span: 6, type: funnel) {
+          query: "SELECT stage, count FROM funnel ORDER BY sort_order"
+          label: stage
+          value: count
+        }
+      }
+    }`);
+    expect(diags).toHaveLength(0);
+  });
+
+  it("accepts gauge as a known chart type", () => {
+    const diags = parseAndValidate(`dashboard "D" {
+      row {
+        chart "Gauge" (span: 4, type: gauge) {
+          query: "SELECT current_value, target_value FROM t LIMIT 1"
+          value: current_value
+          max: target_value
+          thresholds: [0.5, 0.8]
+        }
+      }
+    }`);
+    expect(diags).toHaveLength(0);
+  });
+
   it("errors on undefined parameter reference in query", () => {
     const diags = parseAndValidate(`dashboard "D" {
       param date_range = daterange(default: "last 7 days")
@@ -172,6 +199,64 @@ describe("Validator", () => {
     }`);
     // Row span warning only — should not throw
     expect(() => validateOrThrow(ast)).not.toThrow();
+  });
+
+  it("accepts stacked: true on a bar chart", () => {
+    const diags = parseAndValidate(`dashboard "D" {
+      row {
+        chart "C" (span: 12, type: bar) {
+          query: "SELECT 1"
+          x: a
+          y: b
+          series: c
+          stacked: true
+        }
+      }
+    }`);
+    expect(diags).toHaveLength(0);
+  });
+
+  it("accepts stacked: \"percent\" on a bar chart", () => {
+    const diags = parseAndValidate(`dashboard "D" {
+      row {
+        chart "C" (span: 12, type: bar) {
+          query: "SELECT 1"
+          x: a
+          y: b
+          series: c
+          stacked: "percent"
+        }
+      }
+    }`);
+    expect(diags).toHaveLength(0);
+  });
+
+  it("errors on stacked applied to a line chart", () => {
+    const diags = parseAndValidate(`dashboard "D" {
+      row {
+        chart "C" (span: 12, type: line) {
+          query: "SELECT 1"
+          x: a
+          y: b
+          stacked: true
+        }
+      }
+    }`);
+    expect(diags.some((d) => d.level === "error" && d.message.includes("'stacked' is only valid on bar charts"))).toBe(true);
+  });
+
+  it("errors on invalid stacked string value", () => {
+    const diags = parseAndValidate(`dashboard "D" {
+      row {
+        chart "C" (span: 12, type: bar) {
+          query: "SELECT 1"
+          x: a
+          y: b
+          stacked: "yes"
+        }
+      }
+    }`);
+    expect(diags.some((d) => d.level === "error" && d.message.includes("Invalid 'stacked' value"))).toBe(true);
   });
 
   it("handles param references with dot notation (e.g., date_range.previous)", () => {

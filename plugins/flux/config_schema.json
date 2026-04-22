@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenBoard (DuckDB) Sink",
+  "type": "object",
+  "required": ["openboard_project", "connection_name", "table_name"],
+  "properties": {
+    "openboard_project": {
+      "type": "string",
+      "description": "Path to the OpenBoard project directory (the one containing dashboards/ and connections/)."
+    },
+    "connection_name": {
+      "type": "string",
+      "description": "Name of the OpenBoard connection to create or update. Becomes the filename: connections/<name>.yaml",
+      "default": "flux_pipelines"
+    },
+    "database_file": {
+      "type": "string",
+      "description": "DuckDB file path, relative to the OpenBoard project directory. Multiple sinks can share one file.",
+      "default": "data/flux.duckdb"
+    },
+    "table_name": {
+      "type": "string",
+      "description": "Name of the DuckDB table to write. Becomes the queryable table in OpenBoard dashboards."
+    },
+    "write_mode": {
+      "type": "string",
+      "enum": ["replace", "append", "upsert"],
+      "default": "replace",
+      "description": "replace = drop and recreate. append = insert. upsert = requires upsert_keys."
+    },
+    "upsert_keys": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Column names used as the upsert key. Required when write_mode = upsert."
+    },
+    "snapshot_label": {
+      "type": "string",
+      "description": "Optional label propagated to OpenBoard's snapshot system for versioned dashboards."
+    },
+    "write_dataset_metadata": {
+      "type": "boolean",
+      "default": true,
+      "description": "Emit datasets/<table_name>.yaml metadata file for OpenBoard discovery."
+    }
+  },
+  "additionalProperties": false
+}

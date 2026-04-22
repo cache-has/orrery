@@ -1,0 +1,30 @@
+{
+  "name": "@openboard/flux-plugin",
+  "version": "0.1.0",
+  "description": "Horizon Flux sink plugin that publishes pipeline outputs to OpenBoard via DuckDB",
+  "type": "module",
+  "private": true,
+  "license": "MIT OR Apache-2.0",
+  "author": "Horizon Analytic Studios, LLC",
+  "scripts": {
+    "build": "tsup",
+    "bundle": "tsup && node scripts/bundle.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "^1.5.1-r.1",
+    "apache-arrow": "^17.0.0",
+    "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

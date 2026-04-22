@@ -11,7 +11,7 @@ import { Hono } from "hono";
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { resolve, basename, extname, relative } from "path";
 import { parse } from "../../parser/parser.js";
-import { resolveIncludes } from "../../parser/resolver.js";
+import { resolveIncludes, resolveIncludesAsync } from "../../parser/resolver.js";
 import { resolveLayout } from "../../renderer/layout.js";
 import { renderPage, renderComponentFragment } from "../../renderer/html.js";
 import { fetchDashboardData, collectComponents } from "../../renderer/data.js";
@@ -21,10 +21,11 @@ import { OPENBOARD_CLIENT_JS } from "../client.js";
 import { OPENBOARD_INTERACTIVE_JS } from "../interactive.js";
 import { resolveDateRange } from "../../query/daterange.js";
 import { loadThemeFile, resolveTheme, type ThemeFile, type ThemeName } from "../../renderer/theme.js";
-import type { ProjectConfig } from "../discovery.js";
+import type { ProjectConfig, DiscoveredDashboard } from "../discovery.js";
+import type { DashboardSource } from "../../sources/types.js";
 
 export interface DashboardRouteOptions {
-  /** Root directory containing .board files */
+  /** Root directory containing .board files (used as fallback when no source is wired). */
   boardDir: string;
   /** Query executor for running SQL */
   executor: QueryExecutor;
@@ -34,11 +35,15 @@ export interface DashboardRouteOptions {
   projectRoot?: string;
   /** Project config (for global theme setting) */
   config?: ProjectConfig;
+  /** Dashboard source (local or remote). When provided, all board reads flow through it. */
+  source?: DashboardSource;
+  /** Supplies the current list of discovered dashboards (used to resolve slug → filePath/key). */
+  getDashboards?: () => DiscoveredDashboard[];
 }
 
 export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   const app = new Hono();
-  const { boardDir, executor, devMode, projectRoot, config } = options;
+  const { boardDir, executor, devMode, projectRoot, config, source, getDashboards } = options;
 
   // Load theme file once at startup (re-loaded via watcher in dev mode)
   let cachedThemeFile: ThemeFile | null = null;
@@ -123,9 +128,9 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   // Render a dashboard by name — support both /d/:name and /dashboard/:name
   const renderDashboard = async (c: { req: { param: (k: string) => string; query: () => Record<string, string> }; html: (body: string, status?: number) => Response }) => {
     const name = c.req.param("name");
-    const boardFile = resolveBoardFile(boardDir, name);
+    const loaded = await loadBoardContent(name, { source, getDashboards, boardDir });
 
-    if (!boardFile) {
+    if (!loaded) {
       return c.html(
         `<!DOCTYPE html><html><body><h1>Dashboard not found</h1><p>No dashboard matching: ${escapeHtml(name)}</p></body></html>`,
         404,
@@ -133,8 +138,11 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
     }
 
     try {
-      const source = readFileSync(boardFile, "utf-8");
-      const dashboard = resolveIncludes(parse(source, boardFile), boardFile);
+      const { content, filePath: boardFile } = loaded;
+      const parsed = parse(content, boardFile);
+      const dashboard = source
+        ? await resolveIncludesAsync(parsed, boardFile, (p) => source.read(p))
+        : resolveIncludes(parsed, boardFile);
       const layout = resolveLayout(dashboard);
 
       // Collect param defaults as current values
@@ -221,13 +229,16 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         format?: "json" | "html";
       }>();
 
-      const boardFile = resolveBoardFile(boardDir, body.dashboard);
-      if (!boardFile) {
+      const loaded = await loadBoardContent(body.dashboard, { source, getDashboards, boardDir });
+      if (!loaded) {
         return c.json({ error: "Dashboard not found" }, 404);
       }
 
-      const source = readFileSync(boardFile, "utf-8");
-      const dashboard = resolveIncludes(parse(source, boardFile), boardFile);
+      const { content: boardSrc, filePath: boardFile } = loaded;
+      const parsed = parse(boardSrc, boardFile);
+      const dashboard = source
+        ? await resolveIncludesAsync(parsed, boardFile, (p) => source.read(p))
+        : resolveIncludes(parsed, boardFile);
 
       // Resolve daterange params
       const resolvedParams = resolveParamsWithDateRanges(dashboard, body.params);
@@ -382,6 +393,38 @@ function resolveParamsWithDateRanges(
     }
   }
   return resolved;
+}
+
+/**
+ * Read a dashboard's source content by slug. When a DashboardSource is
+ * available, resolve the slug via the discovery cache and read through the
+ * source (the only path that works for remote S3/GCS). Otherwise fall back
+ * to a direct filesystem lookup relative to {@link boardDir}.
+ */
+export async function loadBoardContent(
+  slug: string,
+  opts: {
+    source?: DashboardSource;
+    getDashboards?: () => DiscoveredDashboard[];
+    boardDir: string;
+  },
+): Promise<{ content: string; filePath: string } | null> {
+  const { source, getDashboards, boardDir } = opts;
+
+  if (source && getDashboards) {
+    const match = getDashboards().find((d) => d.slug === slug);
+    if (!match) return null;
+    try {
+      const content = await source.read(match.filePath);
+      return { content, filePath: match.filePath };
+    } catch {
+      return null;
+    }
+  }
+
+  const boardFile = resolveBoardFile(boardDir, slug);
+  if (!boardFile) return null;
+  return { content: readFileSync(boardFile, "utf-8"), filePath: boardFile };
 }
 
 /**

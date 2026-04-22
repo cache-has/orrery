@@ -4,22 +4,32 @@
  * Wraps recursive .board file discovery and optional chokidar-based watching.
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from "fs";
-import { resolve, extname } from "path";
+import { readFileSync, existsSync, readdirSync, statSync, mkdirSync } from "fs";
+import { writeFile } from "fs/promises";
+import { resolve, extname, dirname } from "path";
 import chokidar from "chokidar";
 import type { DashboardSource, DashboardSourceEvent } from "./types.js";
+import { SourceWriteError } from "./types.js";
+
+export interface LocalSourceOptions {
+  /** Enable write() — defaults to false (read-only). */
+  writable?: boolean;
+}
 
 export class LocalSource implements DashboardSource {
   private watcher: ReturnType<typeof chokidar.watch> | null = null;
   private extensions: string[];
+  public readonly writable: boolean;
 
   constructor(
     /** Absolute path to the directory containing files. */
     private dir: string,
     /** File extensions to match (default: [".board"]). */
     extensions?: string[],
+    options?: LocalSourceOptions,
   ) {
     this.extensions = extensions ?? [".board"];
+    this.writable = options?.writable ?? false;
   }
 
   async list(): Promise<string[]> {
@@ -28,6 +38,18 @@ export class LocalSource implements DashboardSource {
 
   async read(path: string): Promise<string> {
     return readFileSync(path, "utf-8");
+  }
+
+  async write(path: string, content: string): Promise<void> {
+    if (!this.writable) {
+      throw new SourceWriteError("readonly", "Source is not writable");
+    }
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+      await writeFile(path, content, "utf8");
+    } catch (err) {
+      throw mapFsError(err, path);
+    }
   }
 
   watch(onChange: (event: DashboardSourceEvent) => void): void {
@@ -60,7 +82,7 @@ export class LocalSource implements DashboardSource {
   }
 
   describe(): string {
-    return `local: ${this.dir}`;
+    return `local: ${this.dir}${this.writable ? " (writable)" : ""}`;
   }
 }
 
@@ -82,4 +104,18 @@ function findFiles(dir: string, extensions: string[], recursive = true): string[
     }
   }
   return results;
+}
+
+function mapFsError(err: unknown, path: string): SourceWriteError {
+  const code = (err as NodeJS.ErrnoException)?.code;
+  const msg = err instanceof Error ? err.message : String(err);
+  switch (code) {
+    case "EACCES":
+    case "EPERM":
+      return new SourceWriteError("permission", `Permission denied writing ${path}: ${msg}`, err);
+    case "ENOENT":
+      return new SourceWriteError("notfound", `Path not found for ${path}: ${msg}`, err);
+    default:
+      return new SourceWriteError("unknown", `Failed to write ${path}: ${msg}`, err);
+  }
 }

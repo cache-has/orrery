@@ -25,7 +25,8 @@
     "format": "prettier --write 'src/**/*.ts' 'test/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts' 'test/**/*.ts'",
     "typecheck": "tsc --noEmit",
-    "validate": "tsx src/cli/validate.ts"
+    "validate": "tsx src/cli/validate.ts",
+    "build:grammar": "node scripts/build-grammar.mjs"
   },
   "keywords": [
     "dashboard",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@lezer/generator": "^1.8.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.20.0",
@@ -55,12 +57,22 @@
     "vitest": "^4.1.2"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.1",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/lint": "^6.9.5",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.41.1",
     "@duckdb/node-api": "^1.5.1-r.1",
     "@hono/node-server": "^1.19.11",
+    "@lezer/common": "^1.5.2",
+    "@lezer/highlight": "^1.2.3",
+    "@lezer/lr": "^1.4.10",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
     "dotenv": "^17.3.1",
     "echarts": "^6.0.0",
+    "esbuild": "^0.28.0",
     "hono": "^4.12.9",
     "marked": "^17.0.5",
     "mysql2": "^3.20.0",

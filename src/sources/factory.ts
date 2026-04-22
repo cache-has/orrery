@@ -62,6 +62,8 @@ export interface CreateSourceOptions {
   endpoint?: string;
   /** AWS region override */
   region?: string;
+  /** Enable write() on the created source. Defaults to false (read-only). */
+  writable?: boolean;
 }
 
 /** File extensions used for connection files. */
@@ -77,6 +79,7 @@ export async function createConnectionSource(options: CreateSourceOptions): Prom
   switch (parsed.scheme) {
     case "local": {
       const absPath = resolve(parsed.path!);
+      // Connections remain read-only — editing credentials via the editor is not supported.
       return new LocalSource(absPath, CONNECTION_EXTENSIONS);
     }
 
@@ -89,6 +92,7 @@ export async function createConnectionSource(options: CreateSourceOptions): Prom
         region: options.region,
         pollInterval: options.pollInterval,
         fileExtensions: CONNECTION_EXTENSIONS,
+        // writable intentionally omitted — connections are read-only.
       });
     }
 
@@ -121,7 +125,7 @@ export async function createSource(options: CreateSourceOptions): Promise<Dashbo
   switch (parsed.scheme) {
     case "local": {
       const absPath = resolve(parsed.path!);
-      return new LocalSource(absPath);
+      return new LocalSource(absPath, undefined, { writable: options.writable });
     }
 
     case "s3": {
@@ -133,6 +137,7 @@ export async function createSource(options: CreateSourceOptions): Promise<Dashbo
         endpoint: options.endpoint,
         region: options.region,
         pollInterval: options.pollInterval,
+        writable: options.writable,
       });
     }
 
@@ -142,6 +147,7 @@ export async function createSource(options: CreateSourceOptions): Promise<Dashbo
         bucket: parsed.bucket!,
         prefix: parsed.prefix!,
         pollInterval: options.pollInterval,
+        writable: options.writable,
       });
     }
 

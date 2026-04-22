@@ -33,7 +33,9 @@ interface DevArgs {
   source?: string;
   sourcePoll?: number;
   sourceEndpoint?: string;
+  sourceWritable?: boolean;
   connections?: string;
+  editor?: boolean;
 }
 
 function parseArgs(argv: string[]): DevArgs {
@@ -43,7 +45,9 @@ function parseArgs(argv: string[]): DevArgs {
   let source: string | undefined;
   let sourcePoll: number | undefined;
   let sourceEndpoint: string | undefined;
+  let sourceWritable: boolean | undefined;
   let connections: string | undefined;
+  let editor: boolean | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -74,15 +78,23 @@ function parseArgs(argv: string[]): DevArgs {
       i++;
     } else if (arg.startsWith("--source-endpoint=")) {
       sourceEndpoint = arg.split("=").slice(1).join("=");
+    } else if (arg === "--source-writable") {
+      sourceWritable = true;
+    } else if (arg === "--no-source-writable") {
+      sourceWritable = false;
     } else if (arg === "--connections" && argv[i + 1]) {
       connections = argv[i + 1];
       i++;
     } else if (arg.startsWith("--connections=")) {
       connections = arg.split("=").slice(1).join("=");
+    } else if (arg === "--editor") {
+      editor = true;
+    } else if (arg === "--no-editor") {
+      editor = false;
     }
   }
 
-  return { port, project, noOpen, source, sourcePoll, sourceEndpoint, connections };
+  return { port, project, noOpen, source, sourcePoll, sourceEndpoint, sourceWritable, connections, editor };
 }
 
 // ---------------------------------------------------------------------------
@@ -106,13 +118,16 @@ const queriesDir = resolve(projectRoot, config.queries_dir);
 
 // Create dashboard source (remote if --source is set, otherwise local)
 const sourceUri = args.source ?? config.source;
+const sourceWritable = args.sourceWritable ?? config.source_writable ?? false;
+const editorEnabled = args.editor ?? config.editor?.enabled ?? false;
 const dashboardSource: DashboardSource = sourceUri
   ? await createSource({
       uri: sourceUri,
       pollInterval: args.sourcePoll ?? config.source_poll,
       endpoint: args.sourceEndpoint ?? config.source_endpoint,
+      writable: sourceWritable,
     })
-  : createLocalSource(projectRoot, config);
+  : createLocalSource(projectRoot, config, { writable: sourceWritable });
 
 let dashboards: DiscoveredDashboard[] = await discoverDashboards(projectRoot, config, dashboardSource);
 
@@ -154,10 +169,29 @@ const app = createApp({
     devMode: true,
     projectRoot,
     config,
+    source: dashboardSource,
+    getDashboards: () => dashboards,
   },
   devMode: true,
   getDashboards: () => dashboards,
   getBranding: () => cachedBranding,
+  editor: {
+    enabled: editorEnabled,
+    source: dashboardSource,
+    connManager,
+    resolveNewPath: (name: string) => {
+      // For local sources, write into the dashboards directory.
+      // For remote sources (S3/GCS), the source.write() path is the object key —
+      // we prepend the configured dashboards_dir (source-root-relative) as the prefix.
+      if (sourceUri) {
+        const prefix = config.dashboards_dir && config.dashboards_dir !== "."
+          ? config.dashboards_dir.replace(/^\.\//, "").replace(/\/$/, "")
+          : "";
+        return prefix ? `${prefix}/${name}.board` : `${name}.board`;
+      }
+      return resolve(dashboardsDir, `${name}.board`);
+    },
+  },
 });
 
 // 7. Create HTTP server and attach WebSocket
@@ -298,7 +332,8 @@ watcher.start();
 server.listen(port, () => {
   // 10. Print startup summary
   console.log(`\n  OpenBoard dev server running`);
-  console.log(`  Source: ${dashboardSource.describe()}`);
+  console.log(`  Source: ${dashboardSource.describe()} (${sourceWritable ? "writable" : "read-only"})`);
+  console.log(`  Web editor: ${editorEnabled ? "enabled" : "disabled"}`);
   if (connectionSource) {
     console.log(`  Connections source: ${connectionSource.describe()}`);
   }

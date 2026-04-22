@@ -12,6 +12,7 @@
 
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
+import { posix as pathPosix } from "path";
 import { parsePartial } from "./parser.js";
 import type {
   DashboardNode,
@@ -39,6 +40,108 @@ export function resolveIncludes(
 
   const resolvedItems = resolveItems(dashboard.items, baseDir, seen);
   return { ...dashboard, items: resolvedItems };
+}
+
+/**
+ * Async variant of {@link resolveIncludes} that reads included files and
+ * `file()` references through a user-supplied reader. Used by source-backed
+ * dashboards (S3/GCS) so remote `.board`/`.sql` siblings resolve correctly.
+ *
+ * `readFile` receives a path resolved relative to the file that referenced it
+ * (by joining with {@link Path.resolve}). For remote sources, the caller is
+ * responsible for mapping the absolute path back into the source's key space.
+ */
+export async function resolveIncludesAsync(
+  dashboard: DashboardNode,
+  boardFilePath: string,
+  readFile: (path: string) => Promise<string>,
+): Promise<DashboardNode> {
+  const baseDir = pathPosix.dirname(boardFilePath.replace(/\\/g, "/"));
+  const seen = new Set<string>();
+  seen.add(boardFilePath);
+
+  const resolvedItems = await resolveItemsAsync(dashboard.items, baseDir, seen, readFile);
+  return { ...dashboard, items: resolvedItems };
+}
+
+async function resolveItemsAsync(
+  items: DashboardItem[],
+  baseDir: string,
+  seen: Set<string>,
+  readFile: (path: string) => Promise<string>,
+): Promise<DashboardItem[]> {
+  const result: DashboardItem[] = [];
+
+  for (const item of items) {
+    if (item.kind === "include") {
+      const includePath = pathPosix.join(baseDir, item.path.replace(/\\/g, "/"));
+
+      if (seen.has(includePath)) {
+        console.warn(`Warning: Circular include detected: ${item.path}`);
+        continue;
+      }
+      seen.add(includePath);
+
+      try {
+        const source = await readFile(includePath);
+        const includeDir = pathPosix.dirname(includePath);
+        const parsedItems = parsePartial(source, includePath);
+        const resolved = await resolveItemsAsync(parsedItems, includeDir, seen, readFile);
+        result.push(...resolved);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`Warning: Failed to read/parse include file ${item.path}: ${msg}`);
+      }
+    } else if (item.kind === "row") {
+      result.push({
+        ...item,
+        components: await Promise.all(
+          item.components.map((c) => resolveComponentAsync(c, baseDir, readFile)),
+        ),
+      });
+    } else if (item.kind === "component") {
+      result.push(await resolveComponentAsync(item, baseDir, readFile));
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+
+async function resolveComponentAsync(
+  component: ComponentNode,
+  baseDir: string,
+  readFile: (path: string) => Promise<string>,
+): Promise<ComponentNode> {
+  const resolvedProps = await Promise.all(
+    component.properties.map((prop) => resolvePropertyAsync(prop, baseDir, readFile)),
+  );
+  return { ...component, properties: resolvedProps };
+}
+
+async function resolvePropertyAsync(
+  prop: PropertyNode,
+  baseDir: string,
+  readFile: (path: string) => Promise<string>,
+): Promise<PropertyNode> {
+  if (prop.value.kind === "file_ref") {
+    const filePath = pathPosix.join(baseDir, prop.value.path.replace(/\\/g, "/"));
+    try {
+      const content = await readFile(filePath);
+      const stringValue: StringValue = {
+        kind: "string",
+        value: content,
+        span: prop.value.span,
+      };
+      return { ...prop, value: stringValue };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`Warning: Failed to read file ${prop.value.path}: ${msg}`);
+      return prop;
+    }
+  }
+  return prop;
 }
 
 function resolveItems(
