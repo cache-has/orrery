@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, writeFileSync, rmSync } from "fs";
 import { resolve } from "path";
+import { readFileSync, existsSync } from "fs";
 import { LocalSource } from "../../src/sources/local.js";
+import { SourceWriteError } from "../../src/sources/types.js";
 import type { DashboardSourceEvent } from "../../src/sources/types.js";
 
 const TMP = resolve(__dirname, "../.tmp-local-source");
@@ -97,6 +99,46 @@ describe("LocalSource", () => {
     expect(events.length).toBeGreaterThanOrEqual(1);
     expect(events[0].type).toBe("add");
     expect(events[0].path).toContain("new.board");
+  });
+
+  describe("write()", () => {
+    it("defaults to read-only and throws on write()", async () => {
+      const source = new LocalSource(resolve(TMP, "dashboards"));
+      expect(source.writable).toBe(false);
+      await expect(
+        source.write!(resolve(TMP, "dashboards/new.board"), "content"),
+      ).rejects.toBeInstanceOf(SourceWriteError);
+      await expect(
+        source.write!(resolve(TMP, "dashboards/new.board"), "content"),
+      ).rejects.toMatchObject({ code: "readonly" });
+    });
+
+    it("round-trips content when writable", async () => {
+      const source = new LocalSource(resolve(TMP, "dashboards"), undefined, { writable: true });
+      expect(source.writable).toBe(true);
+
+      const target = resolve(TMP, "dashboards/created.board");
+      await source.write!(target, "hello write");
+
+      expect(existsSync(target)).toBe(true);
+      expect(readFileSync(target, "utf-8")).toBe("hello write");
+      expect(await source.read(target)).toBe("hello write");
+    });
+
+    it("overwrites existing files", async () => {
+      writeFileSync(resolve(TMP, "dashboards/existing.board"), "v1");
+      const source = new LocalSource(resolve(TMP, "dashboards"), undefined, { writable: true });
+      const target = resolve(TMP, "dashboards/existing.board");
+      await source.write!(target, "v2");
+      expect(readFileSync(target, "utf-8")).toBe("v2");
+    });
+
+    it("creates parent directories as needed", async () => {
+      const source = new LocalSource(resolve(TMP, "dashboards"), undefined, { writable: true });
+      const target = resolve(TMP, "dashboards/nested/deep/file.board");
+      await source.write!(target, "nested");
+      expect(readFileSync(target, "utf-8")).toBe("nested");
+    });
   });
 
   it("ignores non-.board file changes in watch", async () => {

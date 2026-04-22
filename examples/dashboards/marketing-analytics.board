@@ -191,7 +191,7 @@ dashboard "Marketing Analytics" {
       sort: desc
     }
 
-    chart "Conversion Funnel" (span: 6, type: bar) {
+    chart "Conversion Funnel" (span: 6, type: funnel) {
       query: """
         SELECT stage, count
         FROM (
@@ -205,10 +205,9 @@ dashboard "Marketing Analytics" {
         ) funnel
         ORDER BY sort_order
       """
-      x: stage
-      y: count
-      y_format: compact
-      color: "#7C3AED"
+      label: stage
+      value: count
+      format: compact
     }
   }
 
@@ -238,6 +237,7 @@ dashboard "Marketing Analytics" {
       x: channel
       y: conversions
       series: series
+      stacked: "percent"
     }
 
     chart "Time to Conversion" (span: 6, type: bar, visible: show_attribution == true) {

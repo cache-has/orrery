@@ -1,0 +1,113 @@
+// Lezer grammar for the OpenBoard .board DSL.
+//
+// Design: this grammar is highlight-oriented and permissive. It recognizes the
+// tokens that matter for coloring (keywords, component/param types, literals,
+// comments, brackets) at any position in the file. Rich structural parsing is
+// done by the runtime parser in src/parser/; duplicating its context
+// sensitivity here (e.g. raw markdown inside `text { }` blocks) offers no
+// payoff for the editor.
+//
+// Keep keyword/type lists aligned with src/parser/parser.ts.
+
+@top Program { item* }
+
+item {
+  Keyword
+  | ComponentType
+  | ParamType
+  | ChartType
+  | FormatName
+  | HeaderOption
+  | Boolean
+  | Identifier
+  | String
+  | TripleString
+  | Number
+  | LineComment
+  | "{" | "}" | "(" | ")" | "[" | "]"
+  | ":" | "," | "=" | "==" | "!=" | "<=" | ">=" | "<" | ">"
+}
+
+// Keyword groups. Each @specialize turns a matching Identifier into a named
+// terminal; wrapping them in a named rule lets styleTags target the group.
+Keyword {
+  @specialize<identifier, "dashboard">
+  | @specialize<identifier, "param">
+  | @specialize<identifier, "row">
+  | @specialize<identifier, "include">
+  | @specialize<identifier, "visible">
+}
+
+ComponentType {
+  @specialize<identifier, "metric">
+  | @specialize<identifier, "chart">
+  | @specialize<identifier, "table">
+  | @specialize<identifier, "text">
+}
+
+ParamType {
+  @specialize<identifier, "daterange">
+  | @specialize<identifier, "select">
+  | @specialize<identifier, "number">
+  | @specialize<identifier, "toggle">
+  | @specialize<identifier, "multiselect">
+}
+
+ChartType {
+  @specialize<identifier, "line">
+  | @specialize<identifier, "bar">
+  | @specialize<identifier, "area">
+  | @specialize<identifier, "donut">
+  | @specialize<identifier, "pie">
+  | @specialize<identifier, "scatter">
+  | @specialize<identifier, "heatmap">
+  | @specialize<identifier, "funnel">
+  | @specialize<identifier, "gauge">
+}
+
+FormatName {
+  @specialize<identifier, "currency">
+  | @specialize<identifier, "percent">
+  | @specialize<identifier, "compact">
+  | @specialize<identifier, "datetime">
+  | @specialize<identifier, "badge">
+}
+
+HeaderOption {
+  @specialize<identifier, "span">
+  | @specialize<identifier, "type">
+  | @specialize<identifier, "connection">
+}
+
+Boolean {
+  @specialize<identifier, "true"> | @specialize<identifier, "false">
+}
+
+Identifier { identifier }
+
+@tokens {
+  space { $[ \t\r\n]+ }
+
+  LineComment { "#" ![\n]* }
+
+  // Triple-quoted string: must come before String so the longer match wins.
+  TripleString {
+    '"""' (!["] | '"' !["] | '""' !["])* '"""'
+  }
+
+  String { '"' (!["\\\n] | "\\" _)* '"' }
+
+  Number { $[0-9]+ ("." $[0-9]+)? }
+
+  identifier { $[a-zA-Z_] $[a-zA-Z0-9_]* }
+
+  "{" "}" "(" ")" "[" "]"
+  ":" ","
+  "==" "!=" "<=" ">=" "=" "<" ">"
+
+  @precedence { LineComment, TripleString, String, Number, identifier }
+}
+
+@skip { space }
+
+@detectDelim

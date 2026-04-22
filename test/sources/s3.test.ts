@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { S3Source, type S3SourceOptions } from "../../src/sources/s3.js";
+import { SourceWriteError } from "../../src/sources/types.js";
 import type { DashboardSourceEvent } from "../../src/sources/types.js";
 
 // ---------------------------------------------------------------------------
@@ -19,10 +20,20 @@ vi.mock("@aws-sdk/client-s3", () => {
     _params: any;
     constructor(params: any) { this._params = params; }
   }
+  class MockPutObjectCommand {
+    _params: any;
+    constructor(params: any) { this._params = params; }
+  }
+  class MockHeadObjectCommand {
+    _params: any;
+    constructor(params: any) { this._params = params; }
+  }
 
   return {
     S3Client: MockS3Client,
     GetObjectCommand: MockGetObjectCommand,
+    PutObjectCommand: MockPutObjectCommand,
+    HeadObjectCommand: MockHeadObjectCommand,
     paginateListObjectsV2: vi.fn().mockImplementation(() => {
       // Capture current contents at call time
       const contents = [...paginatorContents];
@@ -256,6 +267,84 @@ describe("S3Source", () => {
       const removeEvents = events.filter((e) => e.type === "remove");
       expect(removeEvents.length).toBeGreaterThanOrEqual(1);
       expect(removeEvents[0].path).toBe("dashboards/ops.board");
+    });
+  });
+
+  describe("write()", () => {
+    it("defaults to read-only and throws on write()", async () => {
+      const source = makeSource();
+      expect(source.writable).toBe(false);
+      await expect(source.write!("dashboards/x.board", "c")).rejects.toBeInstanceOf(SourceWriteError);
+      await expect(source.write!("dashboards/x.board", "c")).rejects.toMatchObject({ code: "readonly" });
+    });
+
+    it("sends PutObjectCommand when writable", async () => {
+      const source = makeSource({ writable: true });
+      mockSend.mockResolvedValueOnce({ ETag: '"newtag"' });
+
+      await source.write!("dashboards/x.board", "hello");
+
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      const cmd = mockSend.mock.calls[0][0];
+      expect(cmd._params.Bucket).toBe("test-bucket");
+      expect(cmd._params.Key).toBe("dashboards/x.board");
+      expect(cmd._params.Body).toBe("hello");
+      expect(cmd._params.ContentType).toBe("text/plain; charset=utf-8");
+    });
+
+    it("updates ETag cache so subsequent poll does not emit change", async () => {
+      // Start with a seeded file
+      paginatorContents = [{ Key: "dashboards/x.board", ETag: '"v1"' }];
+      const source = makeSource({ writable: true, pollInterval: 0.1 });
+      const events: DashboardSourceEvent[] = [];
+      source.watch((e) => events.push(e));
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Simulate a self-write — Put returns the new ETag, server-side listing reflects it.
+      mockSend.mockResolvedValueOnce({ ETag: '"v2"' });
+      await source.write!("dashboards/x.board", "new content");
+      paginatorContents = [{ Key: "dashboards/x.board", ETag: '"v2"' }];
+
+      // Wait for a poll cycle
+      await new Promise((r) => setTimeout(r, 200));
+      source.unwatch();
+
+      // No change event should have fired — the cache was updated pre-poll.
+      expect(events.filter((e) => e.type === "change")).toHaveLength(0);
+    });
+
+    it("falls back to HeadObjectCommand if PutObject response lacks ETag", async () => {
+      const source = makeSource({ writable: true });
+      mockSend
+        .mockResolvedValueOnce({}) // Put with no ETag
+        .mockResolvedValueOnce({ ETag: '"head-tag"' }); // Head fallback
+
+      await source.write!("dashboards/x.board", "content");
+      expect(mockSend).toHaveBeenCalledTimes(2);
+    });
+
+    it("maps 403 to permission error", async () => {
+      const source = makeSource({ writable: true });
+      const err: any = new Error("Access Denied");
+      err.$metadata = { httpStatusCode: 403 };
+      err.name = "AccessDenied";
+      mockSend.mockRejectedValueOnce(err);
+
+      await expect(source.write!("dashboards/x.board", "c")).rejects.toMatchObject({
+        code: "permission",
+      });
+    });
+
+    it("maps 404 to notfound error", async () => {
+      const source = makeSource({ writable: true });
+      const err: any = new Error("No Such Bucket");
+      err.$metadata = { httpStatusCode: 404 };
+      err.name = "NoSuchBucket";
+      mockSend.mockRejectedValueOnce(err);
+
+      await expect(source.write!("dashboards/x.board", "c")).rejects.toMatchObject({
+        code: "notfound",
+      });
     });
   });
 

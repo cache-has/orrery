@@ -66,6 +66,27 @@ cache_ttl: 600
     const config = loadConfig(TMP);
     expect(config.port).toBe(3000); // falls back to defaults
   });
+
+  it("editor is undefined by default (disabled)", () => {
+    const config = loadConfig(TMP);
+    expect(config.editor).toBeUndefined();
+  });
+
+  it("reads editor.enabled from config", () => {
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+editor:
+  enabled: true
+`);
+    expect(loadConfig(TMP).editor).toEqual({ enabled: true });
+  });
+
+  it("treats non-true editor.enabled as disabled", () => {
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+editor:
+  enabled: "yes"
+`);
+    expect(loadConfig(TMP).editor).toEqual({ enabled: false });
+  });
 });
 
 describe("discoverDashboards", () => {

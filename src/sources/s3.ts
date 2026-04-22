@@ -7,6 +7,7 @@
  */
 
 import type { DashboardSource, DashboardSourceEvent } from "./types.js";
+import { SourceWriteError } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Types (avoid top-level import of @aws-sdk/client-s3)
@@ -30,6 +31,8 @@ export interface S3SourceOptions {
   pollInterval?: number;
   /** File extensions to match (default: [".board"]). */
   fileExtensions?: string[];
+  /** Enable write() — defaults to false (read-only). */
+  writable?: boolean;
 }
 
 export class S3Source implements DashboardSource {
@@ -41,6 +44,7 @@ export class S3Source implements DashboardSource {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private knownObjects = new Map<string, string>(); // key → etag
   private initialized = false;
+  public readonly writable: boolean;
 
   constructor(private options: S3SourceOptions) {
     this.bucket = options.bucket;
@@ -49,6 +53,7 @@ export class S3Source implements DashboardSource {
       : options.prefix + "/";
     this.pollInterval = options.pollInterval ?? 30;
     this.fileExtensions = options.fileExtensions ?? [".board"];
+    this.writable = options.writable ?? false;
   }
 
   /** Lazily create the S3Client (dynamic import so the SDK is only loaded when needed). */
@@ -105,6 +110,46 @@ export class S3Source implements DashboardSource {
     return response.Body.transformToString();
   }
 
+  async write(path: string, content: string): Promise<void> {
+    if (!this.writable) {
+      throw new SourceWriteError("readonly", "Source is not writable");
+    }
+
+    await this.ensureClient();
+    const sdk = await import("@aws-sdk/client-s3");
+
+    let response: any;
+    try {
+      response = await this.client.send(
+        new sdk.PutObjectCommand({
+          Bucket: this.bucket,
+          Key: path,
+          Body: content,
+          ContentType: "text/plain; charset=utf-8",
+        }),
+      );
+    } catch (err) {
+      throw mapS3Error(err, path);
+    }
+
+    // Update ETag cache so the poller doesn't re-report a self-write as a change.
+    let etag: string | undefined = response?.ETag;
+    if (!etag) {
+      // Fall back to a HEAD request to fetch the ETag.
+      try {
+        const head = await this.client.send(
+          new sdk.HeadObjectCommand({ Bucket: this.bucket, Key: path }),
+        );
+        etag = head?.ETag;
+      } catch {
+        // Leave cache unchanged — poller will emit a spurious change event; acceptable.
+      }
+    }
+    if (etag) {
+      this.knownObjects.set(path, etag);
+    }
+  }
+
   watch(onChange: (event: DashboardSourceEvent) => void): void {
     if (this.pollInterval <= 0) return;
 
@@ -121,8 +166,9 @@ export class S3Source implements DashboardSource {
 
   describe(): string {
     const base = `s3://${this.bucket}/${this.prefix}`;
-    const suffix = this.pollInterval > 0 ? ` (polling every ${this.pollInterval}s)` : "";
-    return base + suffix;
+    const poll = this.pollInterval > 0 ? ` (polling every ${this.pollInterval}s)` : "";
+    const write = this.writable ? " (writable)" : "";
+    return base + poll + write;
   }
 
   // ---------------------------------------------------------------------------
@@ -201,4 +247,22 @@ export class S3Source implements DashboardSource {
     // Update state
     this.knownObjects = currentMap;
   }
+}
+
+function mapS3Error(err: unknown, path: string): SourceWriteError {
+  const e = err as any;
+  const status = e?.$metadata?.httpStatusCode;
+  const name = e?.name ?? e?.Code;
+  const msg = err instanceof Error ? err.message : String(err);
+
+  if (status === 403 || name === "AccessDenied") {
+    return new SourceWriteError("permission", `Permission denied writing ${path}: ${msg}`, err);
+  }
+  if (status === 404 || name === "NoSuchBucket" || name === "NoSuchKey") {
+    return new SourceWriteError("notfound", `Target not found writing ${path}: ${msg}`, err);
+  }
+  if (status === 408 || status === 429 || (status && status >= 500 && status < 600) || name === "TimeoutError" || name === "NetworkingError") {
+    return new SourceWriteError("transient", `Transient error writing ${path}: ${msg}`, err);
+  }
+  return new SourceWriteError("unknown", `Failed to write ${path}: ${msg}`, err);
 }

@@ -2,8 +2,11 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { healthRoutes } from "./routes/health.js";
 import { dashboardRoutes, type DashboardRouteOptions } from "./routes/dashboard.js";
+import { editorRoutes } from "./routes/editor.js";
 import type { DiscoveredDashboard } from "./discovery.js";
 import type { BrandingConfig } from "../renderer/theme.js";
+import type { DashboardSource } from "../sources/types.js";
+import type { ConnectionManager } from "../connections/manager.js";
 
 export interface AppOptions {
   /** Options for dashboard rendering. When omitted, only health routes are available. */
@@ -14,6 +17,13 @@ export interface AppOptions {
   getDashboards?: () => DiscoveredDashboard[];
   /** Function to get current branding config (from resolved theme). */
   getBranding?: () => BrandingConfig | undefined;
+  /** Web editor settings. When `enabled: false`, editor routes return 404. */
+  editor?: {
+    enabled: boolean;
+    source?: DashboardSource;
+    connManager?: ConnectionManager;
+    resolveNewPath?: (name: string) => string;
+  };
 }
 
 export function createApp(options: AppOptions = {}): Hono {
@@ -22,10 +32,23 @@ export function createApp(options: AppOptions = {}): Hono {
   app.use("*", logger());
   app.route("/api", healthRoutes);
 
+  // Editor routes (gated). Mount first so they take precedence over dashboard catch-alls.
+  app.route(
+    "/",
+    editorRoutes({
+      enabled: options.editor?.enabled ?? false,
+      source: options.editor?.source,
+      connManager: options.editor?.connManager,
+      getDashboards: options.getDashboards,
+      resolveNewPath: options.editor?.resolveNewPath,
+    }),
+  );
+
   if (options.dashboard) {
     const dashRoutes = dashboardRoutes({
       ...options.dashboard,
       devMode: options.devMode,
+      getDashboards: options.dashboard.getDashboards ?? options.getDashboards,
     });
     app.route("/", dashRoutes);
   }
@@ -35,7 +58,7 @@ export function createApp(options: AppOptions = {}): Hono {
     if (options.getDashboards) {
       const dashboards = options.getDashboards();
       const branding = options.getBranding?.();
-      return c.html(renderDashboardIndex(dashboards, branding));
+      return c.html(renderDashboardIndex(dashboards, branding, options.editor?.enabled ?? false));
     }
 
     return c.html(`<!DOCTYPE html>
@@ -81,7 +104,7 @@ export function createApp(options: AppOptions = {}): Hono {
 // Dashboard index HTML
 // ---------------------------------------------------------------------------
 
-function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: BrandingConfig): string {
+function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: BrandingConfig, editorEnabled = false): string {
   // Group dashboards by folder
   const groups = new Map<string, DiscoveredDashboard[]>();
   for (const d of dashboards) {
@@ -151,6 +174,9 @@ function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: Bran
     .ob-idx-header { padding: 2rem 2rem 1rem; max-width: 900px; margin: 0 auto; }
     .ob-idx-header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; }
     .ob-idx-header p { color: #666; margin-top: 0.25rem; }
+    .ob-idx-header-actions { margin-top: 0.75rem; }
+    .ob-idx-edit-link { display: inline-block; padding: 0.4rem 0.85rem; background: #1a1a1a; color: #fff; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+    .ob-idx-edit-link:hover { background: #333; }
     .ob-idx-section { max-width: 900px; margin: 0 auto; padding: 0 2rem 1.5rem; }
     .ob-idx-folder { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e0e0e0; }
     .ob-idx-grid { max-width: 900px; margin: 0 auto; padding: 0 2rem 2rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
@@ -168,6 +194,7 @@ function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: Bran
   <div class="ob-idx-header">
     <h1>${logoHtml}${indexTitle}</h1>
     <p>${dashboards.length} dashboard${dashboards.length !== 1 ? "s" : ""}</p>
+    ${editorEnabled ? `<div class="ob-idx-header-actions"><a class="ob-idx-edit-link" href="/edit">Edit dashboards</a></div>` : ""}
   </div>
   ${content}
   ${empty}
