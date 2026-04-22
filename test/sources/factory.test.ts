@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseSourceUri } from "../../src/sources/factory.js";
+import { parseSourceUri, resolveRemoteNewKey } from "../../src/sources/factory.js";
 
 describe("parseSourceUri", () => {
   it("parses s3:// URIs", () => {
@@ -76,5 +76,24 @@ describe("parseSourceUri", () => {
       scheme: "local",
       path: "/opt/openboard/dashboards",
     });
+  });
+});
+
+describe("resolveRemoteNewKey", () => {
+  it("writes to bucket root when URI has no prefix", () => {
+    // Existing files live at bucket root — new files must join them there,
+    // not a dashboards_dir subfolder. See planning/issue-editor-create-flow.md Bug B.
+    expect(resolveRemoteNewKey("s3://bucket", "carts")).toBe("carts.board");
+    expect(resolveRemoteNewKey("s3://bucket/", "carts")).toBe("carts.board");
+  });
+
+  it("writes inside the URI prefix when one is present", () => {
+    expect(resolveRemoteNewKey("s3://bucket/dashboards/", "carts")).toBe("dashboards/carts.board");
+    expect(resolveRemoteNewKey("s3://bucket/team/prod", "carts")).toBe("team/prod/carts.board");
+  });
+
+  it("handles gs:// the same way", () => {
+    expect(resolveRemoteNewKey("gs://bucket/", "x")).toBe("x.board");
+    expect(resolveRemoteNewKey("gs://bucket/d", "x")).toBe("d/x.board");
   });
 });

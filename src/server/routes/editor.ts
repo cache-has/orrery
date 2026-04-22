@@ -28,6 +28,12 @@ export interface EditorRouteOptions {
   getDashboards?: () => DiscoveredDashboard[];
   /** Resolve a bare file name (no extension) to a full source path for create. */
   resolveNewPath?: (name: string) => string;
+  /**
+   * Called after successful write operations so the host can invalidate caches
+   * (e.g. rediscover dashboards) before the response is returned. Without this,
+   * remote sources with polling watchers stay stale until the next poll.
+   */
+  onSourceChange?: () => Promise<void> | void;
 }
 
 const STARTER_TEMPLATE = `dashboard "New Dashboard" {
@@ -86,7 +92,7 @@ export function editorRoutes(options: EditorRouteOptions): Hono {
     const source = options.source;
     if (!source) return errorResponse(c, "notfound", "No source configured", 404);
 
-    const filePath = findPathForName(options, name);
+    const filePath = await findPathForName(options, name);
     if (!filePath) return errorResponse(c, "notfound", `Dashboard "${name}" not found`, 404);
 
     try {
@@ -117,11 +123,12 @@ export function editorRoutes(options: EditorRouteOptions): Hono {
       );
     }
 
-    const filePath = findPathForName(options, name) ?? options.resolveNewPath?.(name);
+    const filePath = (await findPathForName(options, name)) ?? options.resolveNewPath?.(name);
     if (!filePath) return errorResponse(c, "notfound", `Cannot resolve path for "${name}"`, 404);
 
     try {
       await source.write!(filePath, content);
+      await options.onSourceChange?.();
       return c.json({ ok: true, path: filePath });
     } catch (err) {
       return writeErrorResponse(c, err);
@@ -156,12 +163,13 @@ export function editorRoutes(options: EditorRouteOptions): Hono {
     const filePath = options.resolveNewPath(name);
 
     // If this name already maps to a discovered dashboard, it exists.
-    if (findPathForName(options, name)) {
+    if (await findPathForName(options, name)) {
       return errorResponse(c, "exists", `Dashboard "${name}" already exists`, 409);
     }
 
     try {
       await source.write!(filePath, STARTER_TEMPLATE);
+      await options.onSourceChange?.();
       return c.json({ ok: true, path: filePath, name }, 201);
     } catch (err) {
       return writeErrorResponse(c, err);
@@ -196,7 +204,10 @@ function isSafeName(name: string | undefined): name is string {
   return NAME_PATTERN.test(name);
 }
 
-function findPathForName(options: EditorRouteOptions, name: string): string | undefined {
+async function findPathForName(
+  options: EditorRouteOptions,
+  name: string,
+): Promise<string | undefined> {
   const dashboards = options.getDashboards?.() ?? [];
   // Match by slug first (what /d/:slug uses) then by filename basename.
   const bySlug = dashboards.find((d) => d.slug === name);
@@ -205,7 +216,24 @@ function findPathForName(options: EditorRouteOptions, name: string): string | un
     const base = d.filePath.replace(/\\/g, "/").split("/").pop() ?? "";
     return base.replace(/\.board$/, "") === name;
   });
-  return byName?.filePath;
+  if (byName) return byName.filePath;
+
+  // Defense-in-depth: the discovery cache may be stale (remote sources refresh
+  // via polling). Ask the source directly before giving up.
+  const source = options.source;
+  if (source) {
+    try {
+      const files = await source.list();
+      const match = files.find((f) => {
+        const base = f.replace(/\\/g, "/").split("/").pop() ?? "";
+        return base.replace(/\.board$/, "") === name;
+      });
+      if (match) return match;
+    } catch {
+      // Swallow — treat as "not found"; caller returns 404.
+    }
+  }
+  return undefined;
 }
 
 function runValidation(content: string, file?: string): ValidationDiagnostic[] {
