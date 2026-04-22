@@ -23,6 +23,7 @@ export interface AppOptions {
     source?: DashboardSource;
     connManager?: ConnectionManager;
     resolveNewPath?: (name: string) => string;
+    onSourceChange?: () => Promise<void> | void;
   };
 }
 
@@ -41,6 +42,7 @@ export function createApp(options: AppOptions = {}): Hono {
       connManager: options.editor?.connManager,
       getDashboards: options.getDashboards,
       resolveNewPath: options.editor?.resolveNewPath,
+      onSourceChange: options.editor?.onSourceChange,
     }),
   );
 

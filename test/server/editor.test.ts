@@ -206,6 +206,68 @@ describe("editor routes — /api/new", () => {
   });
 });
 
+describe("editor routes — cache invalidation + source fallback", () => {
+  let dir: string;
+  beforeEach(() => { dir = makeDir(); });
+  afterEach(() => { if (existsSync(dir)) rmSync(dir, { recursive: true, force: true }); });
+
+  it("invokes onSourceChange after /api/new so subsequent reads hit the fresh cache", async () => {
+    const source = new LocalSource(dir, undefined, { writable: true });
+    let dashboards: DiscoveredDashboard[] = [];
+    let refreshes = 0;
+    const app = createApp({
+      editor: {
+        enabled: true,
+        source,
+        resolveNewPath: (name) => join(dir, `${name}.board`),
+        onSourceChange: async () => {
+          refreshes++;
+          dashboards = [
+            {
+              slug: "carts-and-conversions",
+              filePath: join(dir, "carts-and-conversions.board"),
+              title: "Carts and Conversions",
+              folder: "",
+              lastModified: new Date(),
+            },
+          ];
+        },
+      },
+      getDashboards: () => dashboards,
+    });
+
+    const created = await app.request("/api/new", {
+      method: "POST",
+      body: JSON.stringify({ name: "carts-and-conversions" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(created.status).toBe(201);
+    expect(refreshes).toBe(1);
+
+    const read = await app.request("/api/dashboards/carts-and-conversions");
+    expect(read.status).toBe(200);
+    expect(await read.text()).toContain("New Dashboard");
+  });
+
+  it("falls back to source.list() when the dashboard isn't in the cache yet", async () => {
+    // Simulates the race: file exists at the source but the cache hasn't been
+    // refreshed. Reads should still succeed via the source fallback.
+    const source = new LocalSource(dir, undefined, { writable: true });
+    writeFileSync(
+      join(dir, "late-arrival.board"),
+      `dashboard "Late" {\n  text {\n    hi\n  }\n}`,
+    );
+    const app = createApp({
+      editor: { enabled: true, source },
+      getDashboards: () => [], // cache is stale/empty
+    });
+
+    const res = await app.request("/api/dashboards/late-arrival");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("Late");
+  });
+});
+
 describe("editor routes — /api/validate", () => {
   it("returns diagnostics without persisting", async () => {
     const app = createApp({ editor: { enabled: true } });

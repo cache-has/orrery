@@ -23,6 +23,17 @@ export interface ParsedSourceUri {
   path?: string;   // local, http/https
 }
 
+/**
+ * Build the object key for a newly-created file under a remote source URI.
+ * The key must live inside the same prefix that `source.list()` scans, so that
+ * reads and writes stay in one keyspace. See planning/issue-editor-create-flow.md Bug B.
+ */
+export function resolveRemoteNewKey(uri: string, name: string, ext = ".board"): string {
+  const rawPrefix = parseSourceUri(uri).prefix ?? "";
+  const prefix = rawPrefix.replace(/^\/+/, "").replace(/\/+$/, "");
+  return prefix ? `${prefix}/${name}${ext}` : `${name}${ext}`;
+}
+
 export function parseSourceUri(uri: string): ParsedSourceUri {
   // s3://bucket/prefix
   const s3Match = uri.match(/^s3:\/\/([^/]+)\/?(.*)$/);

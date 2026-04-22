@@ -20,7 +20,7 @@ import { DevWebSocket } from "../server/websocket.js";
 import { parse } from "../parser/parser.js";
 import { loadThemeFile } from "../renderer/theme.js";
 import type { DashboardSource, DashboardSourceEvent } from "../sources/types.js";
-import { createSource, createConnectionSource } from "../sources/factory.js";
+import { createSource, createConnectionSource, resolveRemoteNewKey } from "../sources/factory.js";
 
 // ---------------------------------------------------------------------------
 // Parse CLI arguments
@@ -181,15 +181,20 @@ const app = createApp({
     connManager,
     resolveNewPath: (name: string) => {
       // For local sources, write into the dashboards directory.
-      // For remote sources (S3/GCS), the source.write() path is the object key —
-      // we prepend the configured dashboards_dir (source-root-relative) as the prefix.
+      // For remote sources (S3/GCS), derive the key prefix from the source URI
+      // itself — that's the same keyspace `source.list()` scans, so reads and
+      // writes stay consistent. Using `config.dashboards_dir` here would write
+      // into a different prefix than the source scans (see planning/issue-editor-create-flow.md Bug B).
       if (sourceUri) {
-        const prefix = config.dashboards_dir && config.dashboards_dir !== "."
-          ? config.dashboards_dir.replace(/^\.\//, "").replace(/\/$/, "")
-          : "";
-        return prefix ? `${prefix}/${name}.board` : `${name}.board`;
+        return resolveRemoteNewKey(sourceUri, name);
       }
       return resolve(dashboardsDir, `${name}.board`);
+    },
+    onSourceChange: async () => {
+      // Rediscover synchronously so subsequent /api/dashboards/:name and /d/:name
+      // lookups see the newly-written file, rather than waiting for the next
+      // source poll (up to `source_poll` seconds on S3/GCS).
+      dashboards = await discoverDashboards(projectRoot, config, dashboardSource);
     },
   },
 });

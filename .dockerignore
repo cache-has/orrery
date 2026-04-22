@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+.git
+.github
+.idea
+.vscode
+.DS_Store
+*.tsbuildinfo
+.env
+.env.local
+examples
+docs
+planning
+templates
+test
