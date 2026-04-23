@@ -204,7 +204,7 @@ export async function staticBuild(options: StaticBuildOptions): Promise<StaticBu
     title: r.title,
     description: dashboards.find((d) => d.slug === r.slug)?.description,
   }));
-  const indexHtml = renderStaticIndex(indexDashboards, snapshotLabel, builtAt);
+  const indexHtml = renderStaticIndex(indexDashboards, snapshotLabel, builtAt, themeFile?.branding);
   const indexPath = resolve(absOutput, "index.html");
   writeFileSync(indexPath, indexHtml, "utf-8");
   totalSize += Buffer.byteLength(indexHtml, "utf-8");

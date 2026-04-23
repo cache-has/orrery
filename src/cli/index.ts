@@ -7,6 +7,9 @@ switch (command) {
   case "dev":
     await import("./dev.js");
     break;
+  case "serve":
+    await import("./serve.js");
+    break;
   case "validate":
     await import("./validate.js");
     break;
@@ -25,6 +28,7 @@ switch (command) {
 
   Usage:
     openboard dev          Start dev server with hot reload
+    openboard serve        Start production HTTP server (no watcher/hot reload)
     openboard build        Export static HTML dashboards
     openboard validate     Validate .board files and connections
     openboard diff         Compare dashboards between git refs

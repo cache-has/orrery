@@ -12,6 +12,7 @@
 import type { DashboardNode } from "../parser/ast.js";
 import type { ResolvedLayout } from "../renderer/layout.js";
 import type { DashboardData } from "../renderer/data.js";
+import type { BrandingConfig } from "../renderer/theme.js";
 import { renderPage } from "../renderer/html.js";
 import { OPENBOARD_CSS } from "../renderer/styles.js";
 import { OPENBOARD_INTERACTIVE_JS } from "../server/interactive.js";
@@ -108,7 +109,10 @@ export function renderStaticIndex(
   dashboards: StaticIndexDashboard[],
   snapshotLabel?: string,
   builtAt: Date = new Date(),
+  branding?: BrandingConfig,
 ): string {
+  const brandName = branding?.title ?? "OpenBoard";
+  const safeBrand = escapeHtml(brandName);
   const rows = dashboards
     .map((d) => {
       const desc = d.description
@@ -135,7 +139,7 @@ export function renderStaticIndex(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenBoard</title>
+  <title>${safeBrand}</title>
   <meta name="openboard:built-at" content="${builtAt.toISOString()}">
   ${snapshotLabel ? `<meta name="openboard:snapshot-label" content="${escapeAttr(snapshotLabel)}">` : ""}
   <style>
@@ -155,7 +159,7 @@ export function renderStaticIndex(
 </head>
 <body>
   <div class="ob-idx-header">
-    <h1>OpenBoard</h1>
+    <h1>${safeBrand}</h1>
     <p>${dashboards.length} dashboard${dashboards.length !== 1 ? "s" : ""}</p>
     ${snapshotInfo}
   </div>
