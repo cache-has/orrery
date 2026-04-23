@@ -8,8 +8,9 @@
  */
 
 import { Hono } from "hono";
-import { readFileSync, existsSync, readdirSync } from "fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { resolve, basename, extname, relative } from "path";
+import { createRequire } from "module";
 import { parse } from "../../parser/parser.js";
 import { resolveIncludes, resolveIncludesAsync } from "../../parser/resolver.js";
 import { resolveLayout } from "../../renderer/layout.js";
@@ -87,6 +88,37 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
     c.header("Content-Type", "application/javascript; charset=utf-8");
     c.header("Cache-Control", "public, max-age=3600");
     return c.body(OPENBOARD_INTERACTIVE_JS);
+  });
+
+  // Serve ECharts from the installed `echarts` package. Resolving at request
+  // time (not module load) lets the server boot even if echarts isn't
+  // installed — the route just 404s. Result is cached in-process after the
+  // first successful read so we don't re-hit the filesystem per request.
+  const require_ = createRequire(import.meta.url);
+  let echartsBundleCache: { body: Buffer; etag: string } | null = null;
+  app.get("/openboard/vendor/echarts.min.js", (c) => {
+    try {
+      if (!echartsBundleCache) {
+        const echartsPath = require_.resolve("echarts/dist/echarts.min.js");
+        const body = readFileSync(echartsPath);
+        const stat = statSync(echartsPath);
+        const etag = `W/"${stat.size}-${stat.mtimeMs.toString(36)}"`;
+        echartsBundleCache = { body, etag };
+      }
+      const headers = {
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": "public, max-age=86400, immutable",
+        ETag: echartsBundleCache.etag,
+      };
+      if (c.req.header("if-none-match") === echartsBundleCache.etag) {
+        return new Response(null, { status: 304, headers });
+      }
+      return new Response(echartsBundleCache.body, { status: 200, headers });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[openboard] Failed to serve echarts bundle: ${msg}`);
+      return c.text("ECharts bundle not available", 500);
+    }
   });
 
   // Serve branding assets (logo, favicon) from project root

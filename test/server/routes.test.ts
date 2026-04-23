@@ -113,6 +113,34 @@ describe("GET /d/:name — dashboard rendering", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/javascript");
   });
+
+  it("serves the locally-bundled echarts at /openboard/vendor/echarts.min.js", async () => {
+    const app = makeApp();
+    const res = await app.request("/openboard/vendor/echarts.min.js");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/javascript");
+    const body = await res.text();
+    // Sanity: the bundle should be non-trivial and define echarts.
+    expect(body.length).toBeGreaterThan(100_000);
+    expect(body).toContain("echarts");
+  });
+
+  it("chart hydration gates innerHTML wipe on echarts availability (race-safety)", async () => {
+    // The SSR-rendered SVG must not be wiped before window.echarts exists,
+    // otherwise a param-change hydration racing a slow CDN load leaves an
+    // empty div. Assert the destructive DOM call only lives inside
+    // doHydrateOneChart, which runs after ensureECharts() resolves.
+    const { OPENBOARD_INTERACTIVE_JS } = await import("../../src/server/interactive.js");
+    const innerHtmlWipes = (OPENBOARD_INTERACTIVE_JS.match(/container\.innerHTML\s*=\s*''/g) || []).length;
+    expect(innerHtmlWipes).toBe(1);
+    const doHydrateIdx = OPENBOARD_INTERACTIVE_JS.indexOf("function doHydrateOneChart(");
+    const wipeIdx = OPENBOARD_INTERACTIVE_JS.indexOf("container.innerHTML = ''");
+    expect(doHydrateIdx).toBeGreaterThan(0);
+    expect(wipeIdx).toBeGreaterThan(doHydrateIdx);
+    expect(OPENBOARD_INTERACTIVE_JS).toContain("function ensureECharts()");
+    expect(OPENBOARD_INTERACTIVE_JS).toContain("/openboard/vendor/echarts.min.js");
+    expect(OPENBOARD_INTERACTIVE_JS).not.toContain("cdn.jsdelivr.net");
+  });
 });
 
 describe("POST /api/query — partial data update", () => {

@@ -736,33 +736,37 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
   // Chart hydration (ECharts tooltips + resize)
   // ---------------------------------------------------------------------------
 
-  function hydrateCharts() {
-    var containers = document.querySelectorAll('[data-chart-option]');
-    if (containers.length === 0) return;
+  // Module-scoped promise that resolves once window.echarts is defined.
+  // Dedupes concurrent loads so only one <script> tag is ever appended.
+  var echartsReady = null;
+  var resizeListenerAttached = false;
 
-    // If ECharts is already loaded (e.g. from a previous hydration), use it directly
-    if (window.echarts) {
-      doHydrateCharts(containers);
-      return;
-    }
-
-    // Load ECharts from CDN, then hydrate
-    var script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js';
-    script.onload = function() {
-      doHydrateCharts(containers);
-    };
-    script.onerror = function() {
-      console.warn('[OpenBoard] Failed to load ECharts from CDN — tooltips unavailable');
-    };
-    document.head.appendChild(script);
+  function ensureECharts() {
+    if (window.echarts) return Promise.resolve();
+    if (echartsReady) return echartsReady;
+    echartsReady = new Promise(function(resolve, reject) {
+      var script = document.createElement('script');
+      script.src = '/openboard/vendor/echarts.min.js';
+      script.onload = function() {
+        if (window.echarts) resolve();
+        else reject(new Error('echarts script loaded but window.echarts is undefined'));
+      };
+      script.onerror = function() {
+        reject(new Error('Failed to load echarts from /openboard/vendor/echarts.min.js'));
+      };
+      document.head.appendChild(script);
+    });
+    // If loading fails, clear the cached rejected promise so a later
+    // re-hydration (e.g. on nav back) gets a fresh attempt.
+    echartsReady.catch(function() { echartsReady = null; });
+    return echartsReady;
   }
 
-  function doHydrateCharts(containers) {
-    for (var i = 0; i < containers.length; i++) {
-      hydrateOneChart(containers[i]);
-    }
+  function attachResizeListener() {
+    if (resizeListenerAttached) return;
+    resizeListenerAttached = true;
     window.addEventListener('resize', function() {
+      if (!window.echarts) return;
       var charts = document.querySelectorAll('[data-chart-instance]');
       for (var j = 0; j < charts.length; j++) {
         var inst = window.echarts.getInstanceByDom(charts[j]);
@@ -771,7 +775,29 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     });
   }
 
+  function hydrateCharts() {
+    var containers = document.querySelectorAll('[data-chart-option]');
+    if (containers.length === 0) return;
+    for (var i = 0; i < containers.length; i++) {
+      hydrateOneChart(containers[i]);
+    }
+  }
+
   function hydrateOneChart(container) {
+    var optionJson = container.getAttribute('data-chart-option');
+    if (!optionJson) return;
+
+    // Gate ALL destructive DOM work behind echarts availability.
+    // If the library isn't loaded yet (or fails to load), leave the SSR SVG
+    // untouched — a static chart beats a blank div.
+    ensureECharts().then(function() {
+      doHydrateOneChart(container);
+    }).catch(function(err) {
+      console.warn('[OpenBoard] Chart hydration skipped:', err && err.message ? err.message : err);
+    });
+  }
+
+  function doHydrateOneChart(container) {
     var optionJson = container.getAttribute('data-chart-option');
     if (!optionJson) return;
 
@@ -781,6 +807,8 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
       console.warn('[OpenBoard] Failed to parse chart option:', e);
       return;
     }
+
+    attachResizeListener();
 
     // Clear any previous fixed dimensions so we measure the natural layout size
     container.style.width = '';
