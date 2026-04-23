@@ -20,11 +20,12 @@ export async function renderEditorPage(
   root: HTMLElement,
   name: string,
 ): Promise<void> {
+  const brandTitle = root.dataset.brandTitle || "OpenBoard";
   root.innerHTML = `
     <div class="ob-ed-page">
       <header class="ob-ed-header">
         <div class="ob-ed-header-group">
-          <span class="ob-ed-brand"><a href="/edit">OpenBoard</a></span>
+          <span class="ob-ed-brand"><a href="/edit">${escapeHtml(brandTitle)}</a></span>
           <select class="ob-ed-switcher" aria-label="Switch dashboard"></select>
         </div>
         <div class="ob-ed-header-group">

@@ -43,6 +43,7 @@ export function createApp(options: AppOptions = {}): Hono {
       getDashboards: options.getDashboards,
       resolveNewPath: options.editor?.resolveNewPath,
       onSourceChange: options.editor?.onSourceChange,
+      getBranding: options.getBranding,
     }),
   );
 

@@ -192,6 +192,18 @@ describe("renderStaticIndex", () => {
     expect(html).toContain("0 dashboards");
   });
 
+  it("honors branding title when provided", () => {
+    const html = renderStaticIndex(
+      [{ slug: "a", title: "A" }],
+      undefined,
+      new Date("2026-03-28T14:30:00Z"),
+      { title: "Acme Analytics" },
+    );
+    expect(html).toContain("<title>Acme Analytics</title>");
+    expect(html).toContain("<h1>Acme Analytics</h1>");
+    expect(html).not.toContain("<title>OpenBoard</title>");
+  });
+
   it("includes built-at metadata", () => {
     const builtAt = new Date("2026-03-28T14:30:00Z");
     const html = renderStaticIndex([{ slug: "a", title: "A" }], undefined, builtAt);

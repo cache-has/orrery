@@ -21,6 +21,25 @@ describe("editor frontend — HTML shell", () => {
     expect(html).toContain('data-name="sales"');
   });
 
+  it("uses branding title in <title> and exposes data-brand-title to the client", async () => {
+    const app = createApp({
+      editor: { enabled: true },
+      getBranding: () => ({ title: "Acme Analytics" }),
+    });
+    const res = await app.request("/edit/sales");
+    const html = await res.text();
+    expect(html).toContain("<title>Acme Analytics Editor — sales</title>");
+    expect(html).toContain('data-brand-title="Acme Analytics"');
+  });
+
+  it("falls back to OpenBoard when no branding configured", async () => {
+    const app = createApp({ editor: { enabled: true } });
+    const res = await app.request("/edit");
+    const html = await res.text();
+    expect(html).toContain("<title>OpenBoard Editor — Dashboards</title>");
+    expect(html).not.toContain("data-brand-title=");
+  });
+
   it("returns 404 for bundle when editor disabled", async () => {
     const app = createApp({ editor: { enabled: false } });
     const res = await app.request("/edit/assets/editor.js");

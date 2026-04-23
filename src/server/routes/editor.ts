@@ -19,6 +19,7 @@ import {
 } from "../../sources/types.js";
 import type { ConnectionManager } from "../../connections/manager.js";
 import type { DiscoveredDashboard } from "../discovery.js";
+import type { BrandingConfig } from "../../renderer/theme.js";
 import { bundleEditorClient } from "../editor-bundle.js";
 
 export interface EditorRouteOptions {
@@ -34,6 +35,8 @@ export interface EditorRouteOptions {
    * remote sources with polling watchers stay stale until the next poll.
    */
   onSourceChange?: () => Promise<void> | void;
+  /** Current branding config, read each request so hot-reload is live. */
+  getBranding?: () => BrandingConfig | undefined;
 }
 
 const STARTER_TEMPLATE = `dashboard "New Dashboard" {
@@ -59,11 +62,13 @@ export function editorRoutes(options: EditorRouteOptions): Hono {
   // HTML stubs (real page body arrives in doc 21)
   // -------------------------------------------------------------------------
 
-  app.get("/edit", (c) => c.html(renderEditorShell({ mode: "list" })));
+  app.get("/edit", (c) =>
+    c.html(renderEditorShell({ mode: "list", branding: options.getBranding?.() })),
+  );
   app.get("/edit/:name", (c) => {
     const name = c.req.param("name");
     if (!isSafeName(name)) return c.notFound();
-    return c.html(renderEditorShell({ mode: "edit", name }));
+    return c.html(renderEditorShell({ mode: "edit", name, branding: options.getBranding?.() }));
   });
 
   app.get("/edit/assets/editor.js", async (c) => {
@@ -292,10 +297,14 @@ function statusForCode(code: SourceWriteErrorCode): StatusCode {
   }
 }
 
-function renderEditorShell(opts: { mode: "list" } | { mode: "edit"; name: string }): string {
-  const title =
-    opts.mode === "list" ? "Dashboards" : opts.name;
+function renderEditorShell(
+  opts: ({ mode: "list" } | { mode: "edit"; name: string }) & { branding?: BrandingConfig },
+): string {
+  const title = opts.mode === "list" ? "Dashboards" : opts.name;
   const safeTitle = escapeAttr(title);
+  const brandName = opts.branding?.title ?? "OpenBoard";
+  const safeBrand = escapeAttr(brandName);
+  const brandAttr = opts.branding?.title ? ` data-brand-title="${safeBrand}"` : "";
   const mountAttrs =
     opts.mode === "list"
       ? `data-mode="list"`
@@ -305,10 +314,10 @@ function renderEditorShell(opts: { mode: "list" } | { mode: "edit"; name: string
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenBoard Editor — ${safeTitle}</title>
+  <title>${safeBrand} Editor — ${safeTitle}</title>
 </head>
 <body>
-  <div id="openboard-editor" ${mountAttrs}></div>
+  <div id="openboard-editor" ${mountAttrs}${brandAttr}></div>
   <script src="/edit/assets/editor.js" defer></script>
 </body>
 </html>`;
