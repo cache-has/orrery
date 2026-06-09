@@ -250,8 +250,13 @@ export function parseDashboardInfoFromContent(
 ): DiscoveredDashboard | null {
   try {
     const dashboard = parse(content, filePath);
-    const slug = fileToSlug(filePath, baseDir);
-    const rel = relative(baseDir, filePath);
+    // For source-backed discovery (S3/GCS) filePath is a source-relative key
+    // such as "customer/foo.board". Resolve it against baseDir before deriving
+    // the relative path, otherwise relative() walks up a level and prepends
+    // "../" — which surfaced as "../customer" folder labels in the launcher.
+    const abs = resolve(baseDir, filePath);
+    const slug = fileToSlug(abs, baseDir);
+    const rel = relative(baseDir, abs);
     const folder = rel.includes("/") || rel.includes("\\")
       ? rel.replace(/[\\/][^\\/]+$/, "")
       : "";
