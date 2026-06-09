@@ -38,6 +38,17 @@ export interface ProjectConfig {
   connections_source?: string;
   /** Web editor settings. */
   editor?: EditorConfig;
+  /**
+   * Header-based access control. Structural subset of the server's AccessConfig
+   * (typed inline to avoid a discovery↔access import cycle); env vars can
+   * override these at runtime. Omit for unrestricted access.
+   */
+  access?: {
+    enabled?: boolean;
+    foldersHeader?: string;
+    canEditHeader?: string;
+    requireFolder?: boolean;
+  };
 }
 
 export interface EditorConfig {
@@ -79,6 +90,7 @@ export function loadConfig(projectRoot: string): ProjectConfig {
       source_writable: (parsed as any).source_writable ?? undefined,
       connections_source: (parsed as any).connections_source ?? undefined,
       editor: parseEditorConfig((parsed as any).editor),
+      access: parseAccessConfig((parsed as any).access),
     };
   } catch {
     console.warn(`Warning: Failed to parse ${configPath}, using defaults`);
@@ -90,6 +102,19 @@ function parseEditorConfig(raw: unknown): EditorConfig | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const enabled = (raw as { enabled?: unknown }).enabled;
   return { enabled: enabled === true };
+}
+
+// Maps the snake_case `access:` YAML block to the camelCase config the server
+// consumes. Env vars (handled in access.ts) take precedence over these.
+function parseAccessConfig(raw: unknown): ProjectConfig["access"] {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  return {
+    enabled: r.enabled === true,
+    foldersHeader: typeof r.folders_header === "string" ? r.folders_header : undefined,
+    canEditHeader: typeof r.can_edit_header === "string" ? r.can_edit_header : undefined,
+    requireFolder: typeof r.require_folder === "boolean" ? r.require_folder : undefined,
+  };
 }
 
 // ---------------------------------------------------------------------------
