@@ -11,6 +11,7 @@ import { existsSync } from "fs";
 import { createServer, type Server } from "http";
 import { getRequestListener } from "@hono/node-server";
 import { createApp } from "./index.js";
+import { resolveAccessConfig } from "./access.js";
 import {
   loadConfig,
   discoverDashboards,
@@ -140,6 +141,9 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         dashboards = await discoverDashboards(projectRoot, config, dashboardSource);
       },
     },
+    // Header-based access control — resolved from the config file (`access:`)
+    // with env overrides. Disabled unless explicitly turned on.
+    access: resolveAccessConfig(config.access),
   });
 
   // 6. HTTP server

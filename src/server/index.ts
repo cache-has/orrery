@@ -7,6 +7,12 @@ import type { DiscoveredDashboard } from "./discovery.js";
 import type { BrandingConfig } from "../renderer/theme.js";
 import type { DashboardSource } from "../sources/types.js";
 import type { ConnectionManager } from "../connections/manager.js";
+import {
+  accessMiddleware,
+  filterDashboards,
+  getRequestAccess,
+  type AccessConfig,
+} from "./access.js";
 
 export interface AppOptions {
   /** Options for dashboard rendering. When omitted, only health routes are available. */
@@ -25,6 +31,12 @@ export interface AppOptions {
     resolveNewPath?: (name: string) => string;
     onSourceChange?: () => Promise<void> | void;
   };
+  /**
+   * Header-based access control. When `enabled`, an upstream proxy scopes each
+   * request to a set of folders (and an edit capability) via trusted headers.
+   * Omit or leave disabled for unrestricted access (the default).
+   */
+  access?: AccessConfig;
 }
 
 export function createApp(options: AppOptions = {}): Hono {
@@ -32,6 +44,13 @@ export function createApp(options: AppOptions = {}): Hono {
 
   app.use("*", logger());
   app.route("/api", healthRoutes);
+
+  // Access control (no-op unless enabled). Mounted before the content routes so
+  // it can gate the editor + dashboard/query routes and stash the resolved
+  // access for the launcher/list handlers below.
+  if (options.access?.enabled && options.getDashboards) {
+    app.use("*", accessMiddleware(options.access, options.getDashboards));
+  }
 
   // Editor routes (gated). Mount first so they take precedence over dashboard catch-alls.
   app.route(
@@ -59,9 +78,16 @@ export function createApp(options: AppOptions = {}): Hono {
   // Dashboard index at /
   app.get("/", (c) => {
     if (options.getDashboards) {
-      const dashboards = options.getDashboards();
+      let dashboards = options.getDashboards();
+      let canEdit = true;
+      if (options.access?.enabled) {
+        const access = getRequestAccess(c);
+        dashboards = access ? filterDashboards(dashboards, access, options.access) : [];
+        canEdit = access?.canEdit ?? false;
+      }
       const branding = options.getBranding?.();
-      return c.html(renderDashboardIndex(dashboards, branding, options.editor?.enabled ?? false));
+      const showEditor = (options.editor?.enabled ?? false) && canEdit;
+      return c.html(renderDashboardIndex(dashboards, branding, showEditor));
     }
 
     return c.html(`<!DOCTYPE html>
@@ -88,7 +114,11 @@ export function createApp(options: AppOptions = {}): Hono {
   // API endpoint to list dashboards
   app.get("/api/dashboards", (c) => {
     if (options.getDashboards) {
-      const dashboards = options.getDashboards();
+      let dashboards = options.getDashboards();
+      if (options.access?.enabled) {
+        const access = getRequestAccess(c);
+        dashboards = access ? filterDashboards(dashboards, access, options.access) : [];
+      }
       return c.json(dashboards.map((d) => ({
         slug: d.slug,
         title: d.title,
