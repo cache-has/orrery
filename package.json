@@ -1,6 +1,6 @@
 {
   "name": "openboard",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Open-source, code-defined BI dashboards. Dashboards as code, not clicks.",
   "type": "module",
   "main": "dist/index.js",

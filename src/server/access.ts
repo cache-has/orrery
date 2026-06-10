@@ -105,6 +105,7 @@ function isEditorPath(path: string, method: string): boolean {
     path.startsWith("/edit/") ||
     path.startsWith("/api/save") ||
     path === "/api/new" ||
+    path === "/api/folders" ||
     path === "/api/validate" ||
     path === "/api/connections" ||
     // Editor's per-dashboard source read (GET /api/dashboards/:name). The plural

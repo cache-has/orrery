@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdirSync, writeFileSync, rmSync } from "fs";
 import { resolve } from "path";
 import { loadConfig, discoverDashboards, type ProjectConfig } from "../../src/server/discovery.js";
+import { resolveAccessConfig } from "../../src/server/access.js";
 
 const TMP = resolve(__dirname, "../.tmp-discovery");
 
@@ -86,6 +87,78 @@ editor:
   enabled: "yes"
 `);
     expect(loadConfig(TMP).editor).toEqual({ enabled: false });
+  });
+
+  it("access is undefined by default", () => {
+    expect(loadConfig(TMP).access).toBeUndefined();
+  });
+
+  it("maps the snake_case access: block to camelCase", () => {
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+access:
+  enabled: true
+  require_folder: true
+  folders_header: x-my-folders
+  can_edit_header: x-my-edit
+`);
+    expect(loadConfig(TMP).access).toEqual({
+      enabled: true,
+      requireFolder: true,
+      foldersHeader: "x-my-folders",
+      canEditHeader: "x-my-edit",
+    });
+  });
+
+  it("honors require_folder: false (not silently coerced to true)", () => {
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+access:
+  enabled: true
+  require_folder: false
+`);
+    const access = loadConfig(TMP).access;
+    expect(access?.requireFolder).toBe(false);
+    // …and the effective config preserves it through resolveAccessConfig.
+    expect(resolveAccessConfig(access).requireFolder).toBe(false);
+  });
+
+  it("defaults requireFolder to true when the access block omits it", () => {
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+access:
+  enabled: true
+`);
+    const access = loadConfig(TMP).access;
+    expect(access?.requireFolder).toBeUndefined();
+    // resolveAccessConfig fills the secure default.
+    expect(resolveAccessConfig(access).requireFolder).toBe(true);
+  });
+
+  it("warns on an unrecognized key in the access block (e.g. a typo)", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+access:
+  enabled: true
+  requirefolder: true
+`);
+    const access = loadConfig(TMP).access;
+    // The typo is ignored, so the secure default still applies…
+    expect(access?.requireFolder).toBeUndefined();
+    // …but the operator is warned rather than left guessing.
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("requirefolder"));
+    spy.mockRestore();
+  });
+
+  it("warns when a known key has the wrong type", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+access:
+  enabled: true
+  require_folder: "false"
+`);
+    const access = loadConfig(TMP).access;
+    // Quoted "false" is a string, not a boolean — ignored (default true), warned.
+    expect(access?.requireFolder).toBeUndefined();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("require_folder"));
+    spy.mockRestore();
   });
 });
 

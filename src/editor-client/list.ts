@@ -1,4 +1,4 @@
-import { listDashboards, newDashboard } from "./api.js";
+import { listDashboards, listFolders, newDashboard } from "./api.js";
 import { promptNewDashboard } from "./modal.js";
 
 export async function renderListPage(root: HTMLElement): Promise<void> {
@@ -17,15 +17,23 @@ export async function renderListPage(root: HTMLElement): Promise<void> {
   const body = root.querySelector<HTMLDivElement>(".ob-ed-list-body")!;
   const newBtn = root.querySelector<HTMLButtonElement>('[data-action="new"]')!;
 
-  newBtn.addEventListener("click", () => {
-    promptNewDashboard(async (name) => {
-      const res = await newDashboard(name);
+  newBtn.addEventListener("click", async () => {
+    // Fetch the caller's folder options first so the modal can require/scope
+    // the picker. Fall back to a folderless prompt if the lookup fails.
+    let folderOpts = { folders: [] as string[], required: false };
+    try {
+      folderOpts = await listFolders();
+    } catch {
+      /* ignore — render the basic prompt */
+    }
+    promptNewDashboard(async (name, folder) => {
+      const res = await newDashboard(name, folder || undefined);
       if ("ok" in res) {
         window.location.href = `/edit/${encodeURIComponent(name)}`;
         return null;
       }
       return res.message || res.error;
-    });
+    }, folderOpts);
   });
 
   try {
