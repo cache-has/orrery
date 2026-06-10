@@ -1,5 +1,6 @@
 import { listDashboards, listFolders, newDashboard } from "./api.js";
 import { promptNewDashboard } from "./modal.js";
+import { groupDashboardsByFolder } from "./grouping.js";
 
 export async function renderListPage(root: HTMLElement): Promise<void> {
   root.innerHTML = `
@@ -42,19 +43,35 @@ export async function renderListPage(root: HTMLElement): Promise<void> {
       body.innerHTML = `<p class="ob-ed-empty">No dashboards yet. Click <strong>New dashboard</strong> to create your first.</p>`;
       return;
     }
-    items.sort((a, b) => a.slug.localeCompare(b.slug));
-    const rows = items
-      .map((d) => {
-        const modified = new Date(d.lastModified).toLocaleString();
-        return `<li>
-          <a class="ob-ed-row" href="/edit/${encodeURIComponent(d.slug)}">
-            <span class="ob-ed-name">${escapeHtml(d.title || d.slug)}</span>
-            <span class="ob-ed-modified">${escapeHtml(modified)}</span>
-          </a>
-        </li>`;
+
+    const renderRow = (d: (typeof items)[number]) => {
+      const modified = new Date(d.lastModified).toLocaleString();
+      return `<li>
+        <a class="ob-ed-row" href="/edit/${encodeURIComponent(d.slug)}">
+          <span class="ob-ed-name">${escapeHtml(d.title || d.slug)}</span>
+          <span class="ob-ed-modified">${escapeHtml(modified)}</span>
+        </a>
+      </li>`;
+    };
+
+    // Group by folder (mirrors the viewer's folder-grouped index). Falls back to
+    // a flat list when nothing has a folder — see groupDashboardsByFolder.
+    const { grouped, groups } = groupDashboardsByFolder(items);
+    if (!grouped) {
+      body.innerHTML = `<ul class="ob-ed-list">${groups[0].items.map(renderRow).join("")}</ul>`;
+      return;
+    }
+
+    body.innerHTML = groups
+      .map(({ folder, items: groupItems }) => {
+        const rows = groupItems.map(renderRow).join("");
+        const label = folder || "Uncategorized";
+        return `<div class="ob-ed-section">
+          <h2 class="ob-ed-folder">${escapeHtml(label)}</h2>
+          <ul class="ob-ed-list">${rows}</ul>
+        </div>`;
       })
       .join("");
-    body.innerHTML = `<ul class="ob-ed-list">${rows}</ul>`;
   } catch (err) {
     body.innerHTML = `<p class="ob-ed-empty">Failed to load dashboards: ${escapeHtml(String(err))}</p>`;
   }

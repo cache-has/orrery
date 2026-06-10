@@ -124,6 +124,7 @@ export function createApp(options: AppOptions = {}): Hono {
         slug: d.slug,
         title: d.title,
         description: d.description,
+        folder: d.folder,
         lastModified: d.lastModified.toISOString(),
         url: `/d/${d.slug}`,
       })));

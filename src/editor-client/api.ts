@@ -13,6 +13,8 @@ export interface DashboardListItem {
   slug: string;
   title: string;
   description?: string;
+  /** Folder the dashboard lives in ("" for root). */
+  folder: string;
   lastModified: string;
   url: string;
 }
