@@ -21,14 +21,22 @@ import type { ConnectionManager } from "../../connections/manager.js";
 import type { DiscoveredDashboard } from "../discovery.js";
 import type { BrandingConfig } from "../../renderer/theme.js";
 import { bundleEditorClient } from "../editor-bundle.js";
+import { getRequestAccess, isFolderAllowed, type AccessConfig } from "../access.js";
 
 export interface EditorRouteOptions {
   enabled: boolean;
   source?: DashboardSource;
   connManager?: ConnectionManager;
   getDashboards?: () => DiscoveredDashboard[];
-  /** Resolve a bare file name (no extension) to a full source path for create. */
-  resolveNewPath?: (name: string) => string;
+  /** Resolve a bare file name (no extension) + optional folder to a full source path for create. */
+  resolveNewPath?: (name: string, folder?: string) => string;
+  /**
+   * Header-based access config. When `enabled`, editor reads/writes are
+   * authorized against the target dashboard's folder — not just the `canEdit`
+   * capability the middleware checks. Omit (or leave disabled) for unrestricted
+   * access (local dev / unproxied deployments).
+   */
+  access?: AccessConfig;
   /**
    * Called after successful write operations so the host can invalidate caches
    * (e.g. rediscover dashboards) before the response is returned. Without this,
@@ -97,7 +105,15 @@ export function editorRoutes(options: EditorRouteOptions): Hono {
     const source = options.source;
     if (!source) return errorResponse(c, "notfound", "No source configured", 404);
 
-    const filePath = await findPathForName(options, name);
+    // Folder authorization. The access middleware only gates the editor on the
+    // `canEdit` capability; per-dashboard folder scoping is enforced here. A
+    // dashboard the caller may not see is reported as absent (don't leak it).
+    const dash = findDashboardForName(options, name);
+    if (!callerAllowsFolder(c, options.access, dash?.folder)) {
+      return errorResponse(c, "notfound", `Dashboard "${name}" not found`, 404);
+    }
+
+    const filePath = dash?.filePath ?? (await findPathForName(options, name));
     if (!filePath) return errorResponse(c, "notfound", `Dashboard "${name}" not found`, 404);
 
     try {
@@ -128,7 +144,35 @@ export function editorRoutes(options: EditorRouteOptions): Hono {
       );
     }
 
-    const filePath = (await findPathForName(options, name)) ?? options.resolveNewPath?.(name);
+    const existing = findDashboardForName(options, name);
+    if (existing) {
+      // Overwrite: the caller must be allowed in the dashboard's folder.
+      // Treat a disallowed dashboard as absent rather than forbidden so we
+      // don't reveal that it exists in a folder they can't see.
+      if (!callerAllowsFolder(c, options.access, existing.folder)) {
+        return errorResponse(c, "notfound", `Dashboard "${name}" not found`, 404);
+      }
+    } else {
+      // Create-via-save. resolveNewPath currently roots new files (folder ""),
+      // which `requireFolder` denies for everyone — folder-aware creation goes
+      // through POST /api/new. Authorize the root folder so an unscoped caller
+      // can't smuggle a write in via save.
+      if (!callerAllowsFolder(c, options.access, "")) {
+        return errorResponse(
+          c,
+          "forbidden",
+          "You do not have access to create dashboards here",
+          403,
+        );
+      }
+    }
+
+    // Resolve the write path. With access control on we fail closed above on
+    // anything not in discovery, so the cache is authoritative; with it off we
+    // keep the original source.list() fallback for the stale-cache race.
+    const filePath = options.access?.enabled
+      ? (existing?.filePath ?? options.resolveNewPath?.(name))
+      : ((await findPathForName(options, name)) ?? options.resolveNewPath?.(name));
     if (!filePath) return errorResponse(c, "notfound", `Cannot resolve path for "${name}"`, 404);
 
     try {
@@ -165,9 +209,35 @@ export function editorRoutes(options: EditorRouteOptions): Hono {
       return errorResponse(c, "unknown", "No path resolver configured", 500);
     }
 
-    const filePath = options.resolveNewPath(name);
+    // Folder selection. A folder is a single path segment validated like a name.
+    // When access control requires a folder (the `requireFolder` config), one
+    // must be supplied — root dashboards are non-grantable and would be hidden.
+    const folderRaw = (body as { folder?: unknown })?.folder;
+    if (folderRaw != null && (typeof folderRaw !== "string" || !isSafeName(folderRaw))) {
+      return errorResponse(
+        c,
+        "invalid",
+        "Folder must be alphanumeric with hyphens or underscores; no nested paths",
+        422,
+      );
+    }
+    const folder = (folderRaw as string | undefined) ?? "";
 
-    // If this name already maps to a discovered dashboard, it exists.
+    if (folderRequired(options) && !folder) {
+      return errorResponse(c, "invalid", "A folder is required for new dashboards", 422);
+    }
+
+    // Authorize: the caller must be allowed in the chosen folder. Unscoped
+    // callers (and anyone targeting root under requireFolder) are rejected.
+    if (!callerAllowsFolder(c, options.access, folder)) {
+      return errorResponse(c, "forbidden", "You do not have access to that folder", 403);
+    }
+
+    const filePath = options.resolveNewPath(name, folder);
+
+    // If this name already maps to a discovered dashboard, it exists. Names are
+    // unique by basename across folders, so this also blocks same-name clashes
+    // in a different folder.
     if (await findPathForName(options, name)) {
       return errorResponse(c, "exists", `Dashboard "${name}" already exists`, 409);
     }
@@ -179,6 +249,25 @@ export function editorRoutes(options: EditorRouteOptions): Hono {
     } catch (err) {
       return writeErrorResponse(c, err);
     }
+  });
+
+  // Folders the caller may create dashboards in, for the New-dashboard picker.
+  // Scoped callers get their granted set; "*" and unproxied dev get every
+  // folder that currently has dashboards. `required` tells the client whether
+  // the user must pick one (mirrors the requireFolder config).
+  app.get("/api/folders", (c) => {
+    const cfg = options.access;
+    const discovered = distinctFolders(options.getDashboards?.() ?? []);
+    let folders: string[];
+    if (!cfg?.enabled) {
+      folders = discovered;
+    } else {
+      const access = getRequestAccess(c);
+      if (!access) folders = [];
+      else if (access.folders === null) folders = discovered; // "*"
+      else folders = [...access.folders].sort();
+    }
+    return c.json({ folders, required: folderRequired(options) });
   });
 
   app.post("/api/validate", async (c) => {
@@ -209,19 +298,62 @@ function isSafeName(name: string | undefined): name is string {
   return NAME_PATTERN.test(name);
 }
 
+/**
+ * Resolve a name (slug or filename) to its discovered dashboard. Discovery is
+ * the only place that carries the dashboard's `folder`, so folder-based
+ * authorization relies on this — when access control is on, a name absent from
+ * discovery is treated as unauthorized (fail closed) rather than read through
+ * the source fallback.
+ */
+function findDashboardForName(
+  options: EditorRouteOptions,
+  name: string,
+): DiscoveredDashboard | undefined {
+  const dashboards = options.getDashboards?.() ?? [];
+  // Match by slug first (what /d/:slug uses) then by filename basename.
+  const bySlug = dashboards.find((d) => d.slug === name);
+  if (bySlug) return bySlug;
+  return dashboards.find((d) => {
+    const base = d.filePath.replace(/\\/g, "/").split("/").pop() ?? "";
+    return base.replace(/\.board$/, "") === name;
+  });
+}
+
+/**
+ * Whether the caller may act on a dashboard in `folder`. Allows everything when
+ * access control is disabled (local dev / unproxied). When enabled it is fail
+ * closed: a request with no resolved access, or an unknown folder
+ * (`undefined`), is denied.
+ */
+function callerAllowsFolder(
+  c: Context,
+  cfg: AccessConfig | undefined,
+  folder: string | undefined,
+): boolean {
+  if (!cfg?.enabled) return true;
+  const access = getRequestAccess(c);
+  if (!access || folder === undefined) return false;
+  return isFolderAllowed(access, folder, cfg);
+}
+
+/** Whether new dashboards must be placed in a folder (the requireFolder config). */
+function folderRequired(options: EditorRouteOptions): boolean {
+  return !!(options.access?.enabled && options.access.requireFolder);
+}
+
+/** Distinct non-root folders that currently contain dashboards, sorted. */
+function distinctFolders(dashboards: DiscoveredDashboard[]): string[] {
+  const set = new Set<string>();
+  for (const d of dashboards) if (d.folder) set.add(d.folder);
+  return [...set].sort();
+}
+
 async function findPathForName(
   options: EditorRouteOptions,
   name: string,
 ): Promise<string | undefined> {
-  const dashboards = options.getDashboards?.() ?? [];
-  // Match by slug first (what /d/:slug uses) then by filename basename.
-  const bySlug = dashboards.find((d) => d.slug === name);
-  if (bySlug) return bySlug.filePath;
-  const byName = dashboards.find((d) => {
-    const base = d.filePath.replace(/\\/g, "/").split("/").pop() ?? "";
-    return base.replace(/\.board$/, "") === name;
-  });
-  if (byName) return byName.filePath;
+  const cached = findDashboardForName(options, name);
+  if (cached) return cached.filePath;
 
   // Defense-in-depth: the discovery cache may be stale (remote sources refresh
   // via polling). Ask the source directly before giving up.

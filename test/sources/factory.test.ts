@@ -96,4 +96,13 @@ describe("resolveRemoteNewKey", () => {
     expect(resolveRemoteNewKey("gs://bucket/", "x")).toBe("x.board");
     expect(resolveRemoteNewKey("gs://bucket/d", "x")).toBe("d/x.board");
   });
+
+  it("nests the file in the given folder under the prefix", () => {
+    expect(resolveRemoteNewKey("s3://bucket", "carts", "revenue")).toBe("revenue/carts.board");
+    expect(resolveRemoteNewKey("s3://bucket/dashboards/", "carts", "revenue")).toBe(
+      "dashboards/revenue/carts.board",
+    );
+    // Empty folder is a no-op (back-compat with the 2-arg form).
+    expect(resolveRemoteNewKey("s3://bucket/dashboards", "carts", "")).toBe("dashboards/carts.board");
+  });
 });

@@ -133,9 +133,9 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
       enabled: editorEnabled,
       source: dashboardSource,
       connManager,
-      resolveNewPath: (name: string) => {
-        if (sourceUri) return resolveRemoteNewKey(sourceUri, name);
-        return resolve(dashboardsDir, `${name}.board`);
+      resolveNewPath: (name: string, folder?: string) => {
+        if (sourceUri) return resolveRemoteNewKey(sourceUri, name, folder ?? "");
+        return resolve(dashboardsDir, folder ?? "", `${name}.board`);
       },
       onSourceChange: async () => {
         dashboards = await discoverDashboards(projectRoot, config, dashboardSource);

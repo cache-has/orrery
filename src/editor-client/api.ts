@@ -62,10 +62,11 @@ export async function saveDashboard(
 
 export async function newDashboard(
   name: string,
+  folder?: string,
 ): Promise<{ ok: true; name: string } | SaveError> {
   const res = await fetch("/api/new", {
     method: "POST",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(folder ? { name, folder } : { name }),
     headers: { "Content-Type": "application/json" },
   });
   if (res.ok) return res.json();
@@ -75,4 +76,15 @@ export async function newDashboard(
     error: body.error ?? "unknown",
     message: body.message ?? res.statusText,
   };
+}
+
+export interface FolderOptions {
+  folders: string[];
+  required: boolean;
+}
+
+export async function listFolders(): Promise<FolderOptions> {
+  const res = await fetch("/api/folders");
+  if (!res.ok) throw new Error(`Failed to list folders: ${res.status}`);
+  return res.json();
 }

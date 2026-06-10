@@ -104,11 +104,39 @@ function parseEditorConfig(raw: unknown): EditorConfig | undefined {
   return { enabled: enabled === true };
 }
 
+// The full set of recognized snake_case keys under `access:`.
+const KNOWN_ACCESS_KEYS = ["enabled", "require_folder", "folders_header", "can_edit_header"];
+
 // Maps the snake_case `access:` YAML block to the camelCase config the server
 // consumes. Env vars (handled in access.ts) take precedence over these.
+//
+// This block gates the entire access-control feature, so a misspelled or
+// mistyped key that silently falls back to a default is a security footgun
+// (e.g. `requirefolder:` would leave root dashboards exposed). We can't fail
+// hard — loadConfig's catch would drop the whole config and disable access
+// control, which is worse — so we surface problems as warnings and keep the
+// secure defaults.
 function parseAccessConfig(raw: unknown): ProjectConfig["access"] {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
+
+  const warn = (msg: string) => console.warn(`Warning: openboard.config.yaml \`access.${msg}`);
+  const checkType = (key: string, expected: "boolean" | "string") => {
+    if (key in r && typeof r[key] !== expected) {
+      warn(`${key}\` should be a ${expected}; got ${typeof r[key]} — ignored, using default.`);
+    }
+  };
+
+  for (const key of Object.keys(r)) {
+    if (!KNOWN_ACCESS_KEYS.includes(key)) {
+      warn(`${key}\` is not a recognized key — ignored. Valid keys: ${KNOWN_ACCESS_KEYS.join(", ")}.`);
+    }
+  }
+  checkType("enabled", "boolean");
+  checkType("require_folder", "boolean");
+  checkType("folders_header", "string");
+  checkType("can_edit_header", "string");
+
   return {
     enabled: r.enabled === true,
     foldersHeader: typeof r.folders_header === "string" ? r.folders_header : undefined,
