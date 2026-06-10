@@ -20,6 +20,8 @@ button { font: inherit; cursor: pointer; }
 .ob-ed-list a.ob-ed-row:hover { background: #f9fafb; text-decoration: none; }
 .ob-ed-list .ob-ed-name { font-weight: 500; }
 .ob-ed-list .ob-ed-modified { color: #6b7280; font-size: 0.85rem; }
+.ob-ed-section { margin-bottom: 1.5rem; }
+.ob-ed-folder { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin: 0 0 0.5rem; }
 .ob-ed-empty { color: #6b7280; padding: 2rem; text-align: center; }
 
 /* Editor page */
