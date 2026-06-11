@@ -11,13 +11,13 @@
  * 7. Write output to disk
  */
 
-import { resolve, dirname } from "path";
-import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import { resolve } from "path";
+import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { parse } from "../parser/parser.js";
 import { resolveIncludes } from "../parser/resolver.js";
 import type { DashboardNode, ParamNode } from "../parser/ast.js";
 import { resolveLayout } from "../renderer/layout.js";
-import { fetchDashboardData, type ComponentData } from "../renderer/data.js";
+import { fetchDashboardData } from "../renderer/data.js";
 import { ConnectionManager } from "../connections/manager.js";
 import { QueryExecutor } from "../query/executor.js";
 import { loadEnvFiles } from "../connections/env.js";

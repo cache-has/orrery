@@ -5,7 +5,6 @@ import type {
   DashboardNode,
   ComponentNode,
   ParamNode,
-  RowNode,
   PropertyNode,
   ValueNode,
 } from "../parser/ast.js";
@@ -86,10 +85,6 @@ function getComponents(ast: DashboardNode): ComponentNode[] {
 
 function getParams(ast: DashboardNode): ParamNode[] {
   return ast.items.filter((i): i is ParamNode => i.kind === "param");
-}
-
-function getRows(ast: DashboardNode): RowNode[] {
-  return ast.items.filter((i): i is RowNode => i.kind === "row");
 }
 
 function getPropertyValue(props: PropertyNode[], key: string): string | undefined {

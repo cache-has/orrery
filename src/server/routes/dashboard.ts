@@ -9,7 +9,7 @@
 
 import { Hono } from "hono";
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
-import { resolve, basename, extname, relative } from "path";
+import { resolve, extname, relative } from "path";
 import { createRequire } from "module";
 import { parse } from "../../parser/parser.js";
 import { resolveIncludes, resolveIncludesAsync } from "../../parser/resolver.js";
@@ -58,7 +58,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   }
 
   /** Reload the cached theme file (called from dev watcher) */
-  (app as any).__reloadTheme = () => {
+  (app as Hono & { __reloadTheme?: () => void }).__reloadTheme = () => {
     if (projectRoot) {
       try {
         cachedThemeFile = loadThemeFile(projectRoot);

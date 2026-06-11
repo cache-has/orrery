@@ -7,6 +7,10 @@
 
 import type { DashboardSource, DashboardSourceEvent } from "./types.js";
 import { SourceWriteError } from "./types.js";
+// Type-only import: erased at compile time, so it does NOT trigger a runtime
+// load of the optional @google-cloud/storage dependency (imported lazily in
+// ensureClient()).
+import type { Storage, Bucket } from "@google-cloud/storage";
 
 // ---------------------------------------------------------------------------
 // Types (avoid top-level import of @google-cloud/storage)
@@ -31,8 +35,8 @@ export interface GCSSourceOptions {
 }
 
 export class GCSSource implements DashboardSource {
-  private storage: any; // Storage instance — typed as any to avoid top-level import
-  private bucketHandle: any; // Bucket handle
+  private storage!: Storage; // assigned lazily in ensureClient()
+  private bucketHandle!: Bucket; // assigned lazily in ensureClient()
   private bucket: string;
   private prefix: string;
   private pollInterval: number;
@@ -56,7 +60,7 @@ export class GCSSource implements DashboardSource {
   private async ensureClient(): Promise<void> {
     if (this.storage) return;
 
-    let gcs: any;
+    let gcs: typeof import("@google-cloud/storage");
     try {
       gcs = await import("@google-cloud/storage");
     } catch {
@@ -207,7 +211,7 @@ export class GCSSource implements DashboardSource {
 }
 
 function mapGcsError(err: unknown, path: string): SourceWriteError {
-  const e = err as any;
+  const e = err as { code?: number; response?: { statusCode?: number } };
   const status = e?.code ?? e?.response?.statusCode;
   const msg = err instanceof Error ? err.message : String(err);
 

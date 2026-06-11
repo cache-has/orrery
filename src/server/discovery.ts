@@ -8,7 +8,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
-import { resolve, basename, extname, relative } from "path";
+import { resolve, extname, relative } from "path";
 import { parse as parseYaml } from "yaml";
 import { parse, parsePartial } from "../parser/parser.js";
 import type { DashboardNode } from "../parser/ast.js";
@@ -84,13 +84,13 @@ export function loadConfig(projectRoot: string): ProjectConfig {
       port: parsed.port ?? DEFAULT_CONFIG.port,
       theme: parsed.theme ?? DEFAULT_CONFIG.theme,
       cache_ttl: parsed.cache_ttl ?? DEFAULT_CONFIG.cache_ttl,
-      source: (parsed as any).source ?? undefined,
-      source_poll: (parsed as any).source_poll ?? undefined,
-      source_endpoint: (parsed as any).source_endpoint ?? undefined,
-      source_writable: (parsed as any).source_writable ?? undefined,
-      connections_source: (parsed as any).connections_source ?? undefined,
-      editor: parseEditorConfig((parsed as any).editor),
-      access: parseAccessConfig((parsed as any).access),
+      source: parsed.source ?? undefined,
+      source_poll: parsed.source_poll ?? undefined,
+      source_endpoint: parsed.source_endpoint ?? undefined,
+      source_writable: parsed.source_writable ?? undefined,
+      connections_source: parsed.connections_source ?? undefined,
+      editor: parseEditorConfig(parsed.editor),
+      access: parseAccessConfig(parsed.access),
     };
   } catch {
     console.warn(`Warning: Failed to parse ${configPath}, using defaults`);

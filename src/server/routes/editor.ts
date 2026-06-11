@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import type { Context } from "hono";
-import type { StatusCode } from "hono/utils/http-status";
+import type { StatusCode, ContentfulStatusCode } from "hono/utils/http-status";
 import { parse } from "../../parser/parser.js";
 import { validate, type ValidationDiagnostic } from "../../parser/validator.js";
 import { ParseError } from "../../parser/errors.js";
@@ -402,13 +402,13 @@ function errorResponse(
   message: string,
   status: StatusCode,
 ) {
-  return c.json({ error: code, message }, status as any);
+  return c.json({ error: code, message }, status as ContentfulStatusCode);
 }
 
 function writeErrorResponse(c: Context, err: unknown) {
   if (err instanceof SourceWriteError) {
     const status = statusForCode(err.code);
-    return c.json({ error: err.code, message: err.message }, status as any);
+    return c.json({ error: err.code, message: err.message }, status as ContentfulStatusCode);
   }
   const msg = err instanceof Error ? err.message : String(err);
   return c.json({ error: "unknown", message: msg }, 500);

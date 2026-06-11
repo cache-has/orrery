@@ -5,7 +5,7 @@
  * with component containers, error states, and serialized initial data.
  */
 
-import type { DashboardNode, ComponentNode, ParamNode, PropertyNode } from "../parser/ast.js";
+import type { DashboardNode, ComponentNode, PropertyNode } from "../parser/ast.js";
 import type { ResolvedLayout, ResolvedRow, ResolvedComponent } from "./layout.js";
 import type { ComponentData, DashboardData, ParamInfo } from "./data.js";
 import { collectComponents } from "./data.js";
@@ -125,7 +125,7 @@ export function renderComponentFragment(
 // Section renderers
 // ---------------------------------------------------------------------------
 
-function renderHeader(title: string, description?: string, branding?: BrandingConfig, devMode?: boolean): string {
+function renderHeader(title: string, description?: string, branding?: BrandingConfig, _devMode?: boolean): string {
   const logo = branding?.logo
     ? `<img class="openboard-header-logo" src="/openboard/assets/${escapeAttr(branding.logo)}" alt="${escapeAttr(branding.title ?? "Logo")}" />`
     : "";

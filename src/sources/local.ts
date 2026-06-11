@@ -4,7 +4,7 @@
  * Wraps recursive .board file discovery and optional chokidar-based watching.
  */
 
-import { readFileSync, existsSync, readdirSync, statSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, readdirSync, mkdirSync } from "fs";
 import { writeFile } from "fs/promises";
 import { resolve, extname, dirname } from "path";
 import chokidar from "chokidar";

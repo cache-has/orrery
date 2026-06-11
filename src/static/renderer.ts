@@ -14,8 +14,6 @@ import type { ResolvedLayout } from "../renderer/layout.js";
 import type { DashboardData } from "../renderer/data.js";
 import type { BrandingConfig } from "../renderer/theme.js";
 import { renderPage } from "../renderer/html.js";
-import { OPENBOARD_CSS } from "../renderer/styles.js";
-import { OPENBOARD_INTERACTIVE_JS } from "../server/interactive.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,9 +61,8 @@ export function renderStaticPage(options: StaticRenderOptions): string {
     paramValues,
     snapshotLabel,
     builtAt = new Date(),
-    version = "0.1.0",
+    version = "1.0.0",
     externalDataComponents,
-    selfContained,
     themeCSS,
     themeName,
     palette,

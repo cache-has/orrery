@@ -65,11 +65,6 @@ export interface BoardCompletionOptions {
   fetchConnections?: () => Promise<string[]>;
 }
 
-interface Cursor {
-  line: string;
-  beforeCursor: string; // text from doc start to cursor
-}
-
 /** Strip string literals and line comments from text so heuristics don't
  * match tokens inside them. Replaces content with spaces to preserve
  * offsets so line-level regexes still line up with the cursor position. */
@@ -173,7 +168,7 @@ function findComponentBefore(stripped: string, bracePos: number): string | undef
   // Name was a string → already spaces; just skip whitespace more.
   while (i >= 0 && /\s/.test(stripped[i])) i--;
   // Read an identifier ending here
-  let end = i + 1;
+  const end = i + 1;
   while (i >= 0 && /[A-Za-z0-9_]/.test(stripped[i])) i--;
   const ident = stripped.slice(i + 1, end);
   if (COMPONENT_TYPES.has(ident)) return ident;
@@ -284,7 +279,7 @@ export function createBoardCompletionSource(
     const docBefore = ctx.state.doc.sliceString(0, ctx.pos);
     const intent = detectIntent(docBefore);
 
-    let items: Completion[] = [];
+    let items: Completion[];
     switch (intent.kind) {
       case "top-level":
         items = optsFor(TOP_LEVEL, "keyword");
