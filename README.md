@@ -339,12 +339,39 @@ See `examples/pagila/README.md` for a fully working setup with the Pagila Postgr
 - Node.js >= 18
 - A supported SQL database
 
+## Contributing
+
+Contributions are welcome. OpenBoard is a public repository, and `main` is a
+protected branch:
+
+- All changes land through pull requests. Direct pushes to `main` are blocked.
+- Every pull request requires review approval from a code owner (see
+  [.github/CODEOWNERS](.github/CODEOWNERS)) before it can merge.
+- The CI workflow (lint, typecheck, tests, build) must pass before merge.
+- Conversations on a pull request must be resolved before merge.
+- Force pushes and branch deletion on `main` are disabled.
+
+For outside contributors, fork the repository and open a pull request from your
+fork. CI runs with a read-only token and no access to repository secrets, so
+forked pull requests cannot read credentials. A maintainer approval is required
+before workflows run on a first-time contributor's pull request.
+
+Dependencies and GitHub Actions versions are kept current by Dependabot, and
+Dependabot security alerts are enabled.
+
+## Security
+
+Found a vulnerability? Please do not open a public issue. Report it privately
+through the repository's "Security" tab ("Report a vulnerability") or by email to
+[cache@horizonanalyticstudios.com](mailto:cache@horizonanalyticstudios.com). See
+[SECURITY.md](SECURITY.md) for the full policy and what to include.
+
 ## License
 
 MIT -- see [LICENSE](LICENSE).
 
 ## Author
 
-Cache McClure -- [cache@horizonanalytic.com](mailto:cache@horizonanalytic.com)
+Cache McClure -- [cache@horizonanalyticstudios.com](mailto:cache@horizonanalyticstudios.com)
 
 Horizon Analytic Studios, LLC

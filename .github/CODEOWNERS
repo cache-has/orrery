@@ -1,0 +1,14 @@
+# Code owners for OpenBoard.
+#
+# Every change to a protected branch requires review from an owner listed here.
+# See: https://docs.github.com/articles/about-code-owners
+
+# Default owner for everything in the repo.
+*               @cache-has
+
+# Security-sensitive areas. Listed explicitly so they always require owner review
+# even if more granular owners are added above this point later.
+/.github/        @cache-has
+/actions/        @cache-has
+/src/server/     @cache-has
+/src/connections/ @cache-has
