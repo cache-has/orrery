@@ -6,8 +6,8 @@
  *   2. read() round-trips it back
  *   3. ETag cache is updated so the poller does NOT re-report the self-write
  *
- * Skipped automatically if docker is unavailable. Run explicitly with:
- *   npx vitest run test/sources/s3.minio.integration.test.ts
+ * Skipped by default. Run explicitly (requires docker) with:
+ *   npm run test:integration
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -31,8 +31,11 @@ function dockerAvailable(): boolean {
   }
 }
 
-const hasDocker = dockerAvailable();
-const describeIf = hasDocker ? describe : describe.skip;
+// Opt-in only. Hosted CI runners HAVE docker, so a docker check alone won't
+// skip this — and pulling/starting MinIO in CI is slow and flaky. Run it
+// explicitly via `npm run test:integration` (which sets RUN_INTEGRATION_TESTS).
+const integrationEnabled = process.env.RUN_INTEGRATION_TESTS === "1" && dockerAvailable();
+const describeIf = integrationEnabled ? describe : describe.skip;
 
 async function waitForMinio(timeoutMs = 30000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
