@@ -21,13 +21,6 @@ function escapeAttr(str: string): string {
   return escapeHtml(str).replace(/'/g, "&#39;");
 }
 
-function getStringProp(component: ComponentNode, key: string): string | undefined {
-  const prop = component.properties.find((p: PropertyNode) => p.key === key);
-  if (!prop) return undefined;
-  if (prop.value.kind === "string") return prop.value.value;
-  return undefined;
-}
-
 function getBoolProp(component: ComponentNode, key: string): boolean | undefined {
   const prop = component.properties.find((p: PropertyNode) => p.key === key);
   if (!prop) return undefined;
@@ -168,7 +161,7 @@ export const tableRenderer: ComponentRenderer = {
   },
 };
 
-function renderToolbar(tableId: string, filterable: boolean, totalRows: number): string {
+function renderToolbar(tableId: string, filterable: boolean, _totalRows: number): string {
   const filterInput = filterable
     ? `<input type="text" class="openboard-table-filter" placeholder="Filter rows\u2026" data-ob-filter="${tableId}" />`
     : "";

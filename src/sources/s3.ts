@@ -8,6 +8,9 @@
 
 import type { DashboardSource, DashboardSourceEvent } from "./types.js";
 import { SourceWriteError } from "./types.js";
+// Type-only import: erased at compile time, so it does NOT trigger a runtime
+// load of the optional @aws-sdk/client-s3 dependency (imported lazily below).
+import type { S3Client } from "@aws-sdk/client-s3";
 
 // ---------------------------------------------------------------------------
 // Types (avoid top-level import of @aws-sdk/client-s3)
@@ -36,7 +39,7 @@ export interface S3SourceOptions {
 }
 
 export class S3Source implements DashboardSource {
-  private client: any; // S3Client — typed as any to avoid top-level import
+  private client!: S3Client; // assigned lazily in ensureClient()
   private bucket: string;
   private prefix: string;
   private pollInterval: number;
@@ -60,7 +63,7 @@ export class S3Source implements DashboardSource {
   private async ensureClient(): Promise<void> {
     if (this.client) return;
 
-    let sdk: any;
+    let sdk: typeof import("@aws-sdk/client-s3");
     try {
       sdk = await import("@aws-sdk/client-s3");
     } catch {
@@ -118,7 +121,7 @@ export class S3Source implements DashboardSource {
     await this.ensureClient();
     const sdk = await import("@aws-sdk/client-s3");
 
-    let response: any;
+    let response: { ETag?: string } | undefined;
     try {
       response = await this.client.send(
         new sdk.PutObjectCommand({
@@ -250,7 +253,7 @@ export class S3Source implements DashboardSource {
 }
 
 function mapS3Error(err: unknown, path: string): SourceWriteError {
-  const e = err as any;
+  const e = err as { $metadata?: { httpStatusCode?: number }; name?: string; Code?: string };
   const status = e?.$metadata?.httpStatusCode;
   const name = e?.name ?? e?.Code;
   const msg = err instanceof Error ? err.message : String(err);

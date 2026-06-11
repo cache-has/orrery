@@ -60,8 +60,6 @@ export async function renderEditorPage(
 
   const readonlyCompartment = new Compartment();
 
-  let view: EditorView | undefined;
-
   function isDirty(): boolean {
     if (!view) return false;
     return view.state.doc.toString() !== savedContent;
@@ -104,7 +102,7 @@ export async function renderEditorPage(
   ]);
 
   // Load content
-  let initialContent = "";
+  let initialContent: string;
   try {
     initialContent = await readDashboard(name);
     savedContent = initialContent;
@@ -113,7 +111,7 @@ export async function renderEditorPage(
     return;
   }
 
-  view = new EditorView({
+  const view = new EditorView({
     parent: host,
     state: EditorState.create({
       doc: initialContent,

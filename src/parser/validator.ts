@@ -2,7 +2,6 @@ import type {
   ComponentNode,
   DashboardNode,
   ParamNode,
-  PropertyNode,
   RowNode,
   Span,
   ValueNode,
@@ -283,7 +282,7 @@ function findClosest(target: string, candidates: string[]): string | null {
  * Convenience: validate and throw on first error.
  * Useful for quick fail-fast validation.
  */
-export function validateOrThrow(ast: DashboardNode, source?: string): void {
+export function validateOrThrow(ast: DashboardNode, _source?: string): void {
   const diags = validate(ast);
   const firstError = diags.find((d) => d.level === "error");
   if (firstError) {

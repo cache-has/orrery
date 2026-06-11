@@ -1,8 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { resolve, join } from "path";
 import { tmpdir } from "os";
-import { createApp } from "../../src/server/index.js";
 import { dashboardRoutes } from "../../src/server/routes/dashboard.js";
 import { ConnectionManager } from "../../src/connections/manager.js";
 import { QueryExecutor } from "../../src/query/executor.js";

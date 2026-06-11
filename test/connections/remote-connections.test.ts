@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, writeFileSync, rmSync } from "fs";
-import { resolve, join } from "path";
+import { resolve } from "path";
 import { LocalSource } from "../../src/sources/local.js";
 import { createConnectionSource } from "../../src/sources/factory.js";
 import { loadConnectionFilesFromSource } from "../../src/connections/loader.js";

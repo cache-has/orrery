@@ -14,7 +14,6 @@ import type {
   ParamInfo,
   ComponentData,
 } from "../../src/renderer/data.js";
-import type { QueryResult } from "../../src/query/executor.js";
 
 const span: Span = {
   start: { line: 1, column: 1, offset: 0 },

@@ -1,0 +1,136 @@
+{
+  "name": "Pagila: Revenue to OpenBoard",
+  "version": 1,
+  "default_environment": "dev",
+  "variables": {},
+  "environment_overrides": {},
+  "nodes": [
+    {
+      "id": "rental",
+      "name": "Rentals",
+      "type": "source",
+      "connector": "postgresql",
+      "config": {
+        "connection_string": "{{ env:PAGILA_CONNECTION }}",
+        "table": "rental"
+      },
+      "position": { "x": 0, "y": 0 },
+      "pinned_position": false
+    },
+    {
+      "id": "payment",
+      "name": "Payments (Jan 2022)",
+      "type": "source",
+      "connector": "postgresql",
+      "config": {
+        "connection_string": "{{ env:PAGILA_CONNECTION }}",
+        "table": "payment_p2022_01"
+      },
+      "position": { "x": 0, "y": 200 },
+      "pinned_position": false
+    },
+    {
+      "id": "inventory",
+      "name": "Inventory",
+      "type": "source",
+      "connector": "postgresql",
+      "config": {
+        "connection_string": "{{ env:PAGILA_CONNECTION }}",
+        "table": "inventory"
+      },
+      "position": { "x": 0, "y": 400 },
+      "pinned_position": false
+    },
+    {
+      "id": "film_category",
+      "name": "Film Categories",
+      "type": "source",
+      "connector": "postgresql",
+      "config": {
+        "connection_string": "{{ env:PAGILA_CONNECTION }}",
+        "table": "film_category"
+      },
+      "position": { "x": 0, "y": 600 },
+      "pinned_position": false
+    },
+    {
+      "id": "category",
+      "name": "Categories",
+      "type": "source",
+      "connector": "postgresql",
+      "config": {
+        "connection_string": "{{ env:PAGILA_CONNECTION }}",
+        "table": "category"
+      },
+      "position": { "x": 0, "y": 800 },
+      "pinned_position": false
+    },
+    {
+      "id": "join_rental_payment",
+      "name": "Join Rental + Payment",
+      "type": "transform",
+      "mode": "sql",
+      "code": "SELECT\n  r.rental_id,\n  r.inventory_id,\n  r.customer_id,\n  r.rental_date,\n  p.amount\nFROM rental r\nINNER JOIN payment p ON r.rental_id = p.rental_id",
+      "materialized": false,
+      "position": { "x": 400, "y": 100 },
+      "pinned_position": false
+    },
+    {
+      "id": "join_inventory_film",
+      "name": "Map Inventory to Film",
+      "type": "transform",
+      "mode": "sql",
+      "code": "SELECT\n  rp.rental_id,\n  rp.customer_id,\n  rp.rental_date,\n  rp.amount,\n  i.film_id\nFROM join_rental_payment rp\nINNER JOIN inventory i ON rp.inventory_id = i.inventory_id",
+      "materialized": false,
+      "position": { "x": 700, "y": 300 },
+      "pinned_position": false
+    },
+    {
+      "id": "join_film_category",
+      "name": "Attach Category",
+      "type": "transform",
+      "mode": "sql",
+      "code": "SELECT\n  rif.rental_id,\n  rif.rental_date,\n  rif.amount,\n  c.name AS category_name\nFROM join_inventory_film rif\nINNER JOIN film_category fc ON rif.film_id = fc.film_id\nINNER JOIN category c ON fc.category_id = c.category_id",
+      "materialized": false,
+      "position": { "x": 1000, "y": 500 },
+      "pinned_position": false
+    },
+    {
+      "id": "aggregate",
+      "name": "Revenue by Category",
+      "type": "transform",
+      "mode": "sql",
+      "code": "SELECT\n  category_name,\n  CAST(COUNT(*) AS BIGINT) AS total_rentals,\n  CAST(SUM(amount) AS DECIMAL(9,2)) AS total_revenue,\n  CAST(AVG(amount) AS DECIMAL(9,2)) AS avg_rental_price\nFROM join_film_category\nGROUP BY category_name\nORDER BY total_revenue DESC",
+      "materialized": false,
+      "position": { "x": 1300, "y": 500 },
+      "pinned_position": false
+    },
+    {
+      "id": "publish_to_openboard",
+      "name": "Publish to OpenBoard",
+      "type": "sink",
+      "connector": "openboard_duckdb",
+      "config": {
+        "openboard_project": "{{ env:OPENBOARD_PROJECT }}",
+        "connection_name": "flux_pipelines",
+        "database_file": "data/flux.duckdb",
+        "table_name": "revenue_by_category",
+        "write_mode": "replace",
+        "write_dataset_metadata": true
+      },
+      "position": { "x": 1600, "y": 500 },
+      "pinned_position": false
+    }
+  ],
+  "edges": [
+    { "from": "rental", "to": "join_rental_payment" },
+    { "from": "payment", "to": "join_rental_payment" },
+    { "from": "join_rental_payment", "to": "join_inventory_film" },
+    { "from": "inventory", "to": "join_inventory_film" },
+    { "from": "join_inventory_film", "to": "join_film_category" },
+    { "from": "film_category", "to": "join_film_category" },
+    { "from": "category", "to": "join_film_category" },
+    { "from": "join_film_category", "to": "aggregate" },
+    { "from": "aggregate", "to": "publish_to_openboard" }
+  ]
+}
