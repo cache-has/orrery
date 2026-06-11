@@ -2,6 +2,12 @@ name: CI
 
 on: [push, pull_request]
 
+# Least-privilege default for the GITHUB_TOKEN. CI only needs to read the repo.
+# Pull requests from forks already run with a read-only token and no access to
+# secrets; this makes that explicit and applies to push events as well.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
