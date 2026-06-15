@@ -1,12 +1,12 @@
 /**
  * Header-based access control.
  *
- * OpenBoard itself has no notion of users — auth is the operator's
+ * Orrery itself has no notion of users — auth is the operator's
  * responsibility (an upstream proxy). This module lets that proxy scope what a
  * request may see by passing two trusted headers:
  *
- *   x-openboard-folders   "*" (all) | "revenue,marketing" (csv) | "" (none)
- *   x-openboard-can-edit  "1" | "true"  → may use the editor
+ *   x-orrery-folders   "*" (all) | "revenue,marketing" (csv) | "" (none)
+ *   x-orrery-can-edit  "1" | "true"  → may use the editor
  *
  * Enforcement is OFF unless explicitly enabled (so local dev and unproxied
  * deployments are unaffected). When ON it is fail-closed: a missing folders
@@ -37,26 +37,26 @@ export interface RequestAccess {
 
 const ACCESS_KEY = "obAccess";
 
-const DEFAULT_FOLDERS_HEADER = "x-openboard-folders";
-const DEFAULT_CANEDIT_HEADER = "x-openboard-can-edit";
+const DEFAULT_FOLDERS_HEADER = "x-orrery-folders";
+const DEFAULT_CANEDIT_HEADER = "x-orrery-can-edit";
 
 /**
  * Resolve the effective access config. Values may come from the project config
  * file (`access:` block) and be overridden by environment variables, so the
- * feature works whether OpenBoard is embedded as a library, run from a config
+ * feature works whether Orrery is embedded as a library, run from a config
  * file, or configured purely via env in a container.
  */
 export function resolveAccessConfig(fromConfig?: Partial<AccessConfig>): AccessConfig {
   const envEnabled =
-    process.env.OPENBOARD_ACCESS_CONTROL === "header" ||
-    process.env.OPENBOARD_ACCESS_CONTROL === "true";
-  const envRequireFolder = process.env.OPENBOARD_REQUIRE_FOLDER;
+    process.env.ORRERY_ACCESS_CONTROL === "header" ||
+    process.env.ORRERY_ACCESS_CONTROL === "true";
+  const envRequireFolder = process.env.ORRERY_REQUIRE_FOLDER;
   return {
     enabled: envEnabled || fromConfig?.enabled === true,
     foldersHeader:
-      process.env.OPENBOARD_FOLDERS_HEADER || fromConfig?.foldersHeader || DEFAULT_FOLDERS_HEADER,
+      process.env.ORRERY_FOLDERS_HEADER || fromConfig?.foldersHeader || DEFAULT_FOLDERS_HEADER,
     canEditHeader:
-      process.env.OPENBOARD_CANEDIT_HEADER || fromConfig?.canEditHeader || DEFAULT_CANEDIT_HEADER,
+      process.env.ORRERY_CANEDIT_HEADER || fromConfig?.canEditHeader || DEFAULT_CANEDIT_HEADER,
     requireFolder:
       envRequireFolder != null ? envRequireFolder !== "false" : (fromConfig?.requireFolder ?? true),
   };

@@ -1,5 +1,5 @@
 /**
- * AST node types for the OpenBoard DSL.
+ * AST node types for the Orrery DSL.
  *
  * These types represent the parsed structure of a .board file.
  * The parser produces a DashboardNode as the root of the tree.

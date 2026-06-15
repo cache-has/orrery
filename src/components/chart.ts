@@ -824,35 +824,35 @@ export const chartRenderer: ComponentRenderer = {
     if (chartType === "funnel") {
       const funnelPoints = extractFunnelData(component, data);
       if (!funnelPoints || funnelPoints.length === 0) {
-        return `<div class="openboard-no-data">No data</div>`;
+        return `<div class="orrery-no-data">No data</div>`;
       }
       option = buildFunnelOption(component, funnelPoints, palette);
       tooltipTrigger = "item";
     } else if (chartType === "scatter") {
       const scatter = extractScatterData(component, data);
       if (!scatter || scatter.points.length === 0) {
-        return `<div class="openboard-no-data">No data</div>`;
+        return `<div class="orrery-no-data">No data</div>`;
       }
       option = buildScatterOption(component, scatter.points, scatter.xCol, scatter.yCol, palette);
       tooltipTrigger = "item";
     } else if (chartType === "gauge") {
       const gauge = extractGaugeData(component, data);
       if (!gauge) {
-        return `<div class="openboard-no-data">No data</div>`;
+        return `<div class="orrery-no-data">No data</div>`;
       }
       option = buildGaugeOption(component, gauge);
       tooltipTrigger = "item";
     } else if (chartType === "heatmap") {
       const heatmap = extractHeatmapData(component, data);
       if (!heatmap || heatmap.points.length === 0) {
-        return `<div class="openboard-no-data">No data</div>`;
+        return `<div class="orrery-no-data">No data</div>`;
       }
       option = buildHeatmapOption(component, heatmap.points);
       tooltipTrigger = "item";
     } else {
       const extracted = extractChartData(component, data);
       if (!extracted || extracted.points.length === 0) {
-        return `<div class="openboard-no-data">No data</div>`;
+        return `<div class="orrery-no-data">No data</div>`;
       }
 
       switch (chartType) {
@@ -870,7 +870,7 @@ export const chartRenderer: ComponentRenderer = {
           option = buildDonutOption(component, extracted.points, palette);
           break;
         default:
-          return `<div class="openboard-placeholder">Unsupported chart type: ${escapeHtml(chartType)}</div>`;
+          return `<div class="orrery-placeholder">Unsupported chart type: ${escapeHtml(chartType)}</div>`;
       }
     }
 
@@ -894,6 +894,6 @@ export const chartRenderer: ComponentRenderer = {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
-    return `<div class="openboard-chart-container" data-chart-option="${optionJson}">${svg}</div>`;
+    return `<div class="orrery-chart-container" data-chart-option="${optionJson}">${svg}</div>`;
   },
 };

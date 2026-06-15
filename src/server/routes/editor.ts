@@ -434,7 +434,7 @@ function renderEditorShell(
 ): string {
   const title = opts.mode === "list" ? "Dashboards" : opts.name;
   const safeTitle = escapeAttr(title);
-  const brandName = opts.branding?.title ?? "OpenBoard";
+  const brandName = opts.branding?.title ?? "Orrery";
   const safeBrand = escapeAttr(brandName);
   const brandAttr = opts.branding?.title ? ` data-brand-title="${safeBrand}"` : "";
   const mountAttrs =
@@ -449,7 +449,7 @@ function renderEditorShell(
   <title>${safeBrand} Editor — ${safeTitle}</title>
 </head>
 <body>
-  <div id="openboard-editor" ${mountAttrs}${brandAttr}></div>
+  <div id="orrery-editor" ${mountAttrs}${brandAttr}></div>
   <script src="/edit/assets/editor.js" defer></script>
 </body>
 </html>`;

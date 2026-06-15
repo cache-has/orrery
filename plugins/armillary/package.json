@@ -1,7 +1,7 @@
 {
-  "name": "@openboard/flux-plugin",
+  "name": "@orrery/armillary-plugin",
   "version": "0.1.0",
-  "description": "Horizon Flux sink plugin that publishes pipeline outputs to OpenBoard via DuckDB",
+  "description": "Armillary sink plugin that publishes pipeline outputs to Orrery via DuckDB",
   "type": "module",
   "private": true,
   "license": "MIT OR Apache-2.0",

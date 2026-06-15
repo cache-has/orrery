@@ -65,7 +65,7 @@ describe("loadEnvFiles", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "openboard-env-test-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "orrery-env-test-"));
   });
 
   afterEach(() => {

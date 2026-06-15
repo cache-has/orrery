@@ -1,8 +1,8 @@
-# OpenBoard
+# Orrery
 
 Open-source, code-defined BI dashboards. Dashboards as code, not clicks.
 
-OpenBoard lets engineers and PMs define interactive dashboards in a lightweight DSL, connect to any SQL database, and serve them with a single command. Everything lives in git. No drag-and-drop builder, no vendor lock-in.
+Orrery lets engineers and PMs define interactive dashboards in a lightweight DSL, connect to any SQL database, and serve them with a single command. Everything lives in git. No drag-and-drop builder, no vendor lock-in.
 
 ## Quick Start
 
@@ -91,7 +91,7 @@ Open `http://localhost:3000` and your dashboards are live with interactive filte
 - **Text blocks** -- Markdown content rendered inline.
 - **CSS Grid layout** -- 12-column responsive grid. Components specify `span` for width.
 - **Hot reload** -- Edit a `.board` file and the browser updates instantly.
-- **Static export** -- `openboard build` generates self-contained HTML dashboards.
+- **Static export** -- `orrery build` generates self-contained HTML dashboards.
 - **Multiple databases** -- PostgreSQL, MySQL, SQLite, and DuckDB. Each dashboard specifies its connection.
 - **Folder organization** -- Dashboards in subdirectories are grouped on the index page.
 - **GitHub Actions** -- Shipped CI/CD workflows for validation, preview, and deployment.
@@ -103,7 +103,7 @@ Open `http://localhost:3000` and your dashboards are live with interactive filte
 your-project/
   dashboards/          # .board files (subdirectories supported)
   connections/         # YAML database connection configs
-  openboard.config.yaml  # Optional project config
+  orrery.config.yaml  # Optional project config
 ```
 
 ## DSL Reference
@@ -191,7 +191,7 @@ Create a `theme.yaml` in your project root to customize branding, chart colors, 
 ```yaml
 # theme.yaml
 branding:
-  title: My Company Analytics    # Replaces "OpenBoard" in headers
+  title: My Company Analytics    # Replaces "Orrery" in headers
   logo: assets/logo.svg          # Logo image in the header
   favicon: assets/favicon.ico    # Browser tab icon
 
@@ -221,7 +221,7 @@ dashboard "Sales" {
 }
 ```
 
-Alternatively, use a `theme.css` file for full CSS control over any OpenBoard class.
+Alternatively, use a `theme.css` file for full CSS control over any Orrery class.
 
 See `examples/pagila/theme.yaml` for a working example.
 
@@ -238,30 +238,30 @@ See `examples/pagila/theme.yaml` for a working example.
 
 | Command | Description |
 |---------|-------------|
-| `openboard dev` | Start dev server with hot reload |
-| `openboard build` | Generate static HTML export |
-| `openboard validate` | Validate all `.board` and connection files |
+| `orrery dev` | Start dev server with hot reload |
+| `orrery build` | Generate static HTML export |
+| `orrery validate` | Validate all `.board` and connection files |
 
 ### Dev Server Options
 
 ```bash
-openboard dev --project ./path    # Project directory (default: .)
-openboard dev --port 8080         # Custom port (default: 3000)
-openboard dev --no-open           # Don't auto-open browser
+orrery dev --project ./path    # Project directory (default: .)
+orrery dev --port 8080         # Custom port (default: 3000)
+orrery dev --no-open           # Don't auto-open browser
 ```
 
 ### Build Options
 
 ```bash
-openboard build --output ./dist           # Output directory
-openboard build --dashboard sales         # Build a single dashboard
-openboard build --self-contained          # Inline all assets into single HTML files
-openboard build --snapshot-label "Q1 2026"  # Label for the data snapshot
+orrery build --output ./dist           # Output directory
+orrery build --dashboard sales         # Build a single dashboard
+orrery build --self-contained          # Inline all assets into single HTML files
+orrery build --snapshot-label "Q1 2026"  # Label for the data snapshot
 ```
 
 ## Configuration
 
-Optional `openboard.config.yaml` in your project root:
+Optional `orrery.config.yaml` in your project root:
 
 ```yaml
 dashboards_dir: ./dashboards    # Default: ./dashboards
@@ -341,7 +341,7 @@ See `examples/pagila/README.md` for a fully working setup with the Pagila Postgr
 
 ## Contributing
 
-Contributions are welcome. OpenBoard is a public repository, and `main` is a
+Contributions are welcome. Orrery is a public repository, and `main` is a
 protected branch:
 
 - All changes land through pull requests. Direct pushes to `main` are blocked.

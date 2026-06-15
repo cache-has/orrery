@@ -46,8 +46,8 @@ describe("loadConfig", () => {
     expect(config.theme).toBe("light");
   });
 
-  it("loads config from openboard.config.yaml", () => {
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+  it("loads config from orrery.config.yaml", () => {
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `
 port: 4000
 dashboards_dir: ./boards
 theme: dark
@@ -63,7 +63,7 @@ cache_ttl: 600
   });
 
   it("handles invalid YAML gracefully", () => {
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `{{{invalid`);
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `{{{invalid`);
     const config = loadConfig(TMP);
     expect(config.port).toBe(3000); // falls back to defaults
   });
@@ -74,7 +74,7 @@ cache_ttl: 600
   });
 
   it("reads editor.enabled from config", () => {
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `
 editor:
   enabled: true
 `);
@@ -82,7 +82,7 @@ editor:
   });
 
   it("treats non-true editor.enabled as disabled", () => {
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `
 editor:
   enabled: "yes"
 `);
@@ -94,7 +94,7 @@ editor:
   });
 
   it("maps the snake_case access: block to camelCase", () => {
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `
 access:
   enabled: true
   require_folder: true
@@ -110,7 +110,7 @@ access:
   });
 
   it("honors require_folder: false (not silently coerced to true)", () => {
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `
 access:
   enabled: true
   require_folder: false
@@ -122,7 +122,7 @@ access:
   });
 
   it("defaults requireFolder to true when the access block omits it", () => {
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `
 access:
   enabled: true
 `);
@@ -134,7 +134,7 @@ access:
 
   it("warns on an unrecognized key in the access block (e.g. a typo)", () => {
     const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `
 access:
   enabled: true
   requirefolder: true
@@ -149,7 +149,7 @@ access:
 
   it("warns when a known key has the wrong type", () => {
     const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    writeFileSync(resolve(TMP, "openboard.config.yaml"), `
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), `
 access:
   enabled: true
   require_folder: "false"

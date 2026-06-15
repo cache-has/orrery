@@ -1,7 +1,7 @@
 /**
  * Tree-shaken ECharts setup for SSR.
  *
- * Import only the chart types and components OpenBoard needs.
+ * Import only the chart types and components Orrery needs.
  * Add new chart types here as post-MVP components are built.
  */
 

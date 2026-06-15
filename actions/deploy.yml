@@ -1,4 +1,4 @@
-# OpenBoard — Deploy Dashboards to GitHub Pages
+# Orrery — Deploy Dashboards to GitHub Pages
 #
 # Copy this file to .github/workflows/deploy.yml in your dashboard project.
 # Builds a static export of all dashboards and deploys to GitHub Pages.
@@ -40,7 +40,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build static dashboards
-        run: npx openboard build --output ./dist
+        run: npx orrery build --output ./dist
         env:
           WAREHOUSE_HOST: ${{ secrets.WAREHOUSE_HOST }}
           WAREHOUSE_USER: ${{ secrets.WAREHOUSE_USER }}

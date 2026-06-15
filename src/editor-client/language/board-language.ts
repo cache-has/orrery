@@ -9,7 +9,7 @@ import {
 import { createBoardLinter, type BoardLinterOptions } from "./board-lint.js";
 
 /**
- * CodeMirror language pack for the OpenBoard `.board` DSL.
+ * CodeMirror language pack for the Orrery `.board` DSL.
  *
  * The Lezer parser is kept intentionally loose (see board.grammar): it
  * recognizes every token anywhere, so rich structural checks remain the

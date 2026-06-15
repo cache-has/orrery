@@ -1,5 +1,5 @@
 /**
- * Theme system for OpenBoard.
+ * Theme system for Orrery.
  *
  * Provides built-in light/dark themes, loads user theme files (theme.css or
  * theme.yaml), and resolves the final CSS override string + chart palette.
@@ -53,7 +53,7 @@ export interface ThemeFile {
 export interface BrandingConfig {
   /** Path to logo image (relative to project root) */
   logo?: string;
-  /** Custom title to replace "OpenBoard" in headers */
+  /** Custom title to replace "Orrery" in headers */
   title?: string;
   /** Path to favicon (relative to project root) */
   favicon?: string;
@@ -282,7 +282,7 @@ export function resolveTheme(options: ResolveThemeOptions): ResolvedTheme {
   const parts: string[] = [];
 
   // For dark theme (or any non-light), emit the built-in variable overrides.
-  // Light theme is already the default in OPENBOARD_CSS, so no override needed.
+  // Light theme is already the default in ORRERY_CSS, so no override needed.
   if (name === "dark") {
     const varLines = Object.entries(builtinVars)
       .map(([k, v]) => `  ${k}: ${v};`)

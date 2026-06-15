@@ -86,7 +86,7 @@ describe("loadConnectionFiles", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "openboard-conn-test-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "orrery-conn-test-"));
   });
 
   afterEach(() => {

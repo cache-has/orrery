@@ -1,4 +1,4 @@
-# OpenBoard — Scheduled Dashboard Data Refresh
+# Orrery — Scheduled Dashboard Data Refresh
 #
 # Copy this file to .github/workflows/refresh.yml in your dashboard project.
 # Rebuilds static dashboards on a schedule to keep data fresh.
@@ -38,7 +38,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build with fresh data
-        run: npx openboard build --output ./dist
+        run: npx orrery build --output ./dist
         env:
           WAREHOUSE_HOST: ${{ secrets.WAREHOUSE_HOST }}
           WAREHOUSE_USER: ${{ secrets.WAREHOUSE_USER }}

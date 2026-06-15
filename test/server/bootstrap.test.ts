@@ -5,7 +5,7 @@ import { tmpdir } from "os";
 import WebSocket from "ws";
 import { startServer, type ServerHandle } from "../../src/server/bootstrap.js";
 
-const BASE = resolve(tmpdir(), "openboard-bootstrap-" + process.pid);
+const BASE = resolve(tmpdir(), "orrery-bootstrap-" + process.pid);
 
 const BOARD = `dashboard "Serve Parity" {
   description: "parity test"
@@ -98,7 +98,7 @@ describe("bootstrap startServer — dev vs serve", () => {
     expect(serveRes.body).toContain("Serve Parity");
 
     // Dev mode injects the hot-reload client script; serve must not.
-    expect(devRes.body).toContain("/openboard/client.js");
-    expect(serveRes.body).not.toContain("/openboard/client.js");
+    expect(devRes.body).toContain("/orrery/client.js");
+    expect(serveRes.body).not.toContain("/orrery/client.js");
   });
 });

@@ -9,7 +9,7 @@ import type { DashboardNode, ComponentNode, PropertyNode } from "../parser/ast.j
 import type { ResolvedLayout, ResolvedRow, ResolvedComponent } from "./layout.js";
 import type { ComponentData, DashboardData, ParamInfo } from "./data.js";
 import { collectComponents } from "./data.js";
-import { OPENBOARD_CSS } from "./styles.js";
+import { ORRERY_CSS } from "./styles.js";
 import { getRenderer } from "../components/registry.js";
 import type { ComponentRenderData } from "../components/types.js";
 import { DATE_RANGE_PRESETS } from "../query/daterange.js";
@@ -74,7 +74,7 @@ export function renderPage(options: RenderOptions): string {
   const themeAttr = themeName ? ` data-theme="${escapeAttr(themeName)}"` : "";
   const themeStyle = themeCSS ? `\n  <style id="ob-theme">${themeCSS}</style>` : "";
   const pageTitle = branding?.title ? `${escapeHtml(layout.title)} — ${escapeHtml(branding.title)}` : escapeHtml(layout.title);
-  const faviconLink = branding?.favicon ? `\n  <link rel="icon" href="/openboard/assets/${escapeAttr(branding.favicon)}" />` : "";
+  const faviconLink = branding?.favicon ? `\n  <link rel="icon" href="/orrery/assets/${escapeAttr(branding.favicon)}" />` : "";
 
   return `<!DOCTYPE html>
 <html lang="en"${themeAttr}>
@@ -82,17 +82,17 @@ export function renderPage(options: RenderOptions): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${pageTitle}</title>${faviconLink}
-  <style>${OPENBOARD_CSS}</style>${themeStyle}
+  <style>${ORRERY_CSS}</style>${themeStyle}
 </head>
 <body>
-  <div class="openboard-root" id="openboard-root">
+  <div class="orrery-root" id="orrery-root">
     ${renderHeader(layout.title, description, branding, devMode)}
     ${renderParamBar(data.params, paramValues)}
     ${renderRows(layout.rows, data, components, paramValues, palette)}
   </div>
 
   <script>
-    window.__OPENBOARD__ = ${serializedState};
+    window.__ORRERY__ = ${serializedState};
   </script>
 </body>
 </html>`;
@@ -113,12 +113,12 @@ export function renderComponentFragment(
     : renderComponentBody(component, compData, paramValues, palette);
 
   const footer = compData?.result
-    ? `<div class="openboard-component-footer">
-        <span class="openboard-query-time">Loaded in ${compData.result.executionTimeMs}ms</span>
+    ? `<div class="orrery-component-footer">
+        <span class="orrery-query-time">Loaded in ${compData.result.executionTimeMs}ms</span>
       </div>`
     : "";
 
-  return `<div class="openboard-component-body">${body}</div>${footer}`;
+  return `<div class="orrery-component-body">${body}</div>${footer}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -127,23 +127,23 @@ export function renderComponentFragment(
 
 function renderHeader(title: string, description?: string, branding?: BrandingConfig, _devMode?: boolean): string {
   const logo = branding?.logo
-    ? `<img class="openboard-header-logo" src="/openboard/assets/${escapeAttr(branding.logo)}" alt="${escapeAttr(branding.title ?? "Logo")}" />`
+    ? `<img class="orrery-header-logo" src="/orrery/assets/${escapeAttr(branding.logo)}" alt="${escapeAttr(branding.title ?? "Logo")}" />`
     : "";
   const brandTitle = branding?.title
-    ? `<span class="openboard-header-brand">${escapeHtml(branding.title)}</span>`
+    ? `<span class="orrery-header-brand">${escapeHtml(branding.title)}</span>`
     : "";
   const brandingRow = (logo || brandTitle)
-    ? `<div class="openboard-header-branding">${logo}${brandTitle}</div>`
+    ? `<div class="orrery-header-branding">${logo}${brandTitle}</div>`
     : "";
 
-  const homeLink = `<nav class="openboard-breadcrumb"><a href="/">&#8592; All Dashboards</a></nav>`;
+  const homeLink = `<nav class="orrery-breadcrumb"><a href="/">&#8592; All Dashboards</a></nav>`;
 
-  return `<header class="openboard-header" style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">
+  return `<header class="orrery-header" style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">
       <div>
         ${homeLink}
         ${brandingRow}
         <h1>${escapeHtml(title)}</h1>
-        ${description ? `<p class="openboard-description">${escapeHtml(description)}</p>` : ""}
+        ${description ? `<p class="orrery-description">${escapeHtml(description)}</p>` : ""}
       </div>
     </header>`;
 }
@@ -153,7 +153,7 @@ function renderParamBar(params: ParamInfo[], paramValues: Record<string, unknown
 
   const controls = params.map((param) => renderParamControl(param, paramValues)).join("\n      ");
 
-  return `<div class="openboard-params" data-openboard-params>
+  return `<div class="orrery-params" data-orrery-params>
       ${controls}
     </div>`;
 }
@@ -177,16 +177,16 @@ function renderParamControl(param: ParamInfo, paramValues: Record<string, unknow
         .join("");
       const customSelected = !current.preset || !DATE_RANGE_PRESETS[current.preset] ? " selected" : "";
 
-      return `<div class="openboard-param" data-param-name="${escapeAttr(param.name)}" data-param-type="daterange">
+      return `<div class="orrery-param" data-param-name="${escapeAttr(param.name)}" data-param-type="daterange">
         <label>${escapeHtml(label)}</label>
-        <div class="openboard-daterange">
-          <select name="${escapeAttr(param.name)}.preset" class="openboard-daterange-preset">
+        <div class="orrery-daterange">
+          <select name="${escapeAttr(param.name)}.preset" class="orrery-daterange-preset">
             ${presetOptions}
             <option value="custom"${customSelected}>Custom</option>
           </select>
-          <div class="openboard-daterange-custom"${customSelected ? "" : ' style="display:none"'}>
+          <div class="orrery-daterange-custom"${customSelected ? "" : ' style="display:none"'}>
             <input type="date" name="${escapeAttr(param.name)}.start" value="${escapeAttr(String(current.start ?? ""))}" />
-            <span class="openboard-daterange-sep">to</span>
+            <span class="orrery-daterange-sep">to</span>
             <input type="date" name="${escapeAttr(param.name)}.end" value="${escapeAttr(String(current.end ?? ""))}" />
           </div>
         </div>
@@ -202,17 +202,17 @@ function renderParamControl(param: ParamInfo, paramValues: Record<string, unknow
         const checkboxes = opts
           .map((o) => {
             const checked = selectedValues.includes(o) ? " checked" : "";
-            return `<label class="openboard-multiselect-item">
+            return `<label class="orrery-multiselect-item">
               <input type="checkbox" value="${escapeAttr(o)}"${checked} />
               <span>${escapeHtml(o)}</span>
             </label>`;
           })
           .join("");
-        return `<div class="openboard-param" data-param-name="${escapeAttr(param.name)}" data-param-type="multiselect">
+        return `<div class="orrery-param" data-param-name="${escapeAttr(param.name)}" data-param-type="multiselect">
           <label>${escapeHtml(label)}</label>
-          <div class="openboard-multiselect">
-            <button type="button" class="openboard-multiselect-toggle">${selectedValues.length ? escapeHtml(selectedValues.join(", ")) : "All"}</button>
-            <div class="openboard-multiselect-dropdown">${checkboxes}</div>
+          <div class="orrery-multiselect">
+            <button type="button" class="orrery-multiselect-toggle">${selectedValues.length ? escapeHtml(selectedValues.join(", ")) : "All"}</button>
+            <div class="orrery-multiselect-dropdown">${checkboxes}</div>
           </div>
         </div>`;
       }
@@ -220,7 +220,7 @@ function renderParamControl(param: ParamInfo, paramValues: Record<string, unknow
       const optionTags = opts
         .map((o) => `<option value="${escapeAttr(o)}"${o === String(currentValue) ? " selected" : ""}>${escapeHtml(o)}</option>`)
         .join("");
-      return `<div class="openboard-param" data-param-name="${escapeAttr(param.name)}" data-param-type="select"${searchable ? ' data-searchable="true"' : ""}>
+      return `<div class="orrery-param" data-param-name="${escapeAttr(param.name)}" data-param-type="select"${searchable ? ' data-searchable="true"' : ""}>
         <label>${escapeHtml(label)}</label>
         <select name="${escapeAttr(param.name)}">${optionTags}</select>
       </div>`;
@@ -228,7 +228,7 @@ function renderParamControl(param: ParamInfo, paramValues: Record<string, unknow
     case "text": {
       const placeholder = param.options.placeholder ? ` placeholder="${escapeAttr(String(param.options.placeholder))}"` : "";
       const debounce = param.options.debounce ? ` data-debounce="${escapeAttr(String(param.options.debounce))}"` : "";
-      return `<div class="openboard-param" data-param-name="${escapeAttr(param.name)}" data-param-type="text">
+      return `<div class="orrery-param" data-param-name="${escapeAttr(param.name)}" data-param-type="text">
         <label>${escapeHtml(label)}</label>
         <input type="text" name="${escapeAttr(param.name)}" value="${escapeAttr(String(currentValue))}"${placeholder}${debounce} />
       </div>`;
@@ -237,17 +237,17 @@ function renderParamControl(param: ParamInfo, paramValues: Record<string, unknow
       const min = param.options.min != null ? ` min="${escapeAttr(String(param.options.min))}"` : "";
       const max = param.options.max != null ? ` max="${escapeAttr(String(param.options.max))}"` : "";
       const step = param.options.step != null ? ` step="${escapeAttr(String(param.options.step))}"` : "";
-      return `<div class="openboard-param" data-param-name="${escapeAttr(param.name)}" data-param-type="number">
+      return `<div class="orrery-param" data-param-name="${escapeAttr(param.name)}" data-param-type="number">
         <label>${escapeHtml(label)}</label>
         <input type="number" name="${escapeAttr(param.name)}" value="${escapeAttr(String(currentValue))}"${min}${max}${step} />
       </div>`;
     }
     case "toggle": {
       const checked = currentValue === true || currentValue === "true";
-      return `<div class="openboard-param" data-param-name="${escapeAttr(param.name)}" data-param-type="toggle">
+      return `<div class="orrery-param" data-param-name="${escapeAttr(param.name)}" data-param-type="toggle">
         <label>${escapeHtml(label)}</label>
-        <button type="button" class="openboard-toggle${checked ? " openboard-toggle-on" : ""}" role="switch" aria-checked="${checked}" name="${escapeAttr(param.name)}">
-          <span class="openboard-toggle-track"><span class="openboard-toggle-thumb"></span></span>
+        <button type="button" class="orrery-toggle${checked ? " orrery-toggle-on" : ""}" role="switch" aria-checked="${checked}" name="${escapeAttr(param.name)}">
+          <span class="orrery-toggle-track"><span class="orrery-toggle-thumb"></span></span>
         </button>
       </div>`;
     }
@@ -268,7 +268,7 @@ function renderRows(
       const cells = row.components
         .map((rc) => renderComponentContainer(rc, data, components, paramValues, palette))
         .join("\n      ");
-      return `<div class="openboard-row">
+      return `<div class="orrery-row">
       ${cells}
     </div>`;
     })
@@ -291,8 +291,8 @@ function renderComponentContainer(
     : renderComponentBody(rc.component, compData, paramValues, palette);
 
   const footer = compData?.result
-    ? `<div class="openboard-component-footer">
-          <span class="openboard-query-time">Loaded in ${compData.result.executionTimeMs}ms</span>
+    ? `<div class="orrery-component-footer">
+          <span class="orrery-query-time">Loaded in ${compData.result.executionTimeMs}ms</span>
         </div>`
     : "";
 
@@ -306,21 +306,21 @@ function renderComponentContainer(
 
   // Text components without titles get a simpler wrapper
   if (rc.component.componentType === "text" && !title) {
-    return `<div class="openboard-component" style="${inlineStyle}" data-component-id="${escapeAttr(id)}" data-component-type="text">
-        <div class="openboard-component-body">
+    return `<div class="orrery-component" style="${inlineStyle}" data-component-id="${escapeAttr(id)}" data-component-type="text">
+        <div class="orrery-component-body">
           ${body}
         </div>
       </div>`;
   }
 
-  return `<div class="openboard-component" style="${inlineStyle}" data-component-id="${escapeAttr(id)}" data-component-type="${escapeAttr(rc.component.componentType)}">
-        <div class="openboard-component-header">
-          <h3 class="openboard-component-title">${escapeHtml(title)}</h3>
-          <div class="openboard-component-actions">
-            <button class="openboard-refresh" title="Refresh" data-action="refresh">&#x21bb;</button>
+  return `<div class="orrery-component" style="${inlineStyle}" data-component-id="${escapeAttr(id)}" data-component-type="${escapeAttr(rc.component.componentType)}">
+        <div class="orrery-component-header">
+          <h3 class="orrery-component-title">${escapeHtml(title)}</h3>
+          <div class="orrery-component-actions">
+            <button class="orrery-refresh" title="Refresh" data-action="refresh">&#x21bb;</button>
           </div>
         </div>
-        <div class="openboard-component-body">
+        <div class="orrery-component-body">
           ${body}
         </div>
         ${footer}
@@ -350,7 +350,7 @@ function renderComponentBody(
     return renderer.renderToString(component, renderData);
   }
 
-  return `<div class="openboard-placeholder">${escapeHtml(component.componentType)} component</div>`;
+  return `<div class="orrery-placeholder">${escapeHtml(component.componentType)} component</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -358,9 +358,9 @@ function renderComponentBody(
 // ---------------------------------------------------------------------------
 
 function renderErrorState(errorMessage: string): string {
-  return `<div class="openboard-error">
-    <div class="openboard-error-title">Query Error</div>
-    <div class="openboard-error-message">${escapeHtml(errorMessage)}</div>
+  return `<div class="orrery-error">
+    <div class="orrery-error-title">Query Error</div>
+    <div class="orrery-error-message">${escapeHtml(errorMessage)}</div>
   </div>`;
 }
 

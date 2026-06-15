@@ -25,7 +25,7 @@ describe("textRenderer", () => {
     const component = makeText("Hello world");
     const html = textRenderer.renderToString(component, {});
 
-    expect(html).toContain("openboard-text");
+    expect(html).toContain("orrery-text");
     expect(html).toContain("<p>Hello world</p>");
   });
 
@@ -70,11 +70,11 @@ describe("textRenderer", () => {
   });
 
   it("renders links", () => {
-    const component = makeText("[OpenBoard](https://example.com)");
+    const component = makeText("[Orrery](https://example.com)");
     const html = textRenderer.renderToString(component, {});
 
     expect(html).toContain('<a href="https://example.com"');
-    expect(html).toContain("OpenBoard</a>");
+    expect(html).toContain("Orrery</a>");
   });
 
   it("renders code blocks", () => {
@@ -131,7 +131,7 @@ describe("textRenderer", () => {
     const component = makeText(undefined);
     const html = textRenderer.renderToString(component, {});
 
-    expect(html).toContain("openboard-text-empty");
+    expect(html).toContain("orrery-text-empty");
     expect(html).toContain("Empty text block");
   });
 

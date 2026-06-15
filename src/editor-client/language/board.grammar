@@ -1,4 +1,4 @@
-// Lezer grammar for the OpenBoard .board DSL.
+// Lezer grammar for the Orrery .board DSL.
 //
 // Design: this grammar is highlight-oriented and permissive. It recognizes the
 // tokens that matter for coloring (keywords, component/param types, literals,

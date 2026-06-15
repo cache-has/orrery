@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-OpenBoard is pre-1.0 and under active development. Security fixes are applied to
+Orrery is pre-1.0 and under active development. Security fixes are applied to
 the latest `main` and the most recently published release.
 
 ## Reporting a Vulnerability
@@ -28,7 +28,7 @@ you prefer to remain anonymous.
 
 ## Scope
 
-OpenBoard executes user-defined SQL against user-configured database connections
+Orrery executes user-defined SQL against user-configured database connections
 and renders dashboards from `.board` files. Reports in these areas are of
 particular interest:
 

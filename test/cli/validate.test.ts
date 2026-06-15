@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { resolve, join } from "path";
 import { tmpdir } from "os";
 
-const TEST_DIR = resolve(tmpdir(), "openboard-validate-test-" + process.pid);
+const TEST_DIR = resolve(tmpdir(), "orrery-validate-test-" + process.pid);
 const DASHBOARDS_DIR = resolve(TEST_DIR, "dashboards");
 
 const VALID_BOARD = `dashboard "Sales" {
@@ -52,7 +52,7 @@ afterEach(() => {
   }
 });
 
-describe("openboard validate", () => {
+describe("orrery validate", () => {
   it("exits 0 for valid .board files", () => {
     writeFileSync(join(DASHBOARDS_DIR, "sales.board"), VALID_BOARD);
     const result = runValidate();
@@ -76,7 +76,7 @@ describe("openboard validate", () => {
 
   it("reports no files found when project has no .board files", () => {
     // Empty dashboards dir, no connections dir
-    const emptyDir = resolve(tmpdir(), "openboard-validate-empty-" + process.pid);
+    const emptyDir = resolve(tmpdir(), "orrery-validate-empty-" + process.pid);
     mkdirSync(resolve(emptyDir, "dashboards"), { recursive: true });
     const result = runValidate([], emptyDir);
     // Should indicate no files

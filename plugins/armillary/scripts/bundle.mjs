@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
 // Assembles a self-contained, drop-in plugin directory at `dist/plugin/`
-// that flux can launch as-is. Layout:
+// that armillary can launch as-is. Layout:
 //
 //   dist/plugin/
 //     plugin.toml
 //     config_schema.json
-//     dist/openboard-plugin.js          (built by tsup, marked +x with shebang)
+//     dist/orrery-plugin.js          (built by tsup, marked +x with shebang)
 //     node_modules/                     (runtime deps only)
 //
-// `npm run bundle` runs `tsup` first to refresh `dist/openboard-plugin.js`,
+// `npm run bundle` runs `tsup` first to refresh `dist/orrery-plugin.js`,
 // then this script copies the manifest + entry into `dist/plugin/`,
 // writes a minimal `package.json` containing only the runtime dependencies
 // from the parent `package.json`, and runs `npm install --omit=dev` inside
@@ -18,10 +18,10 @@
 //
 // To install the bundled plugin:
 //
-//   PLUGIN_DIR="$(horizon-flux plugin path | head -1)"
+//   PLUGIN_DIR="$(armillary plugin path | head -1)"
 //   mkdir -p "$PLUGIN_DIR"
-//   cp -r dist/plugin "$PLUGIN_DIR/openboard"
-//   horizon-flux plugin list   # → openboard 0.1.0 (sinks: openboard_duckdb)
+//   cp -r dist/plugin "$PLUGIN_DIR/orrery"
+//   armillary plugin list   # → orrery 0.1.0 (sinks: orrery_duckdb)
 
 import { execSync } from 'node:child_process';
 import {
@@ -41,7 +41,7 @@ const pluginRoot = resolve(here, '..');
 const distRoot = join(pluginRoot, 'dist');
 const out = join(distRoot, 'plugin');
 
-const builtEntry = join(distRoot, 'openboard-plugin.js');
+const builtEntry = join(distRoot, 'orrery-plugin.js');
 if (!existsSync(builtEntry)) {
   console.error(
     `bundle.mjs: ${builtEntry} does not exist — run \`npm run build\` first ` +
@@ -59,16 +59,16 @@ copyFileSync(join(pluginRoot, 'plugin.toml'), join(out, 'plugin.toml'));
 copyFileSync(join(pluginRoot, 'config_schema.json'), join(out, 'config_schema.json'));
 
 // Built entry + sourcemap, preserving the executable bit + shebang.
-copyFileSync(builtEntry, join(out, 'dist', 'openboard-plugin.js'));
-chmodSync(join(out, 'dist', 'openboard-plugin.js'), 0o755);
+copyFileSync(builtEntry, join(out, 'dist', 'orrery-plugin.js'));
+chmodSync(join(out, 'dist', 'orrery-plugin.js'), 0o755);
 const mapPath = builtEntry + '.map';
 if (existsSync(mapPath)) {
-  copyFileSync(mapPath, join(out, 'dist', 'openboard-plugin.js.map'));
+  copyFileSync(mapPath, join(out, 'dist', 'orrery-plugin.js.map'));
 }
 
 // Write a minimal package.json for the bundle. We carry over only the
 // runtime dependencies from the parent so `npm install --omit=dev`
-// produces a tight node_modules — the resulting tree is what flux will
+// produces a tight node_modules — the resulting tree is what armillary will
 // resolve at runtime when the bundled plugin's entry imports
 // `@duckdb/node-api`, `apache-arrow`, and `yaml`.
 const parentPkg = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8'));

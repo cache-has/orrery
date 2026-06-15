@@ -18,9 +18,9 @@ import {
 } from '../src/protocol.js';
 
 // Golden fixture identical to the Rust host's `round_trip_a_control_frame`
-// test in crates/flux-plugin-host/src/protocol/frame.rs. If this breaks the
+// test in crates/armillary-plugin-host/src/protocol/frame.rs. If this breaks the
 // two implementations have drifted on the wire format.
-const GOLDEN_HELLO_PAYLOAD = Buffer.from('{"protocol":1,"flux_version":"0.5.0"}', 'utf8');
+const GOLDEN_HELLO_PAYLOAD = Buffer.from('{"protocol":1,"armillary_version":"0.5.0"}', 'utf8');
 
 function bytesOf(buf: Buffer): number[] {
   return Array.from(buf.values());
@@ -129,7 +129,7 @@ function decodeAll(buf: Buffer) {
 
 describe('runSession', () => {
   const identity = {
-    pluginName: 'openboard',
+    pluginName: 'orrery',
     pluginVersion: '0.1.0',
     capabilities: { transactional: true },
   };
@@ -142,9 +142,9 @@ describe('runSession', () => {
       abort: () => {},
     };
     const input = streamOf(
-      encodeJsonFrame(MessageKind.Hello, { protocol: PROTOCOL_VERSION, flux_version: '0.5.0' }),
+      encodeJsonFrame(MessageKind.Hello, { protocol: PROTOCOL_VERSION, armillary_version: '0.5.0' }),
       encodeJsonFrame(MessageKind.ConfigureSink, {
-        sink_type: 'openboard_duckdb',
+        sink_type: 'orrery_duckdb',
         config: {},
         input_schema_ipc_b64: '',
       }),
@@ -195,7 +195,7 @@ describe('runSession', () => {
     const input = streamOf(
       encodeJsonFrame(MessageKind.Hello, { protocol: PROTOCOL_VERSION }),
       encodeJsonFrame(MessageKind.ConfigureSink, {
-        sink_type: 'openboard_duckdb',
+        sink_type: 'orrery_duckdb',
         config: {},
         input_schema_ipc_b64: '',
       }),

@@ -1,4 +1,4 @@
-# OpenBoard Examples
+# Orrery Examples
 
 Example dashboards across several domains, backed by a shared PostgreSQL database with realistic seed data.
 
@@ -12,13 +12,13 @@ Example dashboards across several domains, backed by a shared PostgreSQL databas
 1. Create the database:
 
 ```bash
-createdb openboard_examples
+createdb orrery_examples
 ```
 
-2. Run the seed script (from the openboard project root):
+2. Run the seed script (from the orrery project root):
 
 ```bash
-psql -d openboard_examples -f examples/seed.sql
+psql -d orrery_examples -f examples/seed.sql
 ```
 
 This creates ~30 tables with sample data across all domains — e-commerce orders, SaaS subscriptions, API request logs, marketing campaigns, supply chain inventory, financial positions, HR employees, and IoT sensor readings.
@@ -26,14 +26,14 @@ This creates ~30 tables with sample data across all domains — e-commerce order
 3. Verify it loaded:
 
 ```bash
-psql -d openboard_examples -c "SELECT COUNT(*) FROM orders"
+psql -d orrery_examples -c "SELECT COUNT(*) FROM orders"
 ```
 
 You should see ~6,000 rows.
 
 ## Connection Config
 
-The connection file at `connections/examples.yaml` points all dashboards to the `openboard_examples` database. Edit the `username` field if your PostgreSQL user differs:
+The connection file at `connections/examples.yaml` points all dashboards to the `orrery_examples` database. Edit the `username` field if your PostgreSQL user differs:
 
 ```yaml
 # connections/examples.yaml
@@ -42,7 +42,7 @@ connections:
     type: postgres
     host: localhost
     port: 5432
-    database: openboard_examples
+    database: orrery_examples
     username: your_pg_user    # <-- change this
   # ... (all 8 connections use the same database)
 ```
@@ -51,7 +51,7 @@ If your PostgreSQL requires a password, add `password: your_password` to each co
 
 ## Run
 
-From the openboard project root:
+From the orrery project root:
 
 ```bash
 npx tsx src/cli/dev.ts dev --project examples
