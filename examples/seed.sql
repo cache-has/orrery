@@ -1,6 +1,6 @@
--- OpenBoard example dashboards — seed data
+-- Orrery example dashboards — seed data
 -- Creates all tables and populates them with realistic sample data.
--- Run: psql -d openboard_examples -f examples/seed.sql
+-- Run: psql -d orrery_examples -f examples/seed.sql
 
 BEGIN;
 

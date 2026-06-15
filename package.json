@@ -1,12 +1,12 @@
 {
-  "name": "openboard",
+  "name": "orrery",
   "version": "1.0.0",
   "description": "Open-source, code-defined BI dashboards. Dashboards as code, not clicks.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "openboard": "dist/cli/index.js"
+    "orrery": "dist/cli/index.js"
   },
   "exports": {
     ".": {

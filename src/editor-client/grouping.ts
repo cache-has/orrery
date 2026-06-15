@@ -10,7 +10,7 @@ export interface GroupedDashboards {
   /**
    * Whether to render folder section headings. False when no dashboard has a
    * folder (access control off, or a flat layout) — the caller renders the
-   * single group as a plain list. This keeps OpenBoard general: folders are an
+   * single group as a plain list. This keeps Orrery general: folders are an
    * optional organizational layer, not a requirement.
    */
   grouped: boolean;

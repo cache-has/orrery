@@ -1,10 +1,10 @@
 /**
- * OpenBoard CSS stylesheet as a string constant.
+ * Orrery CSS stylesheet as a string constant.
  * Served inline in SSR pages and available as a static asset.
  */
-export const OPENBOARD_CSS = `
+export const ORRERY_CSS = `
 /* =========================================================================
-   OpenBoard — Dashboard Styles
+   Orrery — Dashboard Styles
    ========================================================================= */
 
 /* Reset & base */
@@ -40,58 +40,58 @@ body {
    Dashboard shell
    ========================================================================= */
 
-.openboard-root {
+.orrery-root {
   max-width: 1400px;
   margin: 0 auto;
   padding: 1.5rem 1rem;
 }
 
-.openboard-header {
+.orrery-header {
   margin-bottom: 1.5rem;
 }
 
-.openboard-breadcrumb {
+.orrery-breadcrumb {
   margin-bottom: 0.5rem;
 }
 
-.openboard-breadcrumb a {
+.orrery-breadcrumb a {
   font-size: 0.85rem;
   color: var(--ob-text-secondary, #666);
   text-decoration: none;
 }
 
-.openboard-breadcrumb a:hover {
+.orrery-breadcrumb a:hover {
   color: var(--ob-text-primary, #1a1a1a);
   text-decoration: underline;
 }
 
-.openboard-header-branding {
+.orrery-header-branding {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.375rem;
 }
 
-.openboard-header-logo {
+.orrery-header-logo {
   height: 28px;
   width: auto;
   object-fit: contain;
 }
 
-.openboard-header-brand {
+.orrery-header-brand {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--ob-text-muted);
   letter-spacing: 0.02em;
 }
 
-.openboard-header h1 {
+.orrery-header h1 {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--ob-text);
 }
 
-.openboard-header .openboard-description {
+.orrery-header .orrery-description {
   color: var(--ob-text-muted);
   font-size: 0.875rem;
   margin-top: 0.25rem;
@@ -101,7 +101,7 @@ body {
    Parameter bar
    ========================================================================= */
 
-.openboard-params {
+.orrery-params {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -113,13 +113,13 @@ body {
   border-radius: var(--ob-radius);
 }
 
-.openboard-param {
+.orrery-param {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.openboard-param label {
+.orrery-param label {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--ob-text-muted);
@@ -127,8 +127,8 @@ body {
   letter-spacing: 0.05em;
 }
 
-.openboard-param input,
-.openboard-param select {
+.orrery-param input,
+.orrery-param select {
   font-family: var(--ob-font);
   font-size: 0.875rem;
   padding: 0.375rem 0.5rem;
@@ -138,19 +138,19 @@ body {
   color: var(--ob-text);
 }
 
-.openboard-param input:focus,
-.openboard-param select:focus {
+.orrery-param input:focus,
+.orrery-param select:focus {
   outline: none;
   border-color: var(--ob-primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 /* Multi-select */
-.openboard-multiselect {
+.orrery-multiselect {
   position: relative;
 }
 
-.openboard-multiselect-toggle {
+.orrery-multiselect-toggle {
   font-family: var(--ob-font);
   font-size: 0.875rem;
   padding: 0.375rem 0.5rem;
@@ -167,13 +167,13 @@ body {
   white-space: nowrap;
 }
 
-.openboard-multiselect-toggle:focus {
+.orrery-multiselect-toggle:focus {
   outline: none;
   border-color: var(--ob-primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-.openboard-multiselect-dropdown {
+.orrery-multiselect-dropdown {
   display: none;
   position: absolute;
   top: 100%;
@@ -190,11 +190,11 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.openboard-multiselect.open .openboard-multiselect-dropdown {
+.orrery-multiselect.open .orrery-multiselect-dropdown {
   display: block;
 }
 
-.openboard-multiselect-item {
+.orrery-multiselect-item {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -207,37 +207,37 @@ body {
   color: var(--ob-text);
 }
 
-.openboard-multiselect-item:hover {
+.orrery-multiselect-item:hover {
   background: rgba(59, 130, 246, 0.08);
 }
 
-.openboard-multiselect-item input[type="checkbox"] {
+.orrery-multiselect-item input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
 }
 
 /* Date range picker */
-.openboard-daterange {
+.orrery-daterange {
   display: flex;
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
 }
 
-.openboard-daterange-custom {
+.orrery-daterange-custom {
   display: flex;
   gap: 0.25rem;
   align-items: center;
 }
 
-.openboard-daterange-sep {
+.orrery-daterange-sep {
   font-size: 0.75rem;
   color: var(--ob-text-muted);
   padding: 0 0.125rem;
 }
 
 /* Toggle switch */
-.openboard-toggle {
+.orrery-toggle {
   background: none;
   border: none;
   cursor: pointer;
@@ -246,7 +246,7 @@ body {
   align-items: center;
 }
 
-.openboard-toggle-track {
+.orrery-toggle-track {
   display: inline-block;
   width: 36px;
   height: 20px;
@@ -256,11 +256,11 @@ body {
   transition: background 0.15s ease;
 }
 
-.openboard-toggle-on .openboard-toggle-track {
+.orrery-toggle-on .orrery-toggle-track {
   background: var(--ob-primary);
 }
 
-.openboard-toggle-thumb {
+.orrery-toggle-thumb {
   display: block;
   width: 16px;
   height: 16px;
@@ -273,7 +273,7 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
-.openboard-toggle-on .openboard-toggle-thumb {
+.orrery-toggle-on .orrery-toggle-thumb {
   transform: translateX(16px);
 }
 
@@ -281,7 +281,7 @@ body {
    Grid layout — 12-column system
    ========================================================================= */
 
-.openboard-row {
+.orrery-row {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: var(--ob-gap);
@@ -294,23 +294,23 @@ body {
 
 /* Tablet: 2-column max */
 @media (max-width: 1024px) {
-  .openboard-row {
+  .orrery-row {
     grid-template-columns: repeat(2, 1fr);
   }
-  .openboard-component {
+  .orrery-component {
     grid-column: span 1 !important;
   }
 }
 
 /* Mobile: single column */
 @media (max-width: 640px) {
-  .openboard-root {
+  .orrery-root {
     padding: 1rem 0.5rem;
   }
-  .openboard-row {
+  .orrery-row {
     grid-template-columns: 1fr;
   }
-  .openboard-params {
+  .orrery-params {
     flex-direction: column;
     align-items: stretch;
   }
@@ -320,7 +320,7 @@ body {
    Component container
    ========================================================================= */
 
-.openboard-component {
+.orrery-component {
   background: var(--ob-surface);
   border: 1px solid var(--ob-border);
   border-radius: var(--ob-radius);
@@ -331,7 +331,7 @@ body {
   position: relative;
 }
 
-.openboard-component-header {
+.orrery-component-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -339,19 +339,19 @@ body {
   border-bottom: 1px solid var(--ob-border);
 }
 
-.openboard-component-title {
+.orrery-component-title {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--ob-text);
   margin: 0;
 }
 
-.openboard-component-actions {
+.orrery-component-actions {
   display: flex;
   gap: 0.25rem;
 }
 
-.openboard-component-actions button {
+.orrery-component-actions button {
   background: none;
   border: none;
   cursor: pointer;
@@ -362,25 +362,25 @@ body {
   line-height: 1;
 }
 
-.openboard-component-actions button:hover {
+.orrery-component-actions button:hover {
   background: var(--ob-bg);
   color: var(--ob-text);
 }
 
-.openboard-component-body {
+.orrery-component-body {
   flex: 1;
   padding: 1rem;
   overflow: auto;
 }
 
-.openboard-component-footer {
+.orrery-component-footer {
   padding: 0.375rem 1rem;
   border-top: 1px solid var(--ob-border);
   display: flex;
   justify-content: flex-end;
 }
 
-.openboard-query-time {
+.orrery-query-time {
   font-size: 0.6875rem;
   color: var(--ob-text-muted);
 }
@@ -389,7 +389,7 @@ body {
    Error state
    ========================================================================= */
 
-.openboard-error {
+.orrery-error {
   background: var(--ob-error-bg);
   border: 1px solid var(--ob-error-border);
   border-radius: 4px;
@@ -398,12 +398,12 @@ body {
   font-size: 0.8125rem;
 }
 
-.openboard-error-title {
+.orrery-error-title {
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
 
-.openboard-error-message {
+.orrery-error-message {
   font-family: var(--ob-font-mono);
   font-size: 0.75rem;
   white-space: pre-wrap;
@@ -414,7 +414,7 @@ body {
    Loading overlay (for partial updates)
    ========================================================================= */
 
-.openboard-loading {
+.orrery-loading {
   position: absolute;
   inset: 0;
   background: var(--ob-loading-overlay);
@@ -425,7 +425,7 @@ body {
   z-index: 10;
 }
 
-.openboard-spinner {
+.orrery-spinner {
   width: 24px;
   height: 24px;
   border: 2px solid var(--ob-border);
@@ -442,7 +442,7 @@ body {
    Placeholder content (before component library)
    ========================================================================= */
 
-.openboard-placeholder {
+.orrery-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -451,25 +451,25 @@ body {
   min-height: 80px;
 }
 
-.openboard-metric {
+.orrery-metric {
   text-align: center;
   padding: 0.5rem 0;
 }
 
-.openboard-metric-value {
+.orrery-metric-value {
   font-size: 2rem;
   font-weight: 700;
   color: var(--ob-text);
 }
 
-.openboard-metric-prefix,
-.openboard-metric-suffix {
+.orrery-metric-prefix,
+.orrery-metric-suffix {
   font-size: 1.25rem;
   font-weight: 500;
   color: var(--ob-text-muted);
 }
 
-.openboard-metric-trend {
+.orrery-metric-trend {
   margin-top: 0.5rem;
   font-size: 0.8125rem;
   display: flex;
@@ -478,15 +478,15 @@ body {
   gap: 0.25rem;
 }
 
-.openboard-trend-up { color: #16a34a; }
-.openboard-trend-down { color: #dc2626; }
-.openboard-trend-flat { color: var(--ob-text-muted); }
+.orrery-trend-up { color: #16a34a; }
+.orrery-trend-down { color: #dc2626; }
+.orrery-trend-flat { color: var(--ob-text-muted); }
 
-.openboard-trend-arrow { font-size: 0.625rem; }
+.orrery-trend-arrow { font-size: 0.625rem; }
 
-.openboard-trend-percent { font-weight: 600; }
+.orrery-trend-percent { font-weight: 600; }
 
-.openboard-trend-label {
+.orrery-trend-label {
   color: var(--ob-text-muted);
   font-size: 0.75rem;
 }
@@ -495,7 +495,7 @@ body {
    Chart components (ECharts SSR)
    ========================================================================= */
 
-.openboard-chart-container {
+.orrery-chart-container {
   width: 100%;
   min-height: 350px;
   display: flex;
@@ -503,13 +503,13 @@ body {
   justify-content: center;
 }
 
-.openboard-chart-container svg {
+.orrery-chart-container svg {
   width: 100%;
   height: auto;
   max-height: 400px;
 }
 
-.openboard-no-data {
+.orrery-no-data {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -518,7 +518,7 @@ body {
   min-height: 80px;
 }
 
-.openboard-badge {
+.orrery-badge {
   display: inline-block;
   padding: 0.125rem 0.5rem;
   border-radius: 9999px;
@@ -528,13 +528,13 @@ body {
   color: var(--ob-text);
 }
 
-.openboard-data-table {
+.orrery-data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8125rem;
 }
 
-.openboard-data-table th {
+.orrery-data-table th {
   text-align: left;
   padding: 0.5rem 0.75rem;
   border-bottom: 2px solid var(--ob-border);
@@ -545,12 +545,12 @@ body {
   letter-spacing: 0.05em;
 }
 
-.openboard-data-table td {
+.orrery-data-table td {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--ob-border);
 }
 
-.openboard-data-table tr:last-child td {
+.orrery-data-table tr:last-child td {
   border-bottom: none;
 }
 
@@ -558,13 +558,13 @@ body {
    Table component
    ========================================================================= */
 
-.openboard-table-wrapper {
+.orrery-table-wrapper {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 
-.openboard-table-toolbar {
+.orrery-table-toolbar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -572,7 +572,7 @@ body {
   margin-bottom: 0.5rem;
 }
 
-.openboard-table-filter {
+.orrery-table-filter {
   font-family: var(--ob-font);
   font-size: 0.8125rem;
   padding: 0.375rem 0.5rem;
@@ -583,13 +583,13 @@ body {
   min-width: 200px;
 }
 
-.openboard-table-filter:focus {
+.orrery-table-filter:focus {
   outline: none;
   border-color: var(--ob-primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-.openboard-table-csv-btn {
+.orrery-table-csv-btn {
   font-family: var(--ob-font);
   font-size: 0.75rem;
   padding: 0.375rem 0.625rem;
@@ -601,29 +601,29 @@ body {
   white-space: nowrap;
 }
 
-.openboard-table-csv-btn:hover {
+.orrery-table-csv-btn:hover {
   background: var(--ob-bg);
   color: var(--ob-text);
 }
 
-.openboard-table-scroll {
+.orrery-table-scroll {
   overflow-x: auto;
 }
 
-.openboard-data-table-full {
+.orrery-data-table-full {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8125rem;
 }
 
-.openboard-data-table-full thead {
+.orrery-data-table-full thead {
   position: sticky;
   top: 0;
   z-index: 1;
   background: var(--ob-surface);
 }
 
-.openboard-table-th {
+.orrery-table-th {
   text-align: left;
   padding: 0.5rem 0.75rem;
   border-bottom: 2px solid var(--ob-border);
@@ -636,42 +636,42 @@ body {
   user-select: none;
 }
 
-.openboard-table-th[data-ob-sortable]:hover {
+.orrery-table-th[data-ob-sortable]:hover {
   color: var(--ob-text);
   background: var(--ob-bg);
 }
 
-.openboard-table-th[data-ob-align="center"] { text-align: center; }
-.openboard-table-th[data-ob-align="right"] { text-align: right; }
+.orrery-table-th[data-ob-align="center"] { text-align: center; }
+.orrery-table-th[data-ob-align="right"] { text-align: right; }
 
-.openboard-data-table-full td {
+.orrery-data-table-full td {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--ob-border);
 }
 
-.openboard-data-table-full td[data-ob-align="center"] { text-align: center; }
-.openboard-data-table-full td[data-ob-align="right"] { text-align: right; }
+.orrery-data-table-full td[data-ob-align="center"] { text-align: center; }
+.orrery-data-table-full td[data-ob-align="right"] { text-align: right; }
 
-.openboard-data-table-full tr:last-child td {
+.orrery-data-table-full tr:last-child td {
   border-bottom: none;
 }
 
-.openboard-table-row-hidden {
+.orrery-table-row-hidden {
   display: none;
 }
 
-.openboard-sort-icon {
+.orrery-sort-icon {
   font-size: 0.625rem;
   margin-left: 0.25rem;
   color: var(--ob-text-muted);
 }
 
-.openboard-th-sorted-asc .openboard-sort-icon,
-.openboard-th-sorted-desc .openboard-sort-icon {
+.orrery-th-sorted-asc .orrery-sort-icon,
+.orrery-th-sorted-desc .orrery-sort-icon {
   color: var(--ob-primary);
 }
 
-.openboard-table-footer {
+.orrery-table-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -680,17 +680,17 @@ body {
   color: var(--ob-text-muted);
 }
 
-.openboard-table-row-count {
+.orrery-table-row-count {
   font-size: 0.75rem;
 }
 
-.openboard-table-pagination {
+.orrery-table-pagination {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.openboard-page-btn {
+.orrery-page-btn {
   font-family: var(--ob-font);
   font-size: 0.75rem;
   padding: 0.25rem 0.5rem;
@@ -701,93 +701,93 @@ body {
   cursor: pointer;
 }
 
-.openboard-page-btn:hover:not(:disabled) {
+.orrery-page-btn:hover:not(:disabled) {
   background: var(--ob-bg);
   color: var(--ob-text);
 }
 
-.openboard-page-btn:disabled {
+.orrery-page-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.openboard-page-info {
+.orrery-page-info {
   font-size: 0.75rem;
 }
 
 /* Text/markdown component */
-.openboard-text { font-size: 0.875rem; line-height: 1.6; }
-.openboard-text p { margin-bottom: 0.5rem; }
-.openboard-text p:last-child { margin-bottom: 0; }
-.openboard-text strong { font-weight: 600; }
-.openboard-text em { font-style: italic; }
-.openboard-text code {
+.orrery-text { font-size: 0.875rem; line-height: 1.6; }
+.orrery-text p { margin-bottom: 0.5rem; }
+.orrery-text p:last-child { margin-bottom: 0; }
+.orrery-text strong { font-weight: 600; }
+.orrery-text em { font-style: italic; }
+.orrery-text code {
   background: var(--ob-bg);
   padding: 0.125rem 0.375rem;
   border-radius: 3px;
   font-family: var(--ob-font-mono);
   font-size: 0.85em;
 }
-.openboard-text pre {
+.orrery-text pre {
   background: var(--ob-bg);
   padding: 0.75rem 1rem;
   border-radius: 4px;
   overflow-x: auto;
   margin-bottom: 0.5rem;
 }
-.openboard-text pre code {
+.orrery-text pre code {
   background: none;
   padding: 0;
   border-radius: 0;
   font-size: 0.8125rem;
 }
-.openboard-text h1, .openboard-text h2, .openboard-text h3,
-.openboard-text h4, .openboard-text h5, .openboard-text h6 {
+.orrery-text h1, .orrery-text h2, .orrery-text h3,
+.orrery-text h4, .orrery-text h5, .orrery-text h6 {
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: var(--ob-text);
 }
-.openboard-text h1 { font-size: 1.25rem; }
-.openboard-text h2 { font-size: 1.125rem; }
-.openboard-text h3 { font-size: 1rem; }
-.openboard-text ul, .openboard-text ol {
+.orrery-text h1 { font-size: 1.25rem; }
+.orrery-text h2 { font-size: 1.125rem; }
+.orrery-text h3 { font-size: 1rem; }
+.orrery-text ul, .orrery-text ol {
   margin-bottom: 0.5rem;
   padding-left: 1.5rem;
 }
-.openboard-text li { margin-bottom: 0.25rem; }
-.openboard-text blockquote {
+.orrery-text li { margin-bottom: 0.25rem; }
+.orrery-text blockquote {
   border-left: 3px solid var(--ob-border);
   padding-left: 0.75rem;
   margin-bottom: 0.5rem;
   color: var(--ob-text-muted);
 }
-.openboard-text a {
+.orrery-text a {
   color: var(--ob-primary);
   text-decoration: none;
 }
-.openboard-text a:hover { text-decoration: underline; }
-.openboard-text hr {
+.orrery-text a:hover { text-decoration: underline; }
+.orrery-text hr {
   border: none;
   border-top: 1px solid var(--ob-border);
   margin: 0.75rem 0;
 }
-.openboard-text table {
+.orrery-text table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 0.5rem;
   font-size: 0.8125rem;
 }
-.openboard-text th, .openboard-text td {
+.orrery-text th, .orrery-text td {
   padding: 0.375rem 0.5rem;
   border: 1px solid var(--ob-border);
   text-align: left;
 }
-.openboard-text th {
+.orrery-text th {
   font-weight: 600;
   background: var(--ob-bg);
 }
-.openboard-text img { max-width: 100%; height: auto; }
-.openboard-text-empty {
+.orrery-text img { max-width: 100%; height: auto; }
+.orrery-text-empty {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -800,7 +800,7 @@ body {
    Theme toggle (dev mode)
    ========================================================================= */
 
-.openboard-theme-toggle {
+.orrery-theme-toggle {
   background: var(--ob-surface);
   border: 1px solid var(--ob-border);
   border-radius: 6px;
@@ -815,12 +815,12 @@ body {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.openboard-theme-toggle:hover {
+.orrery-theme-toggle:hover {
   background: var(--ob-bg);
   color: var(--ob-text);
 }
 
-.openboard-header-actions {
+.orrery-header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -851,59 +851,59 @@ body {
     print-color-adjust: exact;
   }
 
-  .openboard-root {
+  .orrery-root {
     max-width: 100%;
     padding: 0;
   }
 
   /* Hide interactive controls */
-  .openboard-params,
-  .openboard-component-actions,
-  .openboard-table-toolbar,
-  .openboard-table-pagination,
-  .openboard-table-footer,
-  .openboard-loading,
-  .openboard-spinner,
-  .openboard-theme-toggle,
-  .openboard-header-actions,
-  .openboard-page-btn,
-  .openboard-table-csv-btn {
+  .orrery-params,
+  .orrery-component-actions,
+  .orrery-table-toolbar,
+  .orrery-table-pagination,
+  .orrery-table-footer,
+  .orrery-loading,
+  .orrery-spinner,
+  .orrery-theme-toggle,
+  .orrery-header-actions,
+  .orrery-page-btn,
+  .orrery-table-csv-btn {
     display: none !important;
   }
 
   /* Remove component footer (query time) */
-  .openboard-component-footer {
+  .orrery-component-footer {
     display: none !important;
   }
 
   /* Remove box shadows and simplify borders */
-  .openboard-component {
+  .orrery-component {
     box-shadow: none !important;
     border: 1px solid #d1d5db;
     break-inside: avoid;
   }
 
   /* Show all hidden table rows (pagination) */
-  .openboard-table-row-hidden {
+  .orrery-table-row-hidden {
     display: table-row !important;
   }
 
   /* Page breaks between grid rows */
-  .openboard-row {
+  .orrery-row {
     break-inside: avoid;
     page-break-inside: avoid;
     margin-bottom: 0.5rem;
   }
 
   /* Ensure charts render well */
-  .openboard-chart-container svg {
+  .orrery-chart-container svg {
     max-height: none;
     width: 100%;
     height: auto;
   }
 
   /* Simplify header for print */
-  .openboard-header {
+  .orrery-header {
     margin-bottom: 0.75rem;
   }
 
@@ -911,12 +911,12 @@ body {
   a { text-decoration: none !important; }
 
   /* Ensure table headers repeat on page breaks */
-  .openboard-data-table thead,
-  .openboard-data-table-full thead {
+  .orrery-data-table thead,
+  .orrery-data-table-full thead {
     display: table-header-group;
   }
 
-  .openboard-data-table-full thead {
+  .orrery-data-table-full thead {
     position: static;
   }
 }

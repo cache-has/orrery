@@ -1,10 +1,10 @@
 // Copyright (c) 2026 Horizon Analytic Studios, LLC. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Wire protocol client for Horizon Flux plugins (v1).
+// Wire protocol client for Armillary plugins (v1).
 //
-// Mirrors crates/flux-plugin-host/src/protocol/{frame,control}.rs in the
-// horizon_flux repo. Frame layout:
+// Mirrors crates/armillary-plugin-host/src/protocol/{frame,control}.rs in the
+// armillary repo. Frame layout:
 //
 //   +----------------+--------+----------------+
 //   | length (u32 LE)|  kind  |    payload     |
@@ -76,7 +76,7 @@ export class ProtocolError extends Error {
 
 export interface HelloPayload {
   protocol: number;
-  flux_version?: string;
+  armillary_version?: string;
 }
 
 export interface Capabilities {
@@ -97,11 +97,11 @@ export interface ConfigureSinkPayload {
   config: unknown;
   input_schema_ipc_b64: string;
   /**
-   * Optional MaterializationPolicy forwarded by the flux host when the sink
+   * Optional MaterializationPolicy forwarded by the armillary host when the sink
    * node declares a `materialization` block. Mirrors the Rust
    * `ConfigureSink.materialization` field (see
-   * `crates/flux-plugin-protocol/src/control.rs`). Shape is the JSON
-   * serialization of `flux_engine::materialization::MaterializationPolicy`;
+   * `crates/armillary-plugin-protocol/src/control.rs`). Shape is the JSON
+   * serialization of `armillary_engine::materialization::MaterializationPolicy`;
    * this plugin parses the fields it cares about (write_strategy,
    * unique_keys, snapshot.*) and ignores the rest.
    */
@@ -399,6 +399,6 @@ async function failExit(writer: FrameWriter, message: string): Promise<number> {
   } catch {
     // best effort — host may have already closed the pipe
   }
-  process.stderr.write(`openboard-plugin: ${message}\n`);
+  process.stderr.write(`orrery-plugin: ${message}\n`);
   return 1;
 }

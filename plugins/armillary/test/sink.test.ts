@@ -13,7 +13,7 @@ import {
 import { DuckDBInstance } from '@duckdb/node-api';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { OpenBoardSink } from '../src/sink.js';
+import { OrrerySink } from '../src/sink.js';
 import { arrowFieldToDuckDBSql, diffColumnPlans, planColumns } from '../src/arrow_types.js';
 
 function buildSchema(): Schema {
@@ -62,11 +62,11 @@ describe('arrow_types', () => {
   });
 });
 
-describe('OpenBoardSink (replace mode)', () => {
+describe('OrrerySink (replace mode)', () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'flux-openboard-sink-'));
+    dir = mkdtempSync(join(tmpdir(), 'armillary-orrery-sink-'));
   });
 
   afterEach(() => {
@@ -74,16 +74,16 @@ describe('OpenBoardSink (replace mode)', () => {
   });
 
   it('writes a fresh DuckDB file via staging + atomic rename', async () => {
-    const sink = new OpenBoardSink();
+    const sink = new OrrerySink();
     const schemaIpcBytes = schemaIpc();
 
     const ack = await sink.configure({
-      sink_type: 'openboard_duckdb',
+      sink_type: 'orrery_duckdb',
       config: {
-        openboard_project: dir,
+        orrery_project: dir,
         table_name: 'orders',
         write_mode: 'replace',
-        database_file: 'data/flux.duckdb',
+        database_file: 'data/armillary.duckdb',
       },
       input_schema_ipc_b64: Buffer.from(schemaIpcBytes).toString('base64'),
     });
@@ -98,14 +98,14 @@ describe('OpenBoardSink (replace mode)', () => {
 
     const commit = await sink.commit();
     expect(commit.rows).toBe(2);
-    expect(existsSync(join(dir, 'data/flux.duckdb'))).toBe(true);
+    expect(existsSync(join(dir, 'data/armillary.duckdb'))).toBe(true);
 
     // No staging files left behind.
     const dataEntries = readdirSync(join(dir, 'data'));
     expect(dataEntries.filter((n) => n.includes('staging-'))).toEqual([]);
 
     // Verify the data via a fresh DuckDB connection.
-    const inst = await DuckDBInstance.create(join(dir, 'data/flux.duckdb'));
+    const inst = await DuckDBInstance.create(join(dir, 'data/armillary.duckdb'));
     const conn = await inst.connect();
     try {
       const reader = await conn.runAndReadAll('SELECT order_id, customer FROM orders ORDER BY order_id');
@@ -121,7 +121,7 @@ describe('OpenBoardSink (replace mode)', () => {
   });
 
   it('append mode preserves existing rows and adds new ones', async () => {
-    const targetPath = join(dir, 'data', 'flux.duckdb');
+    const targetPath = join(dir, 'data', 'armillary.duckdb');
     mkdirSync(join(dir, 'data'), { recursive: true });
     // Pre-create the target with the same schema and one row.
     {
@@ -135,14 +135,14 @@ describe('OpenBoardSink (replace mode)', () => {
       inst.closeSync();
     }
 
-    const sink = new OpenBoardSink();
+    const sink = new OrrerySink();
     await sink.configure({
-      sink_type: 'openboard_duckdb',
+      sink_type: 'orrery_duckdb',
       config: {
-        openboard_project: dir,
+        orrery_project: dir,
         table_name: 'orders',
         write_mode: 'append',
-        database_file: 'data/flux.duckdb',
+        database_file: 'data/armillary.duckdb',
       },
       input_schema_ipc_b64: Buffer.from(schemaIpc()).toString('base64'),
     });
@@ -164,7 +164,7 @@ describe('OpenBoardSink (replace mode)', () => {
   });
 
   it('upsert mode replaces rows with matching keys (last write wins)', async () => {
-    const targetPath = join(dir, 'data', 'flux.duckdb');
+    const targetPath = join(dir, 'data', 'armillary.duckdb');
     mkdirSync(join(dir, 'data'), { recursive: true });
     {
       const inst = await DuckDBInstance.create(targetPath);
@@ -177,15 +177,15 @@ describe('OpenBoardSink (replace mode)', () => {
       inst.closeSync();
     }
 
-    const sink = new OpenBoardSink();
+    const sink = new OrrerySink();
     await sink.configure({
-      sink_type: 'openboard_duckdb',
+      sink_type: 'orrery_duckdb',
       config: {
-        openboard_project: dir,
+        orrery_project: dir,
         table_name: 'orders',
         write_mode: 'upsert',
         upsert_keys: ['order_id'],
-        database_file: 'data/flux.duckdb',
+        database_file: 'data/armillary.duckdb',
       },
       input_schema_ipc_b64: Buffer.from(schemaIpc()).toString('base64'),
     });
@@ -214,7 +214,7 @@ describe('OpenBoardSink (replace mode)', () => {
   });
 
   it('append mode rejects at configure when target schema differs', async () => {
-    const targetPath = join(dir, 'data', 'flux.duckdb');
+    const targetPath = join(dir, 'data', 'armillary.duckdb');
     mkdirSync(join(dir, 'data'), { recursive: true });
     {
       const inst = await DuckDBInstance.create(targetPath);
@@ -225,14 +225,14 @@ describe('OpenBoardSink (replace mode)', () => {
       inst.closeSync();
     }
 
-    const sink = new OpenBoardSink();
+    const sink = new OrrerySink();
     const ack = await sink.configure({
-      sink_type: 'openboard_duckdb',
+      sink_type: 'orrery_duckdb',
       config: {
-        openboard_project: dir,
+        orrery_project: dir,
         table_name: 'orders',
         write_mode: 'append',
-        database_file: 'data/flux.duckdb',
+        database_file: 'data/armillary.duckdb',
       },
       input_schema_ipc_b64: Buffer.from(schemaIpc()).toString('base64'),
     });
@@ -245,18 +245,18 @@ describe('OpenBoardSink (replace mode)', () => {
     const dataDir = join(dir, 'data');
     mkdirSync(dataDir, { recursive: true });
     // Create a stale staging sibling that looks like a crashed prior run.
-    const orphan = join(dataDir, 'flux.duckdb.staging-DEADBEEF.duckdb');
+    const orphan = join(dataDir, 'armillary.duckdb.staging-DEADBEEF.duckdb');
     writeFileSync(orphan, 'garbage');
     expect(existsSync(orphan)).toBe(true);
 
-    const sink = new OpenBoardSink();
+    const sink = new OrrerySink();
     await sink.configure({
-      sink_type: 'openboard_duckdb',
+      sink_type: 'orrery_duckdb',
       config: {
-        openboard_project: dir,
+        orrery_project: dir,
         table_name: 'orders',
         write_mode: 'replace',
-        database_file: 'data/flux.duckdb',
+        database_file: 'data/armillary.duckdb',
       },
       input_schema_ipc_b64: Buffer.from(schemaIpc()).toString('base64'),
     });
@@ -316,14 +316,14 @@ describe('OpenBoardSink (replace mode)', () => {
     const batch = new RecordBatch(schema, structData);
     const table = new Table([batch]);
 
-    const sink = new OpenBoardSink();
+    const sink = new OrrerySink();
     const ack = await sink.configure({
-      sink_type: 'openboard_duckdb',
+      sink_type: 'orrery_duckdb',
       config: {
-        openboard_project: dir,
+        orrery_project: dir,
         table_name: 'temporal',
         write_mode: 'replace',
-        database_file: 'data/flux.duckdb',
+        database_file: 'data/armillary.duckdb',
       },
       input_schema_ipc_b64: Buffer.from(tableToIPC(table, 'stream')).toString('base64'),
     });
@@ -334,7 +334,7 @@ describe('OpenBoardSink (replace mode)', () => {
     // Verify what actually landed via a fresh DuckDB connection. Cast
     // everything to VARCHAR so the assertion doesn't depend on the
     // node-api's choice of JS representation for these types.
-    const inst = await DuckDBInstance.create(join(dir, 'data/flux.duckdb'));
+    const inst = await DuckDBInstance.create(join(dir, 'data/armillary.duckdb'));
     const conn = await inst.connect();
     try {
       const reader = await conn.runAndReadAll(
@@ -362,7 +362,7 @@ describe('OpenBoardSink (replace mode)', () => {
 
   it('abort cleans up the staging file and leaves the target untouched', async () => {
     // Pre-create a target file with sentinel content via DuckDB.
-    const targetPath = join(dir, 'data', 'flux.duckdb');
+    const targetPath = join(dir, 'data', 'armillary.duckdb');
     require('node:fs').mkdirSync(join(dir, 'data'), { recursive: true });
     {
       const inst = await DuckDBInstance.create(targetPath);
@@ -372,15 +372,15 @@ describe('OpenBoardSink (replace mode)', () => {
       inst.closeSync();
     }
 
-    const sink = new OpenBoardSink();
+    const sink = new OrrerySink();
     const schemaIpcBytes = schemaIpc();
     await sink.configure({
-      sink_type: 'openboard_duckdb',
+      sink_type: 'orrery_duckdb',
       config: {
-        openboard_project: dir,
+        orrery_project: dir,
         table_name: 'orders',
         write_mode: 'replace',
-        database_file: 'data/flux.duckdb',
+        database_file: 'data/armillary.duckdb',
       },
       input_schema_ipc_b64: Buffer.from(schemaIpcBytes).toString('base64'),
     });

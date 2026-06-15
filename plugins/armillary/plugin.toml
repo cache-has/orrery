@@ -2,27 +2,27 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
 # Identity
-name = "openboard"
+name = "orrery"
 version = "0.1.0"
 author = "Horizon Analytic Studios, LLC"
-description = "Publish Horizon Flux pipeline outputs to OpenBoard dashboards via DuckDB"
+description = "Publish Armillary pipeline outputs to Orrery dashboards via DuckDB"
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/horizon-analytic/openboard"
+homepage = "https://github.com/horizon-analytic/orrery"
 
 # Protocol compatibility
-flux_plugin_protocol = 1
-flux_min_version = "0.1.0"
+armillary_plugin_protocol = 1
+armillary_min_version = "0.1.0"
 
 # Execution
 # The plugin is a Node.js subprocess. The entry point is the tsup-built
 # ES module under `dist/`, which carries a `#!/usr/bin/env node` shebang
 # and is marked executable by the build. `node` (>= 18) must be on PATH.
-executable = "dist/openboard-plugin.js"
+executable = "dist/orrery-plugin.js"
 
 [[sinks]]
-type = "openboard_duckdb"
-display_name = "OpenBoard (DuckDB)"
-description = "Writes pipeline output to a DuckDB file registered with an OpenBoard project"
+type = "orrery_duckdb"
+display_name = "Orrery (DuckDB)"
+description = "Writes pipeline output to a DuckDB file registered with an Orrery project"
 config_schema = "config_schema.json"
 
 [sinks.capabilities]

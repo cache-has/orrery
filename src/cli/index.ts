@@ -24,15 +24,15 @@ switch (command) {
     break;
   default:
     console.log(`
-  OpenBoard — Dashboards as code, not clicks.
+  Orrery — Dashboards as code, not clicks.
 
   Usage:
-    openboard dev          Start dev server with hot reload
-    openboard serve        Start production HTTP server (no watcher/hot reload)
-    openboard build        Export static HTML dashboards
-    openboard validate     Validate .board files and connections
-    openboard diff         Compare dashboards between git refs
-    openboard create       Scaffold a new project
+    orrery dev          Start dev server with hot reload
+    orrery serve        Start production HTTP server (no watcher/hot reload)
+    orrery build        Export static HTML dashboards
+    orrery validate     Validate .board files and connections
+    orrery diff         Compare dashboards between git refs
+    orrery create       Scaffold a new project
 
   Options:
     --help                 Show this help message

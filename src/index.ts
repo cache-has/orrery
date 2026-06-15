@@ -1,4 +1,4 @@
-// OpenBoard — public API
+// Orrery — public API
 export { parse, Lexer, ParseError } from "./parser/index.js";
 export {
   QueryExecutor,
@@ -10,7 +10,7 @@ export {
   placeholderStyleForDriver,
 } from "./query/index.js";
 export { ConnectionManager } from "./connections/index.js";
-export { resolveLayout, renderPage, fetchDashboardData, collectComponents, componentId, OPENBOARD_CSS, loadThemeFile, resolveTheme, compileThemeYaml, getBuiltinTheme, LIGHT_THEME, DARK_THEME } from "./renderer/index.js";
+export { resolveLayout, renderPage, fetchDashboardData, collectComponents, componentId, ORRERY_CSS, loadThemeFile, resolveTheme, compileThemeYaml, getBuiltinTheme, LIGHT_THEME, DARK_THEME } from "./renderer/index.js";
 export { createApp } from "./server/index.js";
 export { formatValue, parseFormatType, getRenderer, registerRenderer } from "./components/index.js";
 export { staticBuild, renderStaticPage, renderStaticIndex } from "./static/index.js";

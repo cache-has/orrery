@@ -9,7 +9,7 @@ import type { DiscoveredDashboard } from "../../src/server/discovery.js";
 import type { AccessConfig } from "../../src/server/access.js";
 
 function makeDir() {
-  const dir = resolve(tmpdir(), "openboard-editor-test-" + process.pid + "-" + Math.random().toString(36).slice(2));
+  const dir = resolve(tmpdir(), "orrery-editor-test-" + process.pid + "-" + Math.random().toString(36).slice(2));
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -276,8 +276,8 @@ describe("editor routes — folder authorization", () => {
 
   const accessCfg: AccessConfig = {
     enabled: true,
-    foldersHeader: "x-openboard-folders",
-    canEditHeader: "x-openboard-can-edit",
+    foldersHeader: "x-orrery-folders",
+    canEditHeader: "x-orrery-can-edit",
     requireFolder: true,
   };
 
@@ -304,8 +304,8 @@ describe("editor routes — folder authorization", () => {
   }
 
   const hdr = (folders: string, canEdit = true) => ({
-    "x-openboard-folders": folders,
-    ...(canEdit ? { "x-openboard-can-edit": "1" } : {}),
+    "x-orrery-folders": folders,
+    ...(canEdit ? { "x-orrery-can-edit": "1" } : {}),
     "Content-Type": "text/plain",
   });
 
@@ -360,8 +360,8 @@ describe("editor routes — folder-aware /api/new", () => {
 
   const accessCfg: AccessConfig = {
     enabled: true,
-    foldersHeader: "x-openboard-folders",
-    canEditHeader: "x-openboard-can-edit",
+    foldersHeader: "x-orrery-folders",
+    canEditHeader: "x-orrery-can-edit",
     requireFolder: true,
   };
 
@@ -379,8 +379,8 @@ describe("editor routes — folder-aware /api/new", () => {
   }
 
   const hdr = (folders: string) => ({
-    "x-openboard-folders": folders,
-    "x-openboard-can-edit": "1",
+    "x-orrery-folders": folders,
+    "x-orrery-can-edit": "1",
     "Content-Type": "application/json",
   });
 

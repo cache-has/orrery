@@ -56,7 +56,7 @@ describe("chartRenderer — line chart", () => {
 
     const html = chartRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-chart-container");
+    expect(html).toContain("orrery-chart-container");
     expect(html).toContain("<svg");
     expect(html).toContain("</svg>");
   });
@@ -155,7 +155,7 @@ describe("chartRenderer — line chart", () => {
 
     // Area charts still produce an SVG — the areaStyle fill is inside
     expect(html).toContain("<svg");
-    expect(html).toContain("openboard-chart-container");
+    expect(html).toContain("orrery-chart-container");
   });
 });
 
@@ -388,7 +388,7 @@ describe("chartRenderer — bar chart", () => {
     const html = chartRenderer.renderToString(component, data);
 
     expect(html).toContain("<svg");
-    expect(html).toContain("openboard-chart-container");
+    expect(html).toContain("orrery-chart-container");
     // Funnel series type and sort:none (preserve query order) should appear in serialized option
     expect(html).toContain("&quot;type&quot;:&quot;funnel&quot;");
     expect(html).toContain("&quot;sort&quot;:&quot;none&quot;");

@@ -2,7 +2,7 @@
  * Project discovery: find config, dashboards, connections, and queries directories.
  *
  * Discovery order:
- *  1. openboard.config.yaml in projectRoot (explicit config)
+ *  1. orrery.config.yaml in projectRoot (explicit config)
  *  2. dashboards/ directory in projectRoot
  *  3. Any .board files directly in projectRoot
  */
@@ -66,7 +66,7 @@ const DEFAULT_CONFIG: ProjectConfig = {
 };
 
 export function loadConfig(projectRoot: string): ProjectConfig {
-  const configPath = resolve(projectRoot, "openboard.config.yaml");
+  const configPath = resolve(projectRoot, "orrery.config.yaml");
   if (!existsSync(configPath)) {
     return { ...DEFAULT_CONFIG };
   }
@@ -120,7 +120,7 @@ function parseAccessConfig(raw: unknown): ProjectConfig["access"] {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
 
-  const warn = (msg: string) => console.warn(`Warning: openboard.config.yaml \`access.${msg}`);
+  const warn = (msg: string) => console.warn(`Warning: orrery.config.yaml \`access.${msg}`);
   const checkType = (key: string, expected: "boolean" | "string") => {
     if (key in r && typeof r[key] !== expected) {
       warn(`${key}\` should be a ${expected}; got ${typeof r[key]} — ignored, using default.`);

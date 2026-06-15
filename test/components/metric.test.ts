@@ -37,7 +37,7 @@ describe("metricRenderer", () => {
 
     const html = metricRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-metric-value");
+    expect(html).toContain("orrery-metric-value");
     expect(html).toContain("42000");
   });
 
@@ -53,7 +53,7 @@ describe("metricRenderer", () => {
     const html = metricRenderer.renderToString(component, data);
 
     expect(html).toContain("1,234.50");
-    expect(html).toContain("openboard-metric-prefix");
+    expect(html).toContain("orrery-metric-prefix");
     expect(html).toContain("$");
   });
 
@@ -79,9 +79,9 @@ describe("metricRenderer", () => {
 
     const html = metricRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-metric-prefix");
+    expect(html).toContain("orrery-metric-prefix");
     expect(html).toContain("~");
-    expect(html).toContain("openboard-metric-suffix");
+    expect(html).toContain("orrery-metric-suffix");
     expect(html).toContain(" GB");
   });
 
@@ -112,7 +112,7 @@ describe("metricRenderer", () => {
 
     const html = metricRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-trend-up");
+    expect(html).toContain("orrery-trend-up");
     expect(html).toContain("+20.0%");
     expect(html).toContain("vs last month");
     expect(html).toContain("\u25B2"); // up arrow
@@ -127,7 +127,7 @@ describe("metricRenderer", () => {
 
     const html = metricRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-trend-down");
+    expect(html).toContain("orrery-trend-down");
     expect(html).toContain("-20.0%");
     expect(html).toContain("\u25BC"); // down arrow
   });
@@ -141,7 +141,7 @@ describe("metricRenderer", () => {
 
     const html = metricRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-trend-flat");
+    expect(html).toContain("orrery-trend-flat");
   });
 
   it("omits trend when no trendResult is provided", () => {
@@ -152,7 +152,7 @@ describe("metricRenderer", () => {
 
     const html = metricRenderer.renderToString(component, data);
 
-    expect(html).not.toContain("openboard-metric-trend");
+    expect(html).not.toContain("orrery-metric-trend");
   });
 
   it("uses first column when 'value' column is absent", () => {

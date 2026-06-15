@@ -46,7 +46,7 @@ export const metricRenderer: ComponentRenderer = {
   renderToString(component: ComponentNode, data: ComponentRenderData): string {
     // No data / empty result
     if (!data.result?.rows?.length) {
-      return `<div class="openboard-no-data">No data</div>`;
+      return `<div class="orrery-no-data">No data</div>`;
     }
 
     const row = data.result.rows[0];
@@ -58,9 +58,9 @@ export const metricRenderer: ComponentRenderer = {
     const formatted = formatValue(rawValue, format);
     const trendHtml = renderTrend(component, data, rawValue);
 
-    return `<div class="openboard-metric">
-      <div class="openboard-metric-value">
-        ${prefix ? `<span class="openboard-metric-prefix">${escapeHtml(prefix)}</span>` : ""}${escapeHtml(formatted)}${suffix ? `<span class="openboard-metric-suffix">${escapeHtml(suffix)}</span>` : ""}
+    return `<div class="orrery-metric">
+      <div class="orrery-metric-value">
+        ${prefix ? `<span class="orrery-metric-prefix">${escapeHtml(prefix)}</span>` : ""}${escapeHtml(formatted)}${suffix ? `<span class="orrery-metric-suffix">${escapeHtml(suffix)}</span>` : ""}
       </div>
       ${trendHtml}
     </div>`;
@@ -88,11 +88,11 @@ function renderTrend(
 
   const arrow = direction === "up" ? "\u25B2" : direction === "down" ? "\u25BC" : "\u25C6";
   const sign = percent > 0 ? "+" : "";
-  const dirClass = `openboard-trend-${direction}`;
+  const dirClass = `orrery-trend-${direction}`;
 
-  return `<div class="openboard-metric-trend ${dirClass}">
-        <span class="openboard-trend-arrow">${arrow}</span>
-        <span class="openboard-trend-percent">${sign}${percent.toFixed(1)}%</span>
-        <span class="openboard-trend-label">${escapeHtml(trendLabel)}</span>
+  return `<div class="orrery-metric-trend ${dirClass}">
+        <span class="orrery-trend-arrow">${arrow}</span>
+        <span class="orrery-trend-percent">${sign}${percent.toFixed(1)}%</span>
+        <span class="orrery-trend-label">${escapeHtml(trendLabel)}</span>
       </div>`;
 }

@@ -7,7 +7,7 @@ import { ConnectionManager } from "../../src/connections/manager.js";
 import { QueryExecutor } from "../../src/query/executor.js";
 import { Hono } from "hono";
 
-const TEST_DIR = resolve(tmpdir(), "openboard-routes-test-" + process.pid);
+const TEST_DIR = resolve(tmpdir(), "orrery-routes-test-" + process.pid);
 const BOARD_DIR = resolve(TEST_DIR, "dashboards");
 
 const TEXT_BOARD = `dashboard "Hello" {
@@ -15,7 +15,7 @@ const TEXT_BOARD = `dashboard "Hello" {
 
   row {
     text "Intro" {
-      > Welcome to **OpenBoard**.
+      > Welcome to **Orrery**.
     }
   }
 }`;
@@ -99,23 +99,23 @@ describe("GET /d/:name — dashboard rendering", () => {
     expect(html).toContain("Dashboard not found");
   });
 
-  it("serves CSS at /openboard/styles.css", async () => {
+  it("serves CSS at /orrery/styles.css", async () => {
     const app = makeApp();
-    const res = await app.request("/openboard/styles.css");
+    const res = await app.request("/orrery/styles.css");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/css");
   });
 
-  it("serves JS at /openboard/interactive.js", async () => {
+  it("serves JS at /orrery/interactive.js", async () => {
     const app = makeApp();
-    const res = await app.request("/openboard/interactive.js");
+    const res = await app.request("/orrery/interactive.js");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/javascript");
   });
 
-  it("serves the locally-bundled echarts at /openboard/vendor/echarts.min.js", async () => {
+  it("serves the locally-bundled echarts at /orrery/vendor/echarts.min.js", async () => {
     const app = makeApp();
-    const res = await app.request("/openboard/vendor/echarts.min.js");
+    const res = await app.request("/orrery/vendor/echarts.min.js");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/javascript");
     const body = await res.text();
@@ -129,16 +129,16 @@ describe("GET /d/:name — dashboard rendering", () => {
     // otherwise a param-change hydration racing a slow CDN load leaves an
     // empty div. Assert the destructive DOM call only lives inside
     // doHydrateOneChart, which runs after ensureECharts() resolves.
-    const { OPENBOARD_INTERACTIVE_JS } = await import("../../src/server/interactive.js");
-    const innerHtmlWipes = (OPENBOARD_INTERACTIVE_JS.match(/container\.innerHTML\s*=\s*''/g) || []).length;
+    const { ORRERY_INTERACTIVE_JS } = await import("../../src/server/interactive.js");
+    const innerHtmlWipes = (ORRERY_INTERACTIVE_JS.match(/container\.innerHTML\s*=\s*''/g) || []).length;
     expect(innerHtmlWipes).toBe(1);
-    const doHydrateIdx = OPENBOARD_INTERACTIVE_JS.indexOf("function doHydrateOneChart(");
-    const wipeIdx = OPENBOARD_INTERACTIVE_JS.indexOf("container.innerHTML = ''");
+    const doHydrateIdx = ORRERY_INTERACTIVE_JS.indexOf("function doHydrateOneChart(");
+    const wipeIdx = ORRERY_INTERACTIVE_JS.indexOf("container.innerHTML = ''");
     expect(doHydrateIdx).toBeGreaterThan(0);
     expect(wipeIdx).toBeGreaterThan(doHydrateIdx);
-    expect(OPENBOARD_INTERACTIVE_JS).toContain("function ensureECharts()");
-    expect(OPENBOARD_INTERACTIVE_JS).toContain("/openboard/vendor/echarts.min.js");
-    expect(OPENBOARD_INTERACTIVE_JS).not.toContain("cdn.jsdelivr.net");
+    expect(ORRERY_INTERACTIVE_JS).toContain("function ensureECharts()");
+    expect(ORRERY_INTERACTIVE_JS).toContain("/orrery/vendor/echarts.min.js");
+    expect(ORRERY_INTERACTIVE_JS).not.toContain("cdn.jsdelivr.net");
   });
 });
 

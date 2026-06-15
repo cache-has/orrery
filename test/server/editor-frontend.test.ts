@@ -7,7 +7,7 @@ describe("editor frontend — HTML shell", () => {
     const res = await app.request("/edit");
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain('id="openboard-editor"');
+    expect(html).toContain('id="orrery-editor"');
     expect(html).toContain('data-mode="list"');
     expect(html).toContain('src="/edit/assets/editor.js"');
   });
@@ -32,11 +32,11 @@ describe("editor frontend — HTML shell", () => {
     expect(html).toContain('data-brand-title="Acme Analytics"');
   });
 
-  it("falls back to OpenBoard when no branding configured", async () => {
+  it("falls back to Orrery when no branding configured", async () => {
     const app = createApp({ editor: { enabled: true } });
     const res = await app.request("/edit");
     const html = await res.text();
-    expect(html).toContain("<title>OpenBoard Editor — Dashboards</title>");
+    expect(html).toContain("<title>Orrery Editor — Dashboards</title>");
     expect(html).not.toContain("data-brand-title=");
   });
 

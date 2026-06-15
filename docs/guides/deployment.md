@@ -3,9 +3,9 @@ Copyright (c) 2026 Horizon Analytic Studios, LLC. All rights reserved.
 SPDX-License-Identifier: MIT OR Apache-2.0
 -->
 
-# Deploying OpenBoard
+# Deploying Orrery
 
-A task-focused guide to running OpenBoard as a self-hosted container in
+A task-focused guide to running Orrery as a self-hosted container in
 production: building an image, storing dashboards in object storage, wiring
 database credentials, automating deploys with CI, and putting it behind your own
 single sign-on.
@@ -17,39 +17,39 @@ Run, Render, a plain VM with Docker, Kubernetes).
 
 ## The deployment model
 
-OpenBoard is a server-rendered Node app. A production deployment has four pieces:
+Orrery is a server-rendered Node app. A production deployment has four pieces:
 
 ```
                         your identity provider (SSO)
                                   |
                                   v
-   user ──HTTPS──►  auth proxy  ──►  OpenBoard server  ──►  SQL database
+   user ──HTTPS──►  auth proxy  ──►  Orrery server  ──►  SQL database
                     (you own)        (this project)         (your warehouse)
                          |                  |
                          |                  └──►  object storage (.board files)
                          └─ verifies SSO, injects trusted headers
 ```
 
-1. **The OpenBoard server** — the container from this project, serving dashboards
+1. **The Orrery server** — the container from this project, serving dashboards
    on a port (default `3000`).
 2. **Dashboard storage** — the `.board` files. Either baked into the image, or
    (recommended for editor use) read from an object-storage bucket so user edits
    survive container recycles.
 3. **The database** — your SQL warehouse, reached with credentials supplied as
    environment variables.
-4. **An auth proxy** — optional but recommended. OpenBoard has no built-in login;
+4. **An auth proxy** — optional but recommended. Orrery has no built-in login;
    it trusts an upstream proxy to authenticate users and pass identity via
    headers. See [Authentication](#authentication).
 
 ## 1. Build a base image
 
-OpenBoard ships a `Dockerfile` at the repository root that builds a runnable
-server image. Build and tag it once per OpenBoard version; downstream images
+Orrery ships a `Dockerfile` at the repository root that builds a runnable
+server image. Build and tag it once per Orrery version; downstream images
 extend it.
 
 ```bash
 # From a checkout of this repository:
-docker build -t openboard-base:1.0.0 .
+docker build -t orrery-base:1.0.0 .
 ```
 
 The base image:
@@ -63,8 +63,8 @@ The base image:
 Push it to your registry:
 
 ```bash
-docker tag openboard-base:1.0.0 <registry>/openboard-base:1.0.0
-docker push <registry>/openboard-base:1.0.0
+docker tag orrery-base:1.0.0 <registry>/orrery-base:1.0.0
+docker push <registry>/orrery-base:1.0.0
 ```
 
 > Replace `<registry>` with your registry host, e.g.
@@ -80,10 +80,10 @@ usually *not* baked in — see step 3.
 
 ```dockerfile
 # Dockerfile (your analytics project)
-FROM <registry>/openboard-base:1.0.0
+FROM <registry>/orrery-base:1.0.0
 
 WORKDIR /workspace
-COPY openboard.config.yaml ./
+COPY orrery.config.yaml ./
 COPY connections/ ./connections/
 COPY queries/ ./queries/
 COPY theme.yaml ./
@@ -100,15 +100,15 @@ contains no credentials.
 
 Baking `.board` files into the image is fine for read-only, git-driven
 deployments. But if you want the in-browser editor — so PMs and analysts can
-create and edit dashboards without a redeploy — point OpenBoard at an
+create and edit dashboards without a redeploy — point Orrery at an
 object-storage bucket instead. Edits are written back to the bucket and persist
 across container restarts and image pushes.
 
-OpenBoard supports `s3://` (AWS and S3-compatible stores like MinIO or R2) and
+Orrery supports `s3://` (AWS and S3-compatible stores like MinIO or R2) and
 `gs://` (Google Cloud Storage) sources. Enable it with CLI flags:
 
 ```bash
-openboard serve \
+orrery serve \
   --no-open \
   --port 3000 \
   --project /workspace \
@@ -142,8 +142,8 @@ repo are seed material only; after first deploy, treat the bucket as canonical
 
 | Command | Use |
 |---|---|
-| `openboard serve` | Production. Starts the HTTP server with no file watcher or hot reload. |
-| `openboard dev` | Local development. Same server plus a file watcher and hot reload. |
+| `orrery serve` | Production. Starts the HTTP server with no file watcher or hot reload. |
+| `orrery dev` | Local development. Same server plus a file watcher and hot reload. |
 
 Both accept the same `--source*` and `--editor` flags. Use `serve` in
 containers — there is nothing to watch, and the watcher only adds overhead.
@@ -182,7 +182,7 @@ Actions job builds and pushes the image using short-lived OIDC credentials (no
 long-lived keys):
 
 ```yaml
-name: Deploy OpenBoard
+name: Deploy Orrery
 on:
   push:
     branches: [main]
@@ -235,21 +235,21 @@ Notes:
 
 ## Authentication
 
-OpenBoard does not implement login. Instead it trusts an upstream **auth proxy**
+Orrery does not implement login. Instead it trusts an upstream **auth proxy**
 to authenticate the user and declare what they may see, via two request headers.
-This keeps OpenBoard out of the identity business and lets it plug into whatever
+This keeps Orrery out of the identity business and lets it plug into whatever
 SSO you already run.
 
 ### The trusted headers
 
 | Header | Values | Meaning |
 |---|---|---|
-| `x-openboard-folders` | `*` &#124; `revenue,marketing` &#124; *(empty)* | Which dashboard folders this user may view. `*` is all folders; a CSV is a whitelist; empty is none. |
-| `x-openboard-can-edit` | `1` / `true` | Whether this user may use the editor. |
+| `x-orrery-folders` | `*` &#124; `revenue,marketing` &#124; *(empty)* | Which dashboard folders this user may view. `*` is all folders; a CSV is a whitelist; empty is none. |
+| `x-orrery-can-edit` | `1` / `true` | Whether this user may use the editor. |
 
-The header names are configurable (via `OPENBOARD_FOLDERS_HEADER` /
-`OPENBOARD_CANEDIT_HEADER` env vars, or the `access:` block in config). Enable
-enforcement in `openboard.config.yaml`:
+The header names are configurable (via `ORRERY_FOLDERS_HEADER` /
+`ORRERY_CANEDIT_HEADER` env vars, or the `access:` block in config). Enable
+enforcement in `orrery.config.yaml`:
 
 ```yaml
 access:
@@ -259,18 +259,18 @@ access:
 
 With `require_folder: true`, dashboards must live in business-function folders
 (`revenue/`, `support/`, etc.) and a user only sees folders named in their
-`x-openboard-folders` header.
+`x-orrery-folders` header.
 
 > **Security-critical:** the headers are trusted, so the proxy must **strip any
 > client-supplied copy** of them on every request before injecting its own
-> verified values. If a client can set `x-openboard-folders: *` directly,
+> verified values. If a client can set `x-orrery-folders: *` directly,
 > access control is bypassed. Terminate auth at the proxy and never expose
-> OpenBoard's port directly.
+> Orrery's port directly.
 
 ### The proxy / SSO pattern
 
-A small reverse proxy sits in front of OpenBoard (commonly as a sidecar in the
-same container/pod, listening on the public port and forwarding to OpenBoard on
+A small reverse proxy sits in front of Orrery (commonly as a sidecar in the
+same container/pod, listening on the public port and forwarding to Orrery on
 a private one). On each request it:
 
 1. Reads your SSO session token (e.g. a cookie or `Authorization` header).
@@ -279,7 +279,7 @@ a private one). On each request it:
    OIDC/SAML, use your provider's session.
 3. On failure, returns `302` to your login URL (`https://<your-idp>/login`).
 4. On success, maps the user's groups/roles to a folder list and edit flag, then
-   forwards to OpenBoard with the trusted headers set (and inbound copies
+   forwards to Orrery with the trusted headers set (and inbound copies
    stripped). Forward WebSocket upgrades too — the editor and live updates use
    them.
 
@@ -294,8 +294,8 @@ const LOGIN_URL = process.env.LOGIN_URL;
 
 http.createServer((req, res) => {
   // 1. Always remove any client-supplied trusted headers.
-  delete req.headers["x-openboard-folders"];
-  delete req.headers["x-openboard-can-edit"];
+  delete req.headers["x-orrery-folders"];
+  delete req.headers["x-orrery-can-edit"];
 
   // 2. Verify the SSO session (replace with real JWKS/OIDC verification).
   const user = verifySession(req);          // -> { folders: ["revenue"], canEdit: true } | null
@@ -305,23 +305,23 @@ http.createServer((req, res) => {
   }
 
   // 3. Inject verified identity and proxy through.
-  req.headers["x-openboard-folders"] = user.folders.join(",") || "";
-  req.headers["x-openboard-can-edit"] = user.canEdit ? "1" : "0";
+  req.headers["x-orrery-folders"] = user.folders.join(",") || "";
+  req.headers["x-orrery-can-edit"] = user.canEdit ? "1" : "0";
   proxy.web(req, res);
 }).on("upgrade", (req, socket, head) => proxy.ws(req, socket, head)) // WebSockets
   .listen(3000);
 ```
 
-Run OpenBoard on the private port (`--port 3001`) and the proxy on the public
+Run Orrery on the private port (`--port 3001`) and the proxy on the public
 port (`3000`). Only the proxy is exposed by the platform.
 
 This pattern works with any IdP: an internal SSO hub, Okta, Auth0, Cognito,
-Google Workspace, or an OAuth2 proxy such as `oauth2-proxy`. OpenBoard only cares
+Google Workspace, or an OAuth2 proxy such as `oauth2-proxy`. Orrery only cares
 about the two resulting headers.
 
 ## Production checklist
 
-- [ ] Base image built and pushed for the OpenBoard version you run.
+- [ ] Base image built and pushed for the Orrery version you run.
 - [ ] Project image copies only config/connections/queries/theme — no secrets, no
       baked dashboards (if using a bucket).
 - [ ] Dashboard bucket is private, versioned, and encrypted; the container role
@@ -330,7 +330,7 @@ about the two resulting headers.
       image or git.
 - [ ] Server runs `serve` (not `dev`) on the container port.
 - [ ] `access.enabled: true` and an auth proxy injects verified headers.
-- [ ] The proxy strips client-supplied `x-openboard-*` headers and forwards
+- [ ] The proxy strips client-supplied `x-orrery-*` headers and forwards
       WebSocket upgrades.
-- [ ] OpenBoard's own port is not publicly reachable — only the proxy is.
+- [ ] Orrery's own port is not publicly reachable — only the proxy is.
 - [ ] CI uses OIDC (no stored cloud keys); registry URL resolved at runtime.

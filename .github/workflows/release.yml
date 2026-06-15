@@ -1,0 +1,74 @@
+# Copyright (c) 2026 Horizon Analytic Studios, LLC.
+# SPDX-License-Identifier: MIT
+#
+# Orrery release pipeline. Mirrors the Armillary release flow (naming + dual
+# registry), minus the OS-specific binary matrix — Orrery ships as a Docker
+# image, not native per-OS binaries. A `v*` tag triggers:
+#   1. a GitHub Release named "Orrery <version>" (auto-generated notes), and
+#   2. a single-platform (linux/amd64) image pushed to Docker Hub and GHCR.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve release version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Orrery ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            cachehorizon/orrery:latest
+            cachehorizon/orrery:${{ steps.version.outputs.version }}
+            ghcr.io/cache-has/orrery:latest
+            ghcr.io/cache-has/orrery:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
