@@ -88,7 +88,7 @@ describe("renderPage", () => {
 
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
-    expect(html).toContain('class="openboard-row"');
+    expect(html).toContain('class="orrery-row"');
     expect(html).toContain("grid-column: 1 / span 4");
     expect(html).toContain("grid-column: 5 / span 8");
   });
@@ -114,9 +114,9 @@ describe("renderPage", () => {
 
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
-    expect(html).toContain('class="openboard-component-title"');
+    expect(html).toContain('class="orrery-component-title"');
     expect(html).toContain("Total Revenue");
-    expect(html).toContain('class="openboard-refresh"');
+    expect(html).toContain('class="orrery-refresh"');
     expect(html).toContain('title="Refresh"');
   });
 
@@ -130,7 +130,7 @@ describe("renderPage", () => {
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
     expect(html).toContain("Loaded in 42ms");
-    expect(html).toContain('class="openboard-query-time"');
+    expect(html).toContain('class="orrery-query-time"');
   });
 
   it("renders inline error state per component", () => {
@@ -151,7 +151,7 @@ describe("renderPage", () => {
     // Good component renders data
     expect(html).toContain("42");
     // Broken component renders error inline
-    expect(html).toContain('class="openboard-error"');
+    expect(html).toContain('class="orrery-error"');
     expect(html).toContain("Query Error");
     expect(html).toContain("Connection &quot;db&quot; not found");
   });
@@ -170,10 +170,10 @@ describe("renderPage", () => {
 
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
-    expect(html).toContain('class="openboard-metric-prefix"');
+    expect(html).toContain('class="orrery-metric-prefix"');
     expect(html).toContain("$");
     expect(html).toContain("500");
-    expect(html).toContain('class="openboard-metric-suffix"');
+    expect(html).toContain('class="orrery-metric-suffix"');
     expect(html).toContain("k");
   });
 
@@ -189,7 +189,7 @@ describe("renderPage", () => {
 
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
-    expect(html).toContain("openboard-data-table");
+    expect(html).toContain("orrery-data-table");
     expect(html).toContain("name");
     expect(html).toContain("email");
     expect(html).toContain("Alice");
@@ -228,7 +228,7 @@ describe("renderPage", () => {
 
     const html = renderPage({ dashboard, layout, data, paramValues: { region: "North" } });
 
-    expect(html).toContain('class="openboard-params"');
+    expect(html).toContain('class="orrery-params"');
     expect(html).toContain('data-param-type="select"');
     expect(html).toContain("<select");
     expect(html).toContain("North");
@@ -260,8 +260,8 @@ describe("renderPage", () => {
     expect(html).toContain("Include inactive");
     expect(html).toContain('aria-checked="false"');
     // The button element itself should not have the "on" class (CSS rules contain the class name)
-    expect(html).toContain('class="openboard-toggle"');
-    expect(html).not.toContain('class="openboard-toggle openboard-toggle-on"');
+    expect(html).toContain('class="orrery-toggle"');
+    expect(html).not.toContain('class="orrery-toggle orrery-toggle-on"');
   });
 
   it("renders daterange parameter with preset dropdown", () => {
@@ -289,22 +289,22 @@ describe("renderPage", () => {
     });
 
     expect(html).toContain('data-param-type="daterange"');
-    expect(html).toContain("openboard-daterange-preset");
+    expect(html).toContain("orrery-daterange-preset");
     expect(html).toContain("Last 30 days");
     expect(html).toContain("Custom");
     expect(html).toContain('type="date"');
   });
 
-  it("serializes __OPENBOARD__ state for client hydration", () => {
+  it("serializes __ORRERY__ state for client hydration", () => {
     const dashboard = makeDashboard("Hydration Test", []);
     const layout = resolveLayout(dashboard);
     const data = makeData([]);
 
     const html = renderPage({ dashboard, layout, data, paramValues: { x: "1" } });
 
-    expect(html).toContain("window.__OPENBOARD__");
+    expect(html).toContain("window.__ORRERY__");
     // Verify it's valid JSON embedded in the script
-    const match = html.match(/window\.__OPENBOARD__ = ({.*?});/s);
+    const match = html.match(/window\.__ORRERY__ = ({.*?});/s);
     expect(match).toBeTruthy();
     const parsed = JSON.parse(match![1]);
     expect(parsed.layout.title).toBe("Hydration Test");
@@ -407,8 +407,8 @@ describe("renderPage", () => {
     // The inline <script> block must not contain raw <script> tags from data
     const scriptBlockMatch = html.match(/<script>[\s\S]*?<\/script>/g) ?? [];
     for (const block of scriptBlockMatch) {
-      // Only the __OPENBOARD__ script block and the closing </script> should exist
-      if (block.includes("__OPENBOARD__")) {
+      // Only the __ORRERY__ script block and the closing </script> should exist
+      if (block.includes("__ORRERY__")) {
         expect(block).not.toContain("<script>alert");
       }
     }
@@ -427,10 +427,10 @@ describe("renderPage", () => {
       branding: { logo: "assets/logo.svg", title: "Acme Analytics" },
     });
 
-    expect(html).toContain('class="openboard-header-branding"');
-    expect(html).toContain('class="openboard-header-logo"');
-    expect(html).toContain('src="/openboard/assets/assets/logo.svg"');
-    expect(html).toContain('class="openboard-header-brand"');
+    expect(html).toContain('class="orrery-header-branding"');
+    expect(html).toContain('class="orrery-header-logo"');
+    expect(html).toContain('src="/orrery/assets/assets/logo.svg"');
+    expect(html).toContain('class="orrery-header-brand"');
     expect(html).toContain("Acme Analytics");
   });
 
@@ -444,7 +444,7 @@ describe("renderPage", () => {
       branding: { favicon: "assets/favicon.ico" },
     });
 
-    expect(html).toContain('<link rel="icon" href="/openboard/assets/assets/favicon.ico"');
+    expect(html).toContain('<link rel="icon" href="/orrery/assets/assets/favicon.ico"');
   });
 
   it("includes branding title in page title", () => {
@@ -468,10 +468,10 @@ describe("renderPage", () => {
     const html = renderPage({ dashboard, layout, data, paramValues: {} });
 
     // The branding class appears in the CSS stylesheet, so check the header HTML specifically
-    const headerMatch = html.match(/<header class="openboard-header[^"]*"[\s\S]*?<\/header>/);
+    const headerMatch = html.match(/<header class="orrery-header[^"]*"[\s\S]*?<\/header>/);
     expect(headerMatch).toBeTruthy();
-    expect(headerMatch![0]).not.toContain("openboard-header-branding");
-    expect(headerMatch![0]).not.toContain("openboard-header-logo");
+    expect(headerMatch![0]).not.toContain("orrery-header-branding");
+    expect(headerMatch![0]).not.toContain("orrery-header-logo");
     expect(html).not.toContain('rel="icon"');
   });
 
@@ -494,7 +494,7 @@ describe("renderPage", () => {
     expect(html).toContain("@media print");
     expect(html).toContain("break-inside: avoid");
     // Interactive controls hidden in print
-    expect(html).toContain(".openboard-params");
-    expect(html).toContain(".openboard-component-actions");
+    expect(html).toContain(".orrery-params");
+    expect(html).toContain(".orrery-component-actions");
   });
 });

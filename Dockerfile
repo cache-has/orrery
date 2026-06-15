@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
 #
-# OpenBoard server — base image.
+# Orrery server — base image.
 #
 # Built and published as a versioned base image. Downstream projects extend
-# this image by copying their openboard.config.yaml + dashboards/connections
+# this image by copying their orrery.config.yaml + dashboards/connections
 # into /workspace.
 #
-# Default CMD runs `openboard dev` because dev is currently the only command
+# Default CMD runs `orrery dev` because dev is currently the only command
 # that starts the HTTP server. File watching runs but is harmless inside a
 # container (files never change). If/when a dedicated `serve` subcommand is
 # added upstream, swap the CMD to use it.

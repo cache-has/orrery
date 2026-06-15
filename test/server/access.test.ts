@@ -11,8 +11,8 @@ import type { DiscoveredDashboard } from "../../src/server/discovery.js";
 
 const cfg: AccessConfig = {
   enabled: true,
-  foldersHeader: "x-openboard-folders",
-  canEditHeader: "x-openboard-can-edit",
+  foldersHeader: "x-orrery-folders",
+  canEditHeader: "x-orrery-can-edit",
   requireFolder: true,
 };
 
@@ -28,11 +28,11 @@ function makeContext(headers: Record<string, string>) {
 
 describe("resolveAccess", () => {
   it("parses '*' as all folders (null)", () => {
-    const a = resolveAccess(makeContext({ "x-openboard-folders": "*" }), cfg);
+    const a = resolveAccess(makeContext({ "x-orrery-folders": "*" }), cfg);
     expect(a.folders).toBeNull();
   });
   it("parses a csv list into a set", () => {
-    const a = resolveAccess(makeContext({ "x-openboard-folders": "revenue, marketing" }), cfg);
+    const a = resolveAccess(makeContext({ "x-orrery-folders": "revenue, marketing" }), cfg);
     expect([...(a.folders as Set<string>)].sort()).toEqual(["marketing", "revenue"]);
   });
   it("missing header is fail-closed (empty set)", () => {
@@ -40,8 +40,8 @@ describe("resolveAccess", () => {
     expect(a.folders).toEqual(new Set());
   });
   it("reads the edit capability", () => {
-    expect(resolveAccess(makeContext({ "x-openboard-can-edit": "1" }), cfg).canEdit).toBe(true);
-    expect(resolveAccess(makeContext({ "x-openboard-can-edit": "true" }), cfg).canEdit).toBe(true);
+    expect(resolveAccess(makeContext({ "x-orrery-can-edit": "1" }), cfg).canEdit).toBe(true);
+    expect(resolveAccess(makeContext({ "x-orrery-can-edit": "true" }), cfg).canEdit).toBe(true);
     expect(resolveAccess(makeContext({}), cfg).canEdit).toBe(false);
   });
 });
@@ -72,7 +72,7 @@ describe("accessMiddleware", () => {
     a.post("/api/save/:name", (c) => c.text("saved"));
     return a;
   }
-  const folders = (v: string) => ({ "x-openboard-folders": v });
+  const folders = (v: string) => ({ "x-orrery-folders": v });
 
   it("renders a dashboard in a granted folder", async () => {
     const res = await app().request("/d/revenue-mrr", { headers: folders("revenue") });
@@ -99,7 +99,7 @@ describe("accessMiddleware", () => {
     expect((await app().request("/api/save/x", { method: "POST", headers: folders("*") })).status).toBe(403);
   });
   it("allows the editor with the edit capability", async () => {
-    const headers = { "x-openboard-folders": "*", "x-openboard-can-edit": "1" };
+    const headers = { "x-orrery-folders": "*", "x-orrery-can-edit": "1" };
     expect((await app().request("/edit", { headers })).status).toBe(200);
   });
 });

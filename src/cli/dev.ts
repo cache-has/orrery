@@ -1,5 +1,5 @@
 /**
- * `openboard dev` — start the development server with hot reload.
+ * `orrery dev` — start the development server with hot reload.
  *
  * Thin wrapper over `startServer({ devMode: true })`. Adds the interactive
  * concerns: startup banner with dashboard URLs, "open browser" behavior, and
@@ -73,7 +73,7 @@ const handle = await startServer({
 const { port, dashboardsDir, dashboardSource, connectionSource, connManager, getDashboards, sourceWritable, editorEnabled } = handle;
 const dashboards = getDashboards();
 
-console.log(`\n  OpenBoard dev server running`);
+console.log(`\n  Orrery dev server running`);
 console.log(`  Source: ${dashboardSource.describe()} (${sourceWritable ? "writable" : "read-only"})`);
 console.log(`  Web editor: ${editorEnabled ? "enabled" : "disabled"}`);
 if (connectionSource) {

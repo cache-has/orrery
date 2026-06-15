@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { parse as yamlParse } from 'yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { writeOpenBoardProjectFiles } from '../src/openboard_project.js';
+import { writeOrreryProjectFiles } from '../src/orrery_project.js';
 import type { ColumnPlan } from '../src/arrow_types.js';
 
 const PLAN: ColumnPlan[] = [
@@ -16,20 +16,20 @@ const PLAN: ColumnPlan[] = [
   { name: 'amount', sqlType: 'DOUBLE', arrowTypeId: 0 as never, bigInt: false },
 ];
 
-describe('writeOpenBoardProjectFiles', () => {
+describe('writeOrreryProjectFiles', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'flux-ob-proj-'));
+    dir = mkdtempSync(join(tmpdir(), 'armillary-ob-proj-'));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  function call(overrides: Partial<Parameters<typeof writeOpenBoardProjectFiles>[0]> = {}) {
-    return writeOpenBoardProjectFiles({
+  function call(overrides: Partial<Parameters<typeof writeOrreryProjectFiles>[0]> = {}) {
+    return writeOrreryProjectFiles({
       projectDir: dir,
-      connectionName: 'flux_pipelines',
-      databaseFile: join(dir, 'data', 'flux.duckdb'),
+      connectionName: 'armillary_pipelines',
+      databaseFile: join(dir, 'data', 'armillary.duckdb'),
       tableName: 'orders',
       plan: PLAN,
       writeDatasetMetadata: true,
@@ -47,21 +47,21 @@ describe('writeOpenBoardProjectFiles', () => {
 
     const conn = yamlParse(readFileSync(r.connectionFile, 'utf8'));
     expect(conn).toEqual({
-      name: 'flux_pipelines',
+      name: 'armillary_pipelines',
       type: 'duckdb',
-      path: join('data', 'flux.duckdb'),
+      path: join('data', 'armillary.duckdb'),
     });
 
     const ds = yamlParse(readFileSync(r.datasetFile!, 'utf8'));
     expect(ds.name).toBe('orders');
-    expect(ds.connection).toBe('flux_pipelines');
+    expect(ds.connection).toBe('armillary_pipelines');
     expect(ds.table).toBe('orders');
     expect(ds.schema).toEqual([
       { name: 'order_id', type: 'INTEGER' },
       { name: 'amount', type: 'DOUBLE' },
     ]);
     expect(ds.source).toEqual({
-      type: 'horizon_flux',
+      type: 'armillary',
       pipeline: 'sales_rollup',
       node: 'publish_orders',
     });
@@ -120,11 +120,11 @@ describe('writeOpenBoardProjectFiles', () => {
   });
 
   it('preserves an existing connection file that already matches', () => {
-    const connFile = join(dir, 'connections', 'flux_pipelines.yaml');
+    const connFile = join(dir, 'connections', 'armillary_pipelines.yaml');
     mkdirSync(join(dir, 'connections'), { recursive: true });
     writeFileSync(
       connFile,
-      'name: flux_pipelines\ntype: duckdb\npath: data/flux.duckdb\n',
+      'name: armillary_pipelines\ntype: duckdb\npath: data/armillary.duckdb\n',
       'utf8',
     );
     const r = call();
@@ -132,11 +132,11 @@ describe('writeOpenBoardProjectFiles', () => {
   });
 
   it('falls back to absolute path when database lives outside the project', () => {
-    const outside = mkdtempSync(join(tmpdir(), 'flux-outside-'));
+    const outside = mkdtempSync(join(tmpdir(), 'armillary-outside-'));
     try {
-      const r = call({ databaseFile: join(outside, 'flux.duckdb') });
+      const r = call({ databaseFile: join(outside, 'armillary.duckdb') });
       const conn = yamlParse(readFileSync(r.connectionFile, 'utf8'));
-      expect(conn.path).toBe(join(outside, 'flux.duckdb'));
+      expect(conn.path).toBe(join(outside, 'armillary.duckdb'));
     } finally {
       rmSync(outside, { recursive: true, force: true });
     }

@@ -15,11 +15,11 @@ import { execSync, spawnSync } from "child_process";
 import { S3Source } from "../../src/sources/s3.js";
 import type { DashboardSourceEvent } from "../../src/sources/types.js";
 
-const CONTAINER_NAME = `openboard-minio-test-${process.pid}`;
+const CONTAINER_NAME = `orrery-minio-test-${process.pid}`;
 const PORT = 9100 + (process.pid % 500); // random-ish to avoid collisions
 const ACCESS_KEY = "minioadmin";
 const SECRET_KEY = "minioadmin";
-const BUCKET = "openboard-test";
+const BUCKET = "orrery-test";
 const ENDPOINT = `http://127.0.0.1:${PORT}`;
 
 function dockerAvailable(): boolean {

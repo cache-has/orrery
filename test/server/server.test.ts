@@ -83,7 +83,7 @@ describe("createApp", () => {
     const res = await app.request("/");
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain("OpenBoard");
+    expect(html).toContain("Orrery");
     expect(html).toContain("Dashboards as code");
   });
 });

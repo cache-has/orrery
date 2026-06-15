@@ -1,15 +1,15 @@
 // Copyright (c) 2026 Horizon Analytic Studios, LLC. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// End-to-end integration test for the OpenBoard Flux plugin.
+// End-to-end integration test for the Orrery Armillary plugin.
 //
-// Spawns the bundled `dist/openboard-plugin.js` as a real Node subprocess
-// (matching exactly how the flux Rust host launches it) and drives a full
+// Spawns the bundled `dist/orrery-plugin.js` as a real Node subprocess
+// (matching exactly how the armillary Rust host launches it) and drives a full
 // Hello → ConfigureSink → RecordBatch → Commit → Shutdown lifecycle through
 // stdin/stdout using the same wire-format codec the host uses. This is the
 // proportional stand-in for the planning doc's "Rust test harness" item: it
 // validates the protocol surface, the sink, the atomic rename, and the
-// OpenBoard project file emission against a real subprocess — without
+// Orrery project file emission against a real subprocess — without
 // requiring a Rust toolchain in the plugin's CI.
 
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
@@ -32,7 +32,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = resolve(here, '..');
-const pluginEntry = join(pluginRoot, 'dist', 'openboard-plugin.js');
+const pluginEntry = join(pluginRoot, 'dist', 'orrery-plugin.js');
 
 beforeAll(() => {
   if (!existsSync(pluginEntry)) {
@@ -98,7 +98,7 @@ describe('plugin subprocess integration', () => {
   let h: Harness;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'flux-openboard-int-'));
+    dir = mkdtempSync(join(tmpdir(), 'armillary-orrery-int-'));
   });
 
   afterEach(async () => {
@@ -114,13 +114,13 @@ describe('plugin subprocess integration', () => {
     // Hello
     send(h, encodeJsonFrame(MessageKind.Hello, {
       protocol: PROTOCOL_VERSION,
-      flux_version: '0.5.0',
+      armillary_version: '0.5.0',
     }));
     const helloAck = await nextFrame(h);
     expect(helloAck.kind).toBe(MessageKind.HelloAck);
     expect(jsonOf(helloAck.payload)).toMatchObject({
       protocol: PROTOCOL_VERSION,
-      plugin_name: 'openboard',
+      plugin_name: 'orrery',
     });
 
     // Build a one-row table to use as the schema-IPC payload.
@@ -131,12 +131,12 @@ describe('plugin subprocess integration', () => {
     const schemaIpc = tableToIPC(schemaTable, 'stream');
 
     send(h, encodeJsonFrame(MessageKind.ConfigureSink, {
-      sink_type: 'openboard_duckdb',
+      sink_type: 'orrery_duckdb',
       config: {
-        openboard_project: dir,
+        orrery_project: dir,
         table_name: 'widgets',
         write_mode: 'replace',
-        database_file: 'data/flux.duckdb',
+        database_file: 'data/armillary.duckdb',
         pipeline_name: 'integration_test',
         node_name: 'sink',
       },
@@ -169,7 +169,7 @@ describe('plugin subprocess integration', () => {
     expect(code).toBe(0);
 
     // Target file exists with the rows we sent.
-    const target = join(dir, 'data', 'flux.duckdb');
+    const target = join(dir, 'data', 'armillary.duckdb');
     expect(existsSync(target)).toBe(true);
     const inst = await DuckDBInstance.create(target);
     const conn = await inst.connect();
@@ -185,13 +185,13 @@ describe('plugin subprocess integration', () => {
       inst.closeSync();
     }
 
-    // OpenBoard project files were emitted.
-    expect(existsSync(join(dir, 'connections', 'flux_pipelines.yaml'))).toBe(true);
+    // Orrery project files were emitted.
+    expect(existsSync(join(dir, 'connections', 'armillary_pipelines.yaml'))).toBe(true);
     expect(existsSync(join(dir, 'datasets', 'widgets.yaml'))).toBe(true);
   }, 60_000);
 
   it('SIGKILL mid-stream leaves the target untouched and the staging file is cleaned up on next run', async () => {
-    const target = join(dir, 'data', 'flux.duckdb');
+    const target = join(dir, 'data', 'armillary.duckdb');
 
     // First run: pre-create the target with sentinel content via a clean
     // configure+batch+commit cycle, so we can verify it survives the crash.
@@ -201,12 +201,12 @@ describe('plugin subprocess integration', () => {
       await nextFrame(h);
       const t = tableFromArrays({ id: Int32Array.from([42]), name: ['sentinel'] });
       send(h, encodeJsonFrame(MessageKind.ConfigureSink, {
-        sink_type: 'openboard_duckdb',
+        sink_type: 'orrery_duckdb',
         config: {
-          openboard_project: dir,
+          orrery_project: dir,
           table_name: 'widgets',
           write_mode: 'replace',
-          database_file: 'data/flux.duckdb',
+          database_file: 'data/armillary.duckdb',
         },
         input_schema_ipc_b64: Buffer.from(tableToIPC(t, 'stream')).toString('base64'),
       }));
@@ -228,12 +228,12 @@ describe('plugin subprocess integration', () => {
       await nextFrame(h);
       const t = tableFromArrays({ id: Int32Array.from([0]), name: [''] });
       send(h, encodeJsonFrame(MessageKind.ConfigureSink, {
-        sink_type: 'openboard_duckdb',
+        sink_type: 'orrery_duckdb',
         config: {
-          openboard_project: dir,
+          orrery_project: dir,
           table_name: 'widgets',
           write_mode: 'replace',
-          database_file: 'data/flux.duckdb',
+          database_file: 'data/armillary.duckdb',
         },
         input_schema_ipc_b64: Buffer.from(tableToIPC(t, 'stream')).toString('base64'),
       }));
@@ -264,12 +264,12 @@ describe('plugin subprocess integration', () => {
       await nextFrame(h);
       const t = tableFromArrays({ id: Int32Array.from([0]), name: [''] });
       send(h, encodeJsonFrame(MessageKind.ConfigureSink, {
-        sink_type: 'openboard_duckdb',
+        sink_type: 'orrery_duckdb',
         config: {
-          openboard_project: dir,
+          orrery_project: dir,
           table_name: 'widgets',
           write_mode: 'replace',
-          database_file: 'data/flux.duckdb',
+          database_file: 'data/armillary.duckdb',
         },
         input_schema_ipc_b64: Buffer.from(tableToIPC(t, 'stream')).toString('base64'),
       }));

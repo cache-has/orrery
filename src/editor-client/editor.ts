@@ -20,7 +20,7 @@ export async function renderEditorPage(
   root: HTMLElement,
   name: string,
 ): Promise<void> {
-  const brandTitle = root.dataset.brandTitle || "OpenBoard";
+  const brandTitle = root.dataset.brandTitle || "Orrery";
   root.innerHTML = `
     <div class="ob-ed-page">
       <header class="ob-ed-header">

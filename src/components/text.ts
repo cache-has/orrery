@@ -67,7 +67,7 @@ function resolveParamValue(
 export const textRenderer: ComponentRenderer = {
   renderToString(component: ComponentNode, data: ComponentRenderData): string {
     if (!component.markdownContent) {
-      return `<div class="openboard-text openboard-text-empty">Empty text block</div>`;
+      return `<div class="orrery-text orrery-text-empty">Empty text block</div>`;
     }
 
     // Interpolate parameter values before rendering markdown
@@ -79,6 +79,6 @@ export const textRenderer: ComponentRenderer = {
     // Render markdown to HTML (synchronous)
     const html = marked.parse(interpolated) as string;
 
-    return `<div class="openboard-text">${html}</div>`;
+    return `<div class="orrery-text">${html}</div>`;
   },
 };

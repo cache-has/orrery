@@ -1,19 +1,19 @@
 // Copyright (c) 2026 Horizon Analytic Studios, LLC. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// OpenBoard project integration — after the sink commits a fresh DuckDB
+// Orrery project integration — after the sink commits a fresh DuckDB
 // file, we (1) ensure a `connections/<name>.yaml` exists pointing at it
 // and (2) optionally write a `datasets/<table>.yaml` metadata file so
 // dashboards can discover the table.
 //
-// OpenBoard exports a *reader* for connection files
-// (`@openboard/connections/loader#parseConnectionFile`) but no writer.
-// We use the `yaml` package directly (already an OpenBoard dep) and
+// Orrery exports a *reader* for connection files
+// (`@orrery/connections/loader#parseConnectionFile`) but no writer.
+// We use the `yaml` package directly (already an Orrery dep) and
 // match the on-disk shape of the existing example projects.
 //
 // All writes are idempotent: we parse the existing file, compare, and
 // only rewrite when something actually changed. This keeps git history
-// clean for users who check their OpenBoard project in.
+// clean for users who check their Orrery project in.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, isAbsolute } from 'node:path';
@@ -22,7 +22,7 @@ import { parse as yamlParse, stringify as yamlStringify } from 'yaml';
 
 import type { ColumnPlan } from './arrow_types.js';
 
-export interface OpenBoardProjectWriteParams {
+export interface OrreryProjectWriteParams {
   projectDir: string;
   connectionName: string;
   databaseFile: string; // absolute path to the committed .duckdb file
@@ -34,7 +34,7 @@ export interface OpenBoardProjectWriteParams {
   nodeName?: string | null;
 }
 
-export interface OpenBoardProjectWriteResult {
+export interface OrreryProjectWriteResult {
   connectionFile: string;
   connectionWritten: boolean; // false if existing file already matched
   datasetFile: string | null;
@@ -43,15 +43,15 @@ export interface OpenBoardProjectWriteResult {
 
 /**
  * Materialize the connection (and optionally dataset metadata) for an
- * OpenBoard project so dashboards can discover the freshly-written DuckDB
+ * Orrery project so dashboards can discover the freshly-written DuckDB
  * file. Caller is expected to invoke this *after* the atomic rename so we
  * never advertise a half-written file.
  */
-export function writeOpenBoardProjectFiles(
-  params: OpenBoardProjectWriteParams,
-): OpenBoardProjectWriteResult {
+export function writeOrreryProjectFiles(
+  params: OrreryProjectWriteParams,
+): OrreryProjectWriteResult {
   if (!params.projectDir) {
-    throw new Error('openboard project directory is empty');
+    throw new Error('orrery project directory is empty');
   }
   mkdirSync(params.projectDir, { recursive: true });
 
@@ -136,7 +136,7 @@ interface DatasetDoc {
   last_updated: string;
   snapshot_label?: string;
   source: {
-    type: 'horizon_flux';
+    type: 'armillary';
     pipeline?: string;
     node?: string;
   };
@@ -144,7 +144,7 @@ interface DatasetDoc {
 
 function writeDatasetMetadata(
   filePath: string,
-  params: OpenBoardProjectWriteParams,
+  params: OrreryProjectWriteParams,
 ): boolean {
   const desired: DatasetDoc = {
     name: params.tableName,
@@ -152,7 +152,7 @@ function writeDatasetMetadata(
     table: params.tableName,
     schema: params.plan.map((c) => ({ name: c.name, type: c.sqlType })),
     last_updated: new Date().toISOString(),
-    source: { type: 'horizon_flux' },
+    source: { type: 'armillary' },
   };
   if (params.pipelineName) desired.source.pipeline = params.pipelineName;
   if (params.nodeName) desired.source.node = params.nodeName;
@@ -191,7 +191,7 @@ function datasetEquals(existing: unknown, desired: DatasetDoc): boolean {
     if (eSchema[i]?.type !== desired.schema[i].type) return false;
   }
   const eSource = e.source as Record<string, unknown> | undefined;
-  if (!eSource || eSource.type !== 'horizon_flux') return false;
+  if (!eSource || eSource.type !== 'armillary') return false;
   if ((eSource.pipeline ?? undefined) !== (desired.source.pipeline ?? undefined)) return false;
   if ((eSource.node ?? undefined) !== (desired.source.node ?? undefined)) return false;
   return true;
@@ -203,7 +203,7 @@ function relativeToProject(projectDir: string, databaseFile: string): string {
   const abs = isAbsolute(databaseFile) ? databaseFile : join(projectDir, databaseFile);
   const rel = relative(projectDir, abs);
   // If the database file lives outside the project, fall back to the
-  // absolute path so OpenBoard can still find it.
+  // absolute path so Orrery can still find it.
   if (rel.startsWith('..')) return abs;
   return rel;
 }

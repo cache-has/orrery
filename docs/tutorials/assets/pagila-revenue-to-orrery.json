@@ -1,5 +1,5 @@
 {
-  "name": "Pagila: Revenue to OpenBoard",
+  "name": "Pagila: Revenue to Orrery",
   "version": 1,
   "default_environment": "dev",
   "variables": {},
@@ -106,14 +106,14 @@
       "pinned_position": false
     },
     {
-      "id": "publish_to_openboard",
-      "name": "Publish to OpenBoard",
+      "id": "publish_to_orrery",
+      "name": "Publish to Orrery",
       "type": "sink",
-      "connector": "openboard_duckdb",
+      "connector": "orrery_duckdb",
       "config": {
-        "openboard_project": "{{ env:OPENBOARD_PROJECT }}",
-        "connection_name": "flux_pipelines",
-        "database_file": "data/flux.duckdb",
+        "orrery_project": "{{ env:ORRERY_PROJECT }}",
+        "connection_name": "armillary_pipelines",
+        "database_file": "data/armillary.duckdb",
         "table_name": "revenue_by_category",
         "write_mode": "replace",
         "write_dataset_metadata": true
@@ -131,6 +131,6 @@
     { "from": "film_category", "to": "join_film_category" },
     { "from": "category", "to": "join_film_category" },
     { "from": "join_film_category", "to": "aggregate" },
-    { "from": "aggregate", "to": "publish_to_openboard" }
+    { "from": "aggregate", "to": "publish_to_orrery" }
   ]
 }

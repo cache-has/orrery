@@ -88,7 +88,7 @@ export function renderStaticPage(options: StaticRenderOptions): string {
 
   // Remove refresh buttons (no server to refresh from)
   html = html.replace(
-    /<button class="openboard-refresh"[^>]*>&#x21bb;<\/button>/g,
+    /<button class="orrery-refresh"[^>]*>&#x21bb;<\/button>/g,
     "",
   );
 
@@ -108,7 +108,7 @@ export function renderStaticIndex(
   builtAt: Date = new Date(),
   branding?: BrandingConfig,
 ): string {
-  const brandName = branding?.title ?? "OpenBoard";
+  const brandName = branding?.title ?? "Orrery";
   const safeBrand = escapeHtml(brandName);
   const rows = dashboards
     .map((d) => {
@@ -137,8 +137,8 @@ export function renderStaticIndex(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${safeBrand}</title>
-  <meta name="openboard:built-at" content="${builtAt.toISOString()}">
-  ${snapshotLabel ? `<meta name="openboard:snapshot-label" content="${escapeAttr(snapshotLabel)}">` : ""}
+  <meta name="orrery:built-at" content="${builtAt.toISOString()}">
+  ${snapshotLabel ? `<meta name="orrery:snapshot-label" content="${escapeAttr(snapshotLabel)}">` : ""}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; color: #1a1a1a; min-height: 100vh; }
@@ -173,12 +173,12 @@ export function renderStaticIndex(
 // ---------------------------------------------------------------------------
 
 function buildMetaTags(builtAt: Date, snapshotLabel?: string, version?: string): string {
-  const tags = [`<meta name="openboard:built-at" content="${builtAt.toISOString()}">`];
+  const tags = [`<meta name="orrery:built-at" content="${builtAt.toISOString()}">`];
   if (snapshotLabel) {
-    tags.push(`<meta name="openboard:snapshot-label" content="${escapeAttr(snapshotLabel)}">`);
+    tags.push(`<meta name="orrery:snapshot-label" content="${escapeAttr(snapshotLabel)}">`);
   }
   if (version) {
-    tags.push(`<meta name="openboard:version" content="${escapeAttr(version)}">`);
+    tags.push(`<meta name="orrery:version" content="${escapeAttr(version)}">`);
   }
   return tags.join("\n  ");
 }
@@ -188,7 +188,7 @@ function buildSnapshotFooter(builtAt: Date, snapshotLabel?: string): string {
     ? `Data snapshot: ${escapeHtml(snapshotLabel)} &mdash; Built ${formatDate(builtAt)}`
     : `Data snapshot &mdash; Built ${formatDate(builtAt)}`;
 
-  return `<footer class="openboard-snapshot-footer" style="text-align:center; padding:1rem; font-size:0.8rem; color:#888; border-top:1px solid #e2e8f0; margin-top:1rem;">
+  return `<footer class="orrery-snapshot-footer" style="text-align:center; padding:1rem; font-size:0.8rem; color:#888; border-top:1px solid #e2e8f0; margin-top:1rem;">
       ${label}
     </footer>`;
 }
@@ -217,7 +217,7 @@ function buildStaticInteractiveScript(
   return `(function() {
   'use strict';
 
-  var state = window.__OPENBOARD__;
+  var state = window.__ORRERY__;
   if (!state) return;
 
   // Static mode flag — disables server-dependent features
@@ -227,9 +227,9 @@ function buildStaticInteractiveScript(
 
   // Table sorting
   document.addEventListener('click', function(e) {
-    var th = e.target.closest('.openboard-table th[data-sortable]');
+    var th = e.target.closest('.orrery-table th[data-sortable]');
     if (!th) return;
-    var table = th.closest('.openboard-table');
+    var table = th.closest('.orrery-table');
     if (!table) return;
     var tbody = table.querySelector('tbody');
     if (!tbody) return;
@@ -272,9 +272,9 @@ function buildStaticInteractiveScript(
 
   // Table filtering (search input)
   document.addEventListener('input', function(e) {
-    var input = e.target.closest('.openboard-table-filter');
+    var input = e.target.closest('.orrery-table-filter');
     if (!input) return;
-    var table = input.closest('.openboard-component').querySelector('.openboard-table');
+    var table = input.closest('.orrery-component').querySelector('.orrery-table');
     if (!table) return;
     var tbody = table.querySelector('tbody');
     if (!tbody) return;

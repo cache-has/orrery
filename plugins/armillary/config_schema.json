@@ -1,26 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OpenBoard (DuckDB) Sink",
+  "title": "Orrery (DuckDB) Sink",
   "type": "object",
-  "required": ["openboard_project", "connection_name", "table_name"],
+  "required": ["orrery_project", "connection_name", "table_name"],
   "properties": {
-    "openboard_project": {
+    "orrery_project": {
       "type": "string",
-      "description": "Path to the OpenBoard project directory (the one containing dashboards/ and connections/)."
+      "description": "Path to the Orrery project directory (the one containing dashboards/ and connections/)."
     },
     "connection_name": {
       "type": "string",
-      "description": "Name of the OpenBoard connection to create or update. Becomes the filename: connections/<name>.yaml",
-      "default": "flux_pipelines"
+      "description": "Name of the Orrery connection to create or update. Becomes the filename: connections/<name>.yaml",
+      "default": "armillary_pipelines"
     },
     "database_file": {
       "type": "string",
-      "description": "DuckDB file path, relative to the OpenBoard project directory. Multiple sinks can share one file.",
-      "default": "data/flux.duckdb"
+      "description": "DuckDB file path, relative to the Orrery project directory. Multiple sinks can share one file.",
+      "default": "data/armillary.duckdb"
     },
     "table_name": {
       "type": "string",
-      "description": "Name of the DuckDB table to write. Becomes the queryable table in OpenBoard dashboards."
+      "description": "Name of the DuckDB table to write. Becomes the queryable table in Orrery dashboards."
     },
     "write_mode": {
       "type": "string",
@@ -35,12 +35,12 @@
     },
     "snapshot_label": {
       "type": "string",
-      "description": "Optional label propagated to OpenBoard's snapshot system for versioned dashboards."
+      "description": "Optional label propagated to Orrery's snapshot system for versioned dashboards."
     },
     "write_dataset_metadata": {
       "type": "boolean",
       "default": true,
-      "description": "Emit datasets/<table_name>.yaml metadata file for OpenBoard discovery."
+      "description": "Emit datasets/<table_name>.yaml metadata file for Orrery discovery."
     }
   },
   "additionalProperties": false

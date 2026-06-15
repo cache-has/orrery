@@ -1,5 +1,5 @@
 dashboard "My Dashboard" {
-  description: "Getting started with OpenBoard"
+  description: "Getting started with Orrery"
   connection: "local"
 
   param date_range = daterange(default: "last 30 days")

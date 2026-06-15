@@ -17,9 +17,9 @@ import { resolveLayout } from "../../renderer/layout.js";
 import { renderPage, renderComponentFragment } from "../../renderer/html.js";
 import { fetchDashboardData, collectComponents } from "../../renderer/data.js";
 import type { QueryExecutor } from "../../query/executor.js";
-import { OPENBOARD_CSS } from "../../renderer/styles.js";
-import { OPENBOARD_CLIENT_JS } from "../client.js";
-import { OPENBOARD_INTERACTIVE_JS } from "../interactive.js";
+import { ORRERY_CSS } from "../../renderer/styles.js";
+import { ORRERY_CLIENT_JS } from "../client.js";
+import { ORRERY_INTERACTIVE_JS } from "../interactive.js";
 import { resolveDateRange } from "../../query/daterange.js";
 import { loadThemeFile, resolveTheme, type ThemeFile, type ThemeName } from "../../renderer/theme.js";
 import type { ProjectConfig, DiscoveredDashboard } from "../discovery.js";
@@ -70,24 +70,24 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   };
 
   // Serve the raw CSS stylesheet
-  app.get("/openboard/styles.css", (c) => {
+  app.get("/orrery/styles.css", (c) => {
     c.header("Content-Type", "text/css; charset=utf-8");
     c.header("Cache-Control", "public, max-age=3600");
-    return c.body(OPENBOARD_CSS);
+    return c.body(ORRERY_CSS);
   });
 
   // Serve the client-side JavaScript (dev mode)
-  app.get("/openboard/client.js", (c) => {
+  app.get("/orrery/client.js", (c) => {
     c.header("Content-Type", "application/javascript; charset=utf-8");
     c.header("Cache-Control", "no-cache");
-    return c.body(OPENBOARD_CLIENT_JS);
+    return c.body(ORRERY_CLIENT_JS);
   });
 
   // Serve the interactive script (always — interactivity is core)
-  app.get("/openboard/interactive.js", (c) => {
+  app.get("/orrery/interactive.js", (c) => {
     c.header("Content-Type", "application/javascript; charset=utf-8");
     c.header("Cache-Control", "public, max-age=3600");
-    return c.body(OPENBOARD_INTERACTIVE_JS);
+    return c.body(ORRERY_INTERACTIVE_JS);
   });
 
   // Serve ECharts from the installed `echarts` package. Resolving at request
@@ -96,7 +96,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   // first successful read so we don't re-hit the filesystem per request.
   const require_ = createRequire(import.meta.url);
   let echartsBundleCache: { body: Buffer; etag: string } | null = null;
-  app.get("/openboard/vendor/echarts.min.js", (c) => {
+  app.get("/orrery/vendor/echarts.min.js", (c) => {
     try {
       if (!echartsBundleCache) {
         const echartsPath = require_.resolve("echarts/dist/echarts.min.js");
@@ -116,7 +116,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
       return new Response(echartsBundleCache.body, { status: 200, headers });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[openboard] Failed to serve echarts bundle: ${msg}`);
+      console.error(`[orrery] Failed to serve echarts bundle: ${msg}`);
       return c.text("ECharts bundle not available", 500);
     }
   });
@@ -133,9 +133,9 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
     ".gif": "image/gif",
   };
 
-  app.get("/openboard/assets/*", (c) => {
+  app.get("/orrery/assets/*", (c) => {
     if (!projectRoot) return c.text("Not found", 404);
-    const rawPath = c.req.path.replace("/openboard/assets/", "");
+    const rawPath = c.req.path.replace("/orrery/assets/", "");
     // Prevent path traversal
     if (rawPath.includes("..") || rawPath.startsWith("/")) {
       return c.text("Forbidden", 403);
@@ -228,11 +228,11 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
       });
 
       // Always inject interactive script (interactivity is core)
-      html = html.replace("</body>", `  <script src="/openboard/interactive.js"></script>\n</body>`);
+      html = html.replace("</body>", `  <script src="/orrery/interactive.js"></script>\n</body>`);
 
       // Inject dev client script
       if (devMode) {
-        html = html.replace("</body>", `  <script src="/openboard/client.js"></script>\n</body>`);
+        html = html.replace("</body>", `  <script src="/orrery/client.js"></script>\n</body>`);
       }
 
       return c.html(html);

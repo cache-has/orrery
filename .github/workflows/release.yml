@@ -1,0 +1,59 @@
+name: Release
+
+# Builds and publishes the Orrery server Docker image to GitHub Container
+# Registry (GHCR). Single-platform (linux/amd64, the standard server target) —
+# no OS-specific / multi-arch builds. To add arm64 later, set `platforms` on the
+# build-push step to `linux/amd64,linux/arm64` (requires the buildx setup below,
+# which is already present).
+#
+# Triggered by pushing a semver tag (e.g. `v1.0.0`) or manually.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Derives image tags from the git ref: a `v1.2.3` tag yields `1.2.3`,
+      # `1.2`, `1`, and `latest`. Image name follows the repo (owner/orrery).
+      - name: Derive image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

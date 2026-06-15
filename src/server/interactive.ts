@@ -6,11 +6,11 @@
  * Injected on all dashboard pages (interactivity is a core feature).
  */
 
-export const OPENBOARD_INTERACTIVE_JS = /* js */ `
+export const ORRERY_INTERACTIVE_JS = /* js */ `
 (function() {
   'use strict';
 
-  var state = window.__OPENBOARD__;
+  var state = window.__ORRERY__;
   if (!state) return;
 
   // Dashboard name from the URL path: /d/<name>
@@ -147,8 +147,8 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
   }
 
   function hydrateDateRange(el, name) {
-    var presetSelect = el.querySelector('.openboard-daterange-preset');
-    var customDiv = el.querySelector('.openboard-daterange-custom');
+    var presetSelect = el.querySelector('.orrery-daterange-preset');
+    var customDiv = el.querySelector('.orrery-daterange-custom');
     var startInput = el.querySelector('input[name="' + name + '.start"]');
     var endInput = el.querySelector('input[name="' + name + '.end"]');
 
@@ -195,9 +195,9 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
   }
 
   function hydrateMultiSelect(el, name) {
-    var wrapper = el.querySelector('.openboard-multiselect');
-    var toggle = el.querySelector('.openboard-multiselect-toggle');
-    var dropdown = el.querySelector('.openboard-multiselect-dropdown');
+    var wrapper = el.querySelector('.orrery-multiselect');
+    var toggle = el.querySelector('.orrery-multiselect-toggle');
+    var dropdown = el.querySelector('.orrery-multiselect-dropdown');
     if (!wrapper || !toggle || !dropdown) return;
 
     var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
@@ -255,11 +255,11 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
   }
 
   function hydrateToggle(el, name) {
-    var btn = el.querySelector('.openboard-toggle');
+    var btn = el.querySelector('.orrery-toggle');
     if (!btn) return;
 
     btn.addEventListener('click', function() {
-      var isOn = btn.classList.toggle('openboard-toggle-on');
+      var isOn = btn.classList.toggle('orrery-toggle-on');
       btn.setAttribute('aria-checked', String(isOn));
       paramValues[name] = isOn;
       onParamChange(name);
@@ -347,7 +347,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
       .catch(function(err) {
         inflightRequest = null;
         if (err.name === 'AbortError') return;
-        console.error('[openboard] Refresh failed:', err);
+        console.error('[orrery] Refresh failed:', err);
         // Remove loading states on error
         for (var i = 0; i < componentIds.length; i++) {
           hideLoading(componentIds[i]);
@@ -367,17 +367,17 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     var el = document.querySelector('[data-component-id="' + compId + '"]');
     if (!el) return;
     // Don't add duplicate loading overlays
-    if (el.querySelector('.openboard-loading')) return;
+    if (el.querySelector('.orrery-loading')) return;
     var overlay = document.createElement('div');
-    overlay.className = 'openboard-loading';
-    overlay.innerHTML = '<div class="openboard-spinner"></div>';
+    overlay.className = 'orrery-loading';
+    overlay.innerHTML = '<div class="orrery-spinner"></div>';
     el.appendChild(overlay);
   }
 
   function hideLoading(compId) {
     var el = document.querySelector('[data-component-id="' + compId + '"]');
     if (!el) return;
-    var overlay = el.querySelector('.openboard-loading');
+    var overlay = el.querySelector('.orrery-loading');
     if (overlay) overlay.remove();
   }
 
@@ -390,19 +390,19 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     if (!el) return;
 
     // Remove loading overlay
-    var overlay = el.querySelector('.openboard-loading');
+    var overlay = el.querySelector('.orrery-loading');
     if (overlay) overlay.remove();
 
     // Find and replace body + footer
-    var body = el.querySelector('.openboard-component-body');
-    var footer = el.querySelector('.openboard-component-footer');
+    var body = el.querySelector('.orrery-component-body');
+    var footer = el.querySelector('.orrery-component-footer');
 
     // Parse the fragment to extract body and footer
     var temp = document.createElement('div');
     temp.innerHTML = html;
 
-    var newBody = temp.querySelector('.openboard-component-body');
-    var newFooter = temp.querySelector('.openboard-component-footer');
+    var newBody = temp.querySelector('.orrery-component-body');
+    var newFooter = temp.querySelector('.orrery-component-footer');
 
     if (body && newBody) {
       // Dispose any existing ECharts instance before replacing
@@ -489,7 +489,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
           paramValues[name] = preset;
           changed = true;
           // Update preset select
-          var presetSelect = document.querySelector('[data-param-name="' + name + '"] .openboard-daterange-preset');
+          var presetSelect = document.querySelector('[data-param-name="' + name + '"] .orrery-daterange-preset');
           if (presetSelect) presetSelect.value = preset;
         } else if (start) {
           paramValues[name] = { start: start, end: end || '' };
@@ -501,9 +501,9 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
             var ei = el.querySelector('input[name="' + name + '.end"]');
             if (si) si.value = start;
             if (ei) ei.value = end || '';
-            var ps = el.querySelector('.openboard-daterange-preset');
+            var ps = el.querySelector('.orrery-daterange-preset');
             if (ps) ps.value = 'custom';
-            var cd = el.querySelector('.openboard-daterange-custom');
+            var cd = el.querySelector('.orrery-daterange-custom');
             if (cd) cd.style.display = '';
           }
         }
@@ -513,9 +513,9 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
           var boolVal = val === 'true';
           paramValues[name] = boolVal;
           changed = true;
-          var btn = document.querySelector('[data-param-name="' + name + '"] .openboard-toggle');
+          var btn = document.querySelector('[data-param-name="' + name + '"] .orrery-toggle');
           if (btn) {
-            btn.classList.toggle('openboard-toggle-on', boolVal);
+            btn.classList.toggle('orrery-toggle-on', boolVal);
             btn.setAttribute('aria-checked', String(boolVal));
           }
         }
@@ -565,8 +565,8 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
 
       switch (p.type) {
         case 'daterange': {
-          var ps = el.querySelector('.openboard-daterange-preset');
-          var cd = el.querySelector('.openboard-daterange-custom');
+          var ps = el.querySelector('.orrery-daterange-preset');
+          var cd = el.querySelector('.orrery-daterange-custom');
           var si = el.querySelector('input[name="' + name + '.start"]');
           var ei = el.querySelector('input[name="' + name + '.end"]');
           if (typeof val === 'string') {
@@ -585,10 +585,10 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
           break;
         }
         case 'toggle': {
-          var btn = el.querySelector('.openboard-toggle');
+          var btn = el.querySelector('.orrery-toggle');
           if (btn) {
             var isOn = val === true || val === 'true';
-            btn.classList.toggle('openboard-toggle-on', isOn);
+            btn.classList.toggle('orrery-toggle-on', isOn);
             btn.setAttribute('aria-checked', String(isOn));
           }
           break;
@@ -608,7 +608,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
 
   function setupAutoRefresh() {
     // Check if dashboard has a refresh interval set
-    // It's stored in window.__OPENBOARD__ as part of the serialized state
+    // It's stored in window.__ORRERY__ as part of the serialized state
     // The server extracts it from the dashboard AST
     var refreshInterval = state.refreshInterval;
     if (!refreshInterval || refreshInterval <= 0) return;
@@ -627,7 +627,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
 
     // Restore saved preference from localStorage
     var saved = null;
-    try { saved = localStorage.getItem('openboard-theme'); } catch(e) {}
+    try { saved = localStorage.getItem('orrery-theme'); } catch(e) {}
     if (saved === 'light' || saved === 'dark') {
       applyTheme(saved);
     }
@@ -636,7 +636,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
       var current = document.documentElement.getAttribute('data-theme') || 'light';
       var next = current === 'dark' ? 'light' : 'dark';
       applyTheme(next);
-      try { localStorage.setItem('openboard-theme', next); } catch(e) {}
+      try { localStorage.setItem('orrery-theme', next); } catch(e) {}
     });
 
   }
@@ -665,7 +665,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     }
 
     // Update toggle icon
-    var icon = document.querySelector('.openboard-theme-icon');
+    var icon = document.querySelector('.orrery-theme-icon');
     if (icon) {
       icon.innerHTML = theme === 'dark' ? '\\u2600' : '\\u263E';
     }
@@ -746,13 +746,13 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     if (echartsReady) return echartsReady;
     echartsReady = new Promise(function(resolve, reject) {
       var script = document.createElement('script');
-      script.src = '/openboard/vendor/echarts.min.js';
+      script.src = '/orrery/vendor/echarts.min.js';
       script.onload = function() {
         if (window.echarts) resolve();
         else reject(new Error('echarts script loaded but window.echarts is undefined'));
       };
       script.onerror = function() {
-        reject(new Error('Failed to load echarts from /openboard/vendor/echarts.min.js'));
+        reject(new Error('Failed to load echarts from /orrery/vendor/echarts.min.js'));
       };
       document.head.appendChild(script);
     });
@@ -793,7 +793,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     ensureECharts().then(function() {
       doHydrateOneChart(container);
     }).catch(function(err) {
-      console.warn('[OpenBoard] Chart hydration skipped:', err && err.message ? err.message : err);
+      console.warn('[Orrery] Chart hydration skipped:', err && err.message ? err.message : err);
     });
   }
 
@@ -804,7 +804,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
     try {
       var option = JSON.parse(optionJson);
     } catch(e) {
-      console.warn('[OpenBoard] Failed to parse chart option:', e);
+      console.warn('[Orrery] Failed to parse chart option:', e);
       return;
     }
 
@@ -859,7 +859,7 @@ export const OPENBOARD_INTERACTIVE_JS = /* js */ `
       var chart = window.echarts.init(container, null, { renderer: 'canvas' });
       chart.setOption(option);
     } catch(e) {
-      console.warn('[OpenBoard] Chart hydration failed:', e);
+      console.warn('[Orrery] Chart hydration failed:', e);
     }
   }
 

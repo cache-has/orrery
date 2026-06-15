@@ -1,4 +1,4 @@
-# Pagila Example — OpenBoard
+# Pagila Example — Orrery
 
 A demo project using the [Pagila](https://github.com/devrimgunduz/pagila) sample database (PostgreSQL port of MySQL's Sakila). Models a DVD rental store with customers, films, rentals, and payments.
 
@@ -46,7 +46,7 @@ If your PostgreSQL requires a password, add `password: your_password` or use an 
 
 ## Run
 
-From the openboard project root:
+From the orrery project root:
 
 ```bash
 npx tsx src/cli/dev.ts dev --project examples/pagila

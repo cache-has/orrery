@@ -4,7 +4,7 @@ import { resolve, join } from "path";
 import { tmpdir } from "os";
 import { staticBuild } from "../../src/static/builder.js";
 
-const TEST_DIR = resolve(tmpdir(), "openboard-build-test-" + process.pid);
+const TEST_DIR = resolve(tmpdir(), "orrery-build-test-" + process.pid);
 const OUTPUT_DIR = resolve(TEST_DIR, "output");
 const DASHBOARDS_DIR = resolve(TEST_DIR, "dashboards");
 const CONNECTIONS_DIR = resolve(TEST_DIR, "connections");
@@ -61,7 +61,7 @@ describe("staticBuild", () => {
     const dashHtml = readFileSync(dashPath, "utf-8");
     expect(dashHtml).toContain("Test Dashboard");
     expect(dashHtml).toContain("static export");
-    expect(dashHtml).toContain("openboard:built-at");
+    expect(dashHtml).toContain("orrery:built-at");
     expect(dashHtml).toContain("state.__static__ = true");
   });
 
@@ -92,7 +92,7 @@ describe("staticBuild", () => {
     const dashPath = result.dashboards[0].outputPath;
     const html = readFileSync(dashPath, "utf-8");
     expect(html).toContain("Q1 2026 Report");
-    expect(html).toContain("openboard:snapshot-label");
+    expect(html).toContain("orrery:snapshot-label");
   });
 
   it("cleans output directory before build", async () => {

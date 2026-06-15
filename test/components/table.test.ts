@@ -65,7 +65,7 @@ describe("tableRenderer", () => {
 
     const html = tableRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-data-table");
+    expect(html).toContain("orrery-data-table");
     expect(html).toContain("id");
     expect(html).toContain("name");
     expect(html).toContain("Alice");
@@ -118,8 +118,8 @@ describe("tableRenderer", () => {
 
     const html = tableRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-badge");
-    expect(html).toContain("openboard-badge-active");
+    expect(html).toContain("orrery-badge");
+    expect(html).toContain("orrery-badge-active");
     expect(html).toContain("Active");
   });
 
@@ -161,7 +161,7 @@ describe("tableRenderer", () => {
 
     const html = tableRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-table-filter");
+    expect(html).toContain("orrery-table-filter");
     expect(html).toContain('placeholder="Filter rows');
   });
 
@@ -173,7 +173,7 @@ describe("tableRenderer", () => {
 
     const html = tableRenderer.renderToString(component, data);
 
-    expect(html).not.toContain("openboard-table-filter");
+    expect(html).not.toContain("orrery-table-filter");
   });
 
   it("renders CSV export button", () => {
@@ -184,7 +184,7 @@ describe("tableRenderer", () => {
 
     const html = tableRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-table-csv-btn");
+    expect(html).toContain("orrery-table-csv-btn");
     expect(html).toContain("CSV");
   });
 
@@ -197,7 +197,7 @@ describe("tableRenderer", () => {
 
     const html = tableRenderer.renderToString(component, data);
 
-    expect(html).toContain("openboard-table-pagination");
+    expect(html).toContain("orrery-table-pagination");
     expect(html).toContain("Page");
     expect(html).toContain("of 3");
     expect(html).toContain("30 rows");
@@ -215,7 +215,7 @@ describe("tableRenderer", () => {
     // First 2 rows visible, rows 3-5 hidden
     expect(html).toContain('data-ob-row="0">');
     expect(html).toContain('data-ob-row="1">');
-    expect(html).toContain('class="openboard-table-row-hidden"');
+    expect(html).toContain('class="orrery-table-row-hidden"');
   });
 
   it("renders sortable column headers by default", () => {
@@ -227,7 +227,7 @@ describe("tableRenderer", () => {
     const html = tableRenderer.renderToString(component, data);
 
     expect(html).toContain('data-ob-sortable="true"');
-    expect(html).toContain("openboard-sort-icon");
+    expect(html).toContain("orrery-sort-icon");
   });
 
   it("renders inline script for client-side interactivity", () => {
@@ -282,7 +282,7 @@ describe("tableRenderer", () => {
 
     const html = tableRenderer.renderToString(component, data);
 
-    expect(html).not.toContain("openboard-table-pagination");
+    expect(html).not.toContain("orrery-table-pagination");
     expect(html).toContain("2 rows");
   });
 });

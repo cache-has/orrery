@@ -92,7 +92,7 @@ function buildColumnConfigs(
 export const tableRenderer: ComponentRenderer = {
   renderToString(component: ComponentNode, data: ComponentRenderData): string {
     if (!data.result?.rows?.length) {
-      return `<div class="openboard-no-data">No data</div>`;
+      return `<div class="orrery-no-data">No data</div>`;
     }
 
     const { columns, rows } = data.result;
@@ -116,14 +116,14 @@ export const tableRenderer: ComponentRenderer = {
         const label = config?.label ?? col;
         const align = config?.align ?? "left";
         const sortAttr = sortable ? ` data-ob-sortable="true"` : "";
-        return `<th class="openboard-table-th" data-ob-col="${escapeAttr(col)}" data-ob-align="${align}"${sortAttr}>${escapeHtml(label)}${sortable ? `<span class="openboard-sort-icon"></span>` : ""}</th>`;
+        return `<th class="orrery-table-th" data-ob-col="${escapeAttr(col)}" data-ob-align="${align}"${sortAttr}>${escapeHtml(label)}${sortable ? `<span class="orrery-sort-icon"></span>` : ""}</th>`;
       })
       .join("");
 
     // Build body rows (all rows rendered, pagination hides via CSS/JS)
     const bodyRows = rows
       .map((row, i) => {
-        const hidden = i >= pageSize ? ` class="openboard-table-row-hidden"` : "";
+        const hidden = i >= pageSize ? ` class="orrery-table-row-hidden"` : "";
         const cells = columns
           .map((col) => {
             const config = colConfigs.get(col);
@@ -145,12 +145,12 @@ export const tableRenderer: ComponentRenderer = {
     // Build pagination
     const pagination = totalPages > 1
       ? renderPagination(tableId, totalRows, pageSize, totalPages)
-      : `<div class="openboard-table-footer"><span class="openboard-table-row-count">${totalRows} row${totalRows !== 1 ? "s" : ""}</span></div>`;
+      : `<div class="orrery-table-footer"><span class="orrery-table-row-count">${totalRows} row${totalRows !== 1 ? "s" : ""}</span></div>`;
 
-    return `<div class="openboard-table-wrapper" id="${tableId}" data-ob-page-size="${pageSize}" data-ob-total="${totalRows}">
+    return `<div class="orrery-table-wrapper" id="${tableId}" data-ob-page-size="${pageSize}" data-ob-total="${totalRows}">
       ${toolbar}
-      <div class="openboard-table-scroll">
-        <table class="openboard-data-table openboard-data-table-full">
+      <div class="orrery-table-scroll">
+        <table class="orrery-data-table orrery-data-table-full">
           <thead><tr>${headerCells}</tr></thead>
           <tbody>${bodyRows}</tbody>
         </table>
@@ -163,12 +163,12 @@ export const tableRenderer: ComponentRenderer = {
 
 function renderToolbar(tableId: string, filterable: boolean, _totalRows: number): string {
   const filterInput = filterable
-    ? `<input type="text" class="openboard-table-filter" placeholder="Filter rows\u2026" data-ob-filter="${tableId}" />`
+    ? `<input type="text" class="orrery-table-filter" placeholder="Filter rows\u2026" data-ob-filter="${tableId}" />`
     : "";
 
-  return `<div class="openboard-table-toolbar">
+  return `<div class="orrery-table-toolbar">
       ${filterInput}
-      <button class="openboard-table-csv-btn" data-ob-csv="${tableId}" title="Export CSV">&#x2913; CSV</button>
+      <button class="orrery-table-csv-btn" data-ob-csv="${tableId}" title="Export CSV">&#x2913; CSV</button>
     </div>`;
 }
 
@@ -178,12 +178,12 @@ function renderPagination(
   pageSize: number,
   totalPages: number,
 ): string {
-  return `<div class="openboard-table-footer" data-ob-pagination="${tableId}">
-      <span class="openboard-table-row-count">${totalRows} row${totalRows !== 1 ? "s" : ""}</span>
-      <div class="openboard-table-pagination">
-        <button class="openboard-page-btn" data-ob-page-action="prev" disabled>&lsaquo; Prev</button>
-        <span class="openboard-page-info">Page <span data-ob-current-page>1</span> of ${totalPages}</span>
-        <button class="openboard-page-btn" data-ob-page-action="next"${totalPages <= 1 ? " disabled" : ""}>Next &rsaquo;</button>
+  return `<div class="orrery-table-footer" data-ob-pagination="${tableId}">
+      <span class="orrery-table-row-count">${totalRows} row${totalRows !== 1 ? "s" : ""}</span>
+      <div class="orrery-table-pagination">
+        <button class="orrery-page-btn" data-ob-page-action="prev" disabled>&lsaquo; Prev</button>
+        <span class="orrery-page-info">Page <span data-ob-current-page>1</span> of ${totalPages}</span>
+        <button class="orrery-page-btn" data-ob-page-action="next"${totalPages <= 1 ? " disabled" : ""}>Next &rsaquo;</button>
       </div>
     </div>`;
 }
@@ -209,9 +209,9 @@ var filtered=rows.slice();
 
 function show(){
   var start=(curPage-1)*ps,end=start+ps;
-  rows.forEach(function(r){r.classList.add("openboard-table-row-hidden")});
+  rows.forEach(function(r){r.classList.add("orrery-table-row-hidden")});
   for(var i=start;i<end&&i<filtered.length;i++){
-    filtered[i].classList.remove("openboard-table-row-hidden");
+    filtered[i].classList.remove("orrery-table-row-hidden");
   }
   var pi=w.querySelector("[data-ob-current-page]");
   if(pi)pi.textContent=curPage;
@@ -221,7 +221,7 @@ function show(){
     var nextBtn=pNav.querySelector("[data-ob-page-action=next]");
     if(prevBtn)prevBtn.disabled=curPage<=1;
     if(nextBtn)nextBtn.disabled=curPage>=pages;
-    var info=pNav.querySelector(".openboard-page-info");
+    var info=pNav.querySelector(".orrery-page-info");
     if(info)info.innerHTML="Page <span data-ob-current-page>"+curPage+"</span> of "+pages;
   }
 }
@@ -233,7 +233,7 @@ function applyFilter(){
   total=filtered.length;
   pages=Math.max(1,Math.ceil(total/ps));
   curPage=1;
-  var rc=w.querySelector(".openboard-table-row-count");
+  var rc=w.querySelector(".orrery-table-row-count");
   if(rc)rc.textContent=total+" row"+(total!==1?"s":"");
   show();
 }
@@ -245,13 +245,13 @@ ths.forEach(function(th,ci){
   th.addEventListener("click",function(){
     if(sortCol===ci){sortAsc=!sortAsc}else{sortCol=ci;sortAsc=true}
     ths.forEach(function(h){
-      var icon=h.querySelector(".openboard-sort-icon");
+      var icon=h.querySelector(".orrery-sort-icon");
       if(icon)icon.textContent="";
-      h.classList.remove("openboard-th-sorted-asc","openboard-th-sorted-desc");
+      h.classList.remove("orrery-th-sorted-asc","orrery-th-sorted-desc");
     });
-    var icon=th.querySelector(".openboard-sort-icon");
+    var icon=th.querySelector(".orrery-sort-icon");
     if(icon)icon.textContent=sortAsc?" \\u25B2":" \\u25BC";
-    th.classList.add(sortAsc?"openboard-th-sorted-asc":"openboard-th-sorted-desc");
+    th.classList.add(sortAsc?"orrery-th-sorted-asc":"orrery-th-sorted-desc");
     filtered.sort(function(a,b){
       var va=a.cells[ci].dataset.obRaw;
       var vb=b.cells[ci].dataset.obRaw;

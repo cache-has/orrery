@@ -1,4 +1,4 @@
-# OpenBoard — Validate Dashboards on Pull Request
+# Orrery — Validate Dashboards on Pull Request
 #
 # Copy this file to .github/workflows/validate.yml in your dashboard project.
 # Validates all .board files and connection configs when a PR touches them.
@@ -22,4 +22,4 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Validate dashboards and connections
-        run: npx openboard validate
+        run: npx orrery validate
