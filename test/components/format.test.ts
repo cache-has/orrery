@@ -23,8 +23,8 @@ describe("formatValue", () => {
 
   it("formats badge as HTML span", () => {
     const result = formatValue("Active", "badge");
-    expect(result).toContain("openboard-badge");
-    expect(result).toContain("openboard-badge-active");
+    expect(result).toContain("orrery-badge");
+    expect(result).toContain("orrery-badge-active");
     expect(result).toContain("Active");
   });
 

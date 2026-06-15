@@ -71,10 +71,10 @@ describe("parseSourceUri", () => {
   });
 
   it("parses absolute paths as local", () => {
-    const result = parseSourceUri("/opt/openboard/dashboards");
+    const result = parseSourceUri("/opt/orrery/dashboards");
     expect(result).toEqual({
       scheme: "local",
-      path: "/opt/openboard/dashboards",
+      path: "/opt/orrery/dashboards",
     });
   });
 });

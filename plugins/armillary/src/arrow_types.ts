@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Horizon Analytic Studios, LLC. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Arrow → DuckDB type mapping for the OpenBoard sink plugin.
+// Arrow → DuckDB type mapping for the Orrery sink plugin.
 //
 // Supported in v1.1:
 //   - Bool, Int8/16/32/64 (signed and unsigned), Float32/64
@@ -25,7 +25,7 @@ import { DataType, DateUnit, Decimal, Field, Schema, TimeUnit, Type } from 'apac
 export class UnsupportedTypeError extends Error {
   constructor(public readonly column: string, public readonly arrowType: string) {
     super(
-      `column "${column}" has Arrow type ${arrowType}, which the OpenBoard sink does not support`,
+      `column "${column}" has Arrow type ${arrowType}, which the Orrery sink does not support`,
     );
     this.name = 'UnsupportedTypeError';
   }

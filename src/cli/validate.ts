@@ -143,7 +143,7 @@ if (resolvedConnectionsUri || existsSync(connectionsDir)) {
   }
 } else if (boardFiles.length === 0) {
   console.log("No board files specified and no connections/ directory found.");
-  console.log("Usage: openboard validate [file.board ...] [--check-connections]");
+  console.log("Usage: orrery validate [file.board ...] [--check-connections]");
   process.exit(1);
 }
 

@@ -7,7 +7,7 @@
  * - Dashboard reload on file change
  */
 
-export const OPENBOARD_CLIENT_JS = /* js */ `
+export const ORRERY_CLIENT_JS = /* js */ `
 (function() {
   'use strict';
 
@@ -21,7 +21,7 @@ export const OPENBOARD_CLIENT_JS = /* js */ `
     ws = new WebSocket(protocol + '//' + location.host + '/ws');
 
     ws.onopen = function() {
-      console.log('[openboard] Connected to dev server');
+      console.log('[orrery] Connected to dev server');
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
@@ -35,7 +35,7 @@ export const OPENBOARD_CLIENT_JS = /* js */ `
     };
 
     ws.onclose = function() {
-      console.log('[openboard] Disconnected, reconnecting...');
+      console.log('[orrery] Disconnected, reconnecting...');
       scheduleReconnect();
     };
 
@@ -79,7 +79,7 @@ export const OPENBOARD_CLIENT_JS = /* js */ `
     hideErrorOverlay();
 
     overlayEl = document.createElement('div');
-    overlayEl.id = 'openboard-error-overlay';
+    overlayEl.id = 'orrery-error-overlay';
     overlayEl.style.cssText = [
       'position:fixed', 'inset:0', 'z-index:99999',
       'background:rgba(0,0,0,0.85)', 'color:#fff',

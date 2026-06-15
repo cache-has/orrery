@@ -1,5 +1,5 @@
 /**
- * Format system for OpenBoard components.
+ * Format system for Orrery components.
  *
  * Reusable value formatters applied to numbers, dates, and strings
  * across all component types (metric cards, tables, chart axes).
@@ -82,7 +82,7 @@ export function formatValue(
     case "badge": {
       const str = String(value);
       const slug = str.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      return `<span class="openboard-badge openboard-badge-${slug}">${str}</span>`;
+      return `<span class="orrery-badge orrery-badge-${slug}">${str}</span>`;
     }
     case "raw":
     default:

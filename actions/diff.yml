@@ -1,4 +1,4 @@
-# OpenBoard — Dashboard Diff on Pull Request
+# Orrery — Dashboard Diff on Pull Request
 #
 # Copy this file to .github/workflows/diff.yml in your dashboard project.
 # Compares dashboards between the PR branch and main, and posts a structured
@@ -27,7 +27,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Generate diff report
-        run: npx openboard diff --base origin/main --head HEAD --output ./diff-report.md
+        run: npx orrery diff --base origin/main --head HEAD --output ./diff-report.md
       - name: Comment diff on PR
         uses: actions/github-script@v7
         with:

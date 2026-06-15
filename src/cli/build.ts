@@ -1,11 +1,11 @@
 /**
- * `openboard build` — generate static HTML export of dashboards.
+ * `orrery build` — generate static HTML export of dashboards.
  *
  * Usage:
- *   openboard build --output ./dist
- *   openboard build --dashboard sales --output ./dist
- *   openboard build --output ./dist --snapshot-label "Q1 2026 Report"
- *   openboard build --output ./dist --self-contained
+ *   orrery build --output ./dist
+ *   orrery build --dashboard sales --output ./dist
+ *   orrery build --output ./dist --snapshot-label "Q1 2026 Report"
+ *   orrery build --output ./dist --self-contained
  */
 
 import { resolve } from "path";
@@ -95,7 +95,7 @@ function parseArgs(argv: string[]): BuildArgs {
 const args = parseArgs(process.argv.slice(3)); // skip node, script, "build"
 const projectRoot = resolve(args.project);
 
-console.log("OpenBoard — Static Build");
+console.log("Orrery — Static Build");
 console.log(`  Project: ${projectRoot}`);
 console.log(`  Output:  ${resolve(args.output)}`);
 if (args.dashboard) console.log(`  Dashboard: ${args.dashboard}`);

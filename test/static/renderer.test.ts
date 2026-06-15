@@ -78,9 +78,9 @@ describe("renderStaticPage", () => {
       version: "0.1.0",
     });
 
-    expect(html).toContain('<meta name="openboard:built-at" content="2026-03-28T14:30:00.000Z">');
-    expect(html).toContain('<meta name="openboard:snapshot-label" content="Q1 2026 Report">');
-    expect(html).toContain('<meta name="openboard:version" content="0.1.0">');
+    expect(html).toContain('<meta name="orrery:built-at" content="2026-03-28T14:30:00.000Z">');
+    expect(html).toContain('<meta name="orrery:snapshot-label" content="Q1 2026 Report">');
+    expect(html).toContain('<meta name="orrery:version" content="0.1.0">');
   });
 
   it("renders snapshot footer with label", () => {
@@ -98,7 +98,7 @@ describe("renderStaticPage", () => {
     });
 
     expect(html).toContain("Data snapshot: Monthly Report");
-    expect(html).toContain("openboard-snapshot-footer");
+    expect(html).toContain("orrery-snapshot-footer");
   });
 
   it("removes refresh buttons in static mode", () => {
@@ -181,7 +181,7 @@ describe("renderStaticIndex", () => {
     );
 
     expect(html).toContain("Q1 2026 Report");
-    expect(html).toContain('<meta name="openboard:snapshot-label"');
+    expect(html).toContain('<meta name="orrery:snapshot-label"');
   });
 
   it("renders empty state when no dashboards", () => {
@@ -200,13 +200,13 @@ describe("renderStaticIndex", () => {
     );
     expect(html).toContain("<title>Acme Analytics</title>");
     expect(html).toContain("<h1>Acme Analytics</h1>");
-    expect(html).not.toContain("<title>OpenBoard</title>");
+    expect(html).not.toContain("<title>Orrery</title>");
   });
 
   it("includes built-at metadata", () => {
     const builtAt = new Date("2026-03-28T14:30:00Z");
     const html = renderStaticIndex([{ slug: "a", title: "A" }], undefined, builtAt);
 
-    expect(html).toContain('<meta name="openboard:built-at" content="2026-03-28T14:30:00.000Z">');
+    expect(html).toContain('<meta name="orrery:built-at" content="2026-03-28T14:30:00.000Z">');
   });
 });

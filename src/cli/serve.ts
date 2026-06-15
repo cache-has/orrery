@@ -1,5 +1,5 @@
 /**
- * `openboard serve` — production HTTP server.
+ * `orrery serve` — production HTTP server.
  *
  * Same Hono app as `dev`, minus the interactive/watcher plumbing: no
  * FileWatcher, no DevWebSocket, no hot-reload client JS, no browser-open.
@@ -66,7 +66,7 @@ const handle = await startServer({
 
 const { port, dashboardSource, connectionSource, connManager, getDashboards, sourceWritable, editorEnabled } = handle;
 
-console.log(`  OpenBoard serve running on port ${port}`);
+console.log(`  Orrery serve running on port ${port}`);
 console.log(`  Source: ${dashboardSource.describe()} (${sourceWritable ? "writable" : "read-only"})`);
 console.log(`  Web editor: ${editorEnabled ? "enabled" : "disabled"}`);
 if (connectionSource) {

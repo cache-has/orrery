@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync, readdirSync, readFileSync
 import { resolve, join } from "path";
 import { tmpdir } from "os";
 
-const TEST_DIR = resolve(tmpdir(), "openboard-build-test-" + process.pid);
+const TEST_DIR = resolve(tmpdir(), "orrery-build-test-" + process.pid);
 const OUTPUT_DIR = resolve(TEST_DIR, "output");
 const DASHBOARDS_DIR = resolve(TEST_DIR, "dashboards");
 const CONNECTIONS_DIR = resolve(TEST_DIR, "connections");
@@ -63,7 +63,7 @@ afterEach(() => {
   }
 });
 
-describe("openboard build", () => {
+describe("orrery build", () => {
   it("produces HTML output files", () => {
     const result = runBuild();
     expect(result.exitCode).toBe(0);
@@ -93,7 +93,7 @@ describe("openboard build", () => {
   });
 
   it("fails with exit 1 when project has no dashboards", () => {
-    const emptyDir = resolve(tmpdir(), "openboard-build-empty-" + process.pid);
+    const emptyDir = resolve(tmpdir(), "orrery-build-empty-" + process.pid);
     mkdirSync(resolve(emptyDir, "dashboards"), { recursive: true });
     mkdirSync(resolve(emptyDir, "connections"), { recursive: true });
     writeFileSync(join(emptyDir, "connections", "local.yaml"), SQLITE_CONN);

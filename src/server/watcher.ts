@@ -55,7 +55,7 @@ export class FileWatcher extends EventEmitter {
     // Watch specific env/config/theme files in project root
     const envFile = resolve(this.projectRoot, ".env");
     const envLocalFile = resolve(this.projectRoot, ".env.local");
-    const configFile = resolve(this.projectRoot, "openboard.config.yaml");
+    const configFile = resolve(this.projectRoot, "orrery.config.yaml");
     const themeCssFile = resolve(this.projectRoot, "theme.css");
     const themeYamlFile = resolve(this.projectRoot, "theme.yaml");
     const themeYmlFile = resolve(this.projectRoot, "theme.yml");
@@ -99,7 +99,7 @@ export class FileWatcher extends EventEmitter {
     const ext = extname(filePath);
     const name = basename(filePath);
 
-    if (name === "openboard.config.yaml") {
+    if (name === "orrery.config.yaml") {
       return { type: "config", filePath, event };
     }
     if (name === ".env" || name === ".env.local") {

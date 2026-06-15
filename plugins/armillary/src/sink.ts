@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Horizon Analytic Studios, LLC. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// OpenBoard sink — DuckDB writer behind the flux plugin SinkHandlers
+// Orrery sink — DuckDB writer behind the armillary plugin SinkHandlers
 // interface. Implements the staging-file + atomic-rename strategy
-// described in planning/25-openboard-plugin.md so a crash mid-pipeline
+// described in planning/25-orrery-plugin.md so a crash mid-pipeline
 // never leaves the target file in a half-written state.
 //
 // Scope (v1, "Sink implementation" task block):
@@ -13,8 +13,8 @@
 //   - orphaned staging-file cleanup on configure
 //   - error mapping (DuckDB errors → ProtocolError-shaped messages)
 //
-// OpenBoard project file writes (connections/<name>.yaml, datasets/<name>.yaml)
-// are delegated to ./openboard_project.ts and invoked from commit() after the
+// Orrery project file writes (connections/<name>.yaml, datasets/<name>.yaml)
+// are delegated to ./orrery_project.ts and invoked from commit() after the
 // atomic rename succeeds.
 
 import { existsSync, mkdirSync, readdirSync, renameSync, unlinkSync } from 'node:fs';
@@ -42,7 +42,7 @@ import {
   planColumns,
   quoteIdent,
 } from './arrow_types.js';
-import { writeOpenBoardProjectFiles } from './openboard_project.js';
+import { writeOrreryProjectFiles } from './orrery_project.js';
 import {
   type BatchAckPayload,
   type CommitAckPayload,
@@ -51,8 +51,8 @@ import {
   type SinkHandlers,
 } from './protocol.js';
 
-export interface OpenBoardSinkConfig {
-  openboard_project: string;
+export interface OrrerySinkConfig {
+  orrery_project: string;
   connection_name?: string;
   database_file?: string;
   table_name: string;
@@ -66,7 +66,7 @@ export interface OpenBoardSinkConfig {
   node_name?: string;
 }
 
-// ----- Materialization policy (mirror of flux_engine::materialization) -----
+// ----- Materialization policy (mirror of armillary_engine::materialization) -----
 
 export type ChangeDetection = 'check' | 'timestamp';
 export type HardDeletes = 'ignore' | 'invalidate' | 'delete';
@@ -86,11 +86,11 @@ export interface MaterializationPolicy {
   snapshot?: SnapshotPolicy;
 }
 
-// SCD2 metadata column names — must match flux_engine::snapshot constants.
-const FLUX_SCD_ID = 'flux_scd_id';
-const FLUX_VALID_FROM = 'flux_valid_from';
-const FLUX_VALID_TO = 'flux_valid_to';
-const FLUX_IS_CURRENT = 'flux_is_current';
+// SCD2 metadata column names — must match armillary_engine::snapshot constants.
+const FLUX_SCD_ID = 'armillary_scd_id';
+const FLUX_VALID_FROM = 'armillary_valid_from';
+const FLUX_VALID_TO = 'armillary_valid_to';
+const FLUX_IS_CURRENT = 'armillary_is_current';
 
 interface ResolvedConfig {
   projectDir: string;
@@ -129,7 +129,7 @@ interface ActiveSession {
   snapshotStats: SnapshotStats | null;
 }
 
-export class OpenBoardSink implements SinkHandlers {
+export class OrrerySink implements SinkHandlers {
   private session: ActiveSession | null = null;
 
   async configure(payload: ConfigureSinkPayload): Promise<ConfigureAckPayload> {
@@ -138,7 +138,7 @@ export class OpenBoardSink implements SinkHandlers {
     }
     let resolved: ResolvedConfig;
     try {
-      resolved = resolveConfig(payload.config as OpenBoardSinkConfig);
+      resolved = resolveConfig(payload.config as OrrerySinkConfig);
     } catch (e) {
       return { accepted: false, reason: (e as Error).message };
     }
@@ -349,13 +349,13 @@ export class OpenBoardSink implements SinkHandlers {
       }
     }
 
-    // Materialize OpenBoard project files (connection + optional dataset
+    // Materialize Orrery project files (connection + optional dataset
     // metadata) so dashboards can discover the freshly committed table.
     // Failures here are surfaced as commit errors: the DuckDB file is
-    // already in place, but advertising it to OpenBoard is part of the
+    // already in place, but advertising it to Orrery is part of the
     // sink's contract.
     try {
-      writeOpenBoardProjectFiles({
+      writeOrreryProjectFiles({
         projectDir: s.config.projectDir,
         connectionName: s.config.connectionName,
         databaseFile: s.config.databaseFile,
@@ -368,7 +368,7 @@ export class OpenBoardSink implements SinkHandlers {
       });
     } catch (e) {
       throw new Error(
-        `failed to update OpenBoard project files: ${(e as Error).message}`,
+        `failed to update Orrery project files: ${(e as Error).message}`,
       );
     }
 
@@ -423,15 +423,15 @@ export class OpenBoardSink implements SinkHandlers {
 
 // ---------- helpers ----------
 
-function resolveConfig(raw: OpenBoardSinkConfig): ResolvedConfig {
+function resolveConfig(raw: OrrerySinkConfig): ResolvedConfig {
   if (!raw || typeof raw !== 'object') {
     throw new Error('config must be an object');
   }
-  if (!raw.openboard_project) throw new Error('config.openboard_project is required');
+  if (!raw.orrery_project) throw new Error('config.orrery_project is required');
   if (!raw.table_name) throw new Error('config.table_name is required');
 
-  const projectDir = resolve(raw.openboard_project);
-  const dbRel = raw.database_file ?? 'data/flux.duckdb';
+  const projectDir = resolve(raw.orrery_project);
+  const dbRel = raw.database_file ?? 'data/armillary.duckdb';
   const databaseFile = isAbsolute(dbRel) ? dbRel : resolve(projectDir, dbRel);
   const stagingFile = `${databaseFile}.staging-${randomUUID()}.duckdb`;
   const writeMode = raw.write_mode ?? 'replace';
@@ -445,7 +445,7 @@ function resolveConfig(raw: OpenBoardSinkConfig): ResolvedConfig {
     tableName: raw.table_name,
     writeMode,
     upsertKeys: raw.upsert_keys ?? [],
-    connectionName: raw.connection_name ?? 'flux_pipelines',
+    connectionName: raw.connection_name ?? 'armillary_pipelines',
     snapshotLabel: raw.snapshot_label ?? null,
     writeDatasetMetadata: raw.write_dataset_metadata ?? true,
     pipelineName: raw.pipeline_name ?? null,
@@ -542,7 +542,7 @@ function comparisonColumns(
  *     the four SCD2 metadata columns appended at the end.
  *   - If it exists, verify the metadata columns are present (otherwise the
  *     user pointed snapshot at a non-snapshot table — refuse).
- *   - Create the helper index `(unique_keys, flux_is_current)`.
+ *   - Create the helper index `(unique_keys, armillary_is_current)`.
  *   - Create a session-local stage table mirroring the business schema only.
  */
 async function prepareSnapshotTarget(

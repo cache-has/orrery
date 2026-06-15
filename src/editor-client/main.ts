@@ -4,7 +4,7 @@ import { renderEditorPage } from "./editor.js";
 
 async function boot(): Promise<void> {
   injectStyles();
-  const root = document.getElementById("openboard-editor");
+  const root = document.getElementById("orrery-editor");
   if (!root) return;
   const mode = root.dataset.mode;
   if (mode === "list") {

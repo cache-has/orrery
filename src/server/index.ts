@@ -96,7 +96,7 @@ export function createApp(options: AppOptions = {}): Hono {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenBoard</title>
+  <title>Orrery</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 800px; margin: 80px auto; padding: 0 20px; color: #1a1a1a; }
     h1 { font-size: 2rem; }
@@ -105,7 +105,7 @@ export function createApp(options: AppOptions = {}): Hono {
   </style>
 </head>
 <body>
-  <h1>OpenBoard</h1>
+  <h1>Orrery</h1>
   <p>Dashboards as code, not clicks.</p>
   <p>Health check: <code>GET /api/health</code></p>
 </body>
@@ -190,11 +190,11 @@ function renderDashboardIndex(dashboards: DiscoveredDashboard[], branding?: Bran
     ? `<p class="ob-idx-empty">No dashboards found. Create a <code>.board</code> file in your dashboards directory to get started.</p>`
     : "";
 
-  const indexTitle = branding?.title ? escapeHtml(branding.title) : "OpenBoard";
-  const pageTitle = branding?.title ? `${escapeHtml(branding.title)} — Dashboards` : "OpenBoard — Dashboards";
-  const faviconLink = branding?.favicon ? `\n  <link rel="icon" href="/openboard/assets/${escapeHtml(branding.favicon)}" />` : "";
+  const indexTitle = branding?.title ? escapeHtml(branding.title) : "Orrery";
+  const pageTitle = branding?.title ? `${escapeHtml(branding.title)} — Dashboards` : "Orrery — Dashboards";
+  const faviconLink = branding?.favicon ? `\n  <link rel="icon" href="/orrery/assets/${escapeHtml(branding.favicon)}" />` : "";
   const logoHtml = branding?.logo
-    ? `<img src="/openboard/assets/${escapeHtml(branding.logo)}" alt="${indexTitle}" style="height:32px;width:auto;object-fit:contain;margin-right:0.5rem;vertical-align:middle;" />`
+    ? `<img src="/orrery/assets/${escapeHtml(branding.logo)}" alt="${indexTitle}" style="height:32px;width:auto;object-fit:contain;margin-right:0.5rem;vertical-align:middle;" />`
     : "";
 
   return `<!DOCTYPE html>

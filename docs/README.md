@@ -3,9 +3,9 @@ Copyright (c) 2026 Horizon Analytic Studios, LLC. All rights reserved.
 SPDX-License-Identifier: MIT OR Apache-2.0
 -->
 
-# OpenBoard Documentation
+# Orrery Documentation
 
-Long-form docs for OpenBoard: tutorials, integration guides, and reference material that doesn't fit in the top-level `README.md` or in per-plugin READMEs.
+Long-form docs for Orrery: tutorials, integration guides, and reference material that doesn't fit in the top-level `README.md` or in per-plugin READMEs.
 
 ## Layout
 
@@ -23,14 +23,14 @@ As docs grow, add sibling directories for `reference/` (config schemas, CLI refe
 
 | Guide | What it covers |
 |---|---|
-| [Deploying OpenBoard](./guides/deployment.md) | Production container deploy: base + project images, S3-backed dashboards, DB credentials, CI/CD, and fronting OpenBoard with your own SSO via the trusted-header auth pattern. |
+| [Deploying Orrery](./guides/deployment.md) | Production container deploy: base + project images, S3-backed dashboards, DB credentials, CI/CD, and fronting Orrery with your own SSO via the trusted-header auth pattern. |
 
 ## Tutorials
 
 | Tutorial | What it covers |
 |---|---|
-| [From Postgres to Dashboard with Flux + OpenBoard](./tutorials/flux-postgres-to-dashboard.md) | End-to-end Horizon Analytic stack: Pagila in Postgres → Horizon Flux pipeline → openboard sink plugin → OpenBoard dashboard. |
+| [From Postgres to Dashboard with Armillary + Orrery](./tutorials/armillary-postgres-to-dashboard.md) | End-to-end Horizon Analytic stack: Pagila in Postgres → Armillary pipeline → orrery sink plugin → Orrery dashboard. |
 
 ## Plugin docs
 
-Per-plugin docs live with the plugin source, not here. The flux sink plugin's reference is at [`../plugins/flux/README.md`](../plugins/flux/README.md).
+Per-plugin docs live with the plugin source, not here. The armillary sink plugin's reference is at [`../plugins/armillary/README.md`](../plugins/armillary/README.md).

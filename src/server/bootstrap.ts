@@ -1,5 +1,5 @@
 /**
- * Shared server bootstrap used by both `openboard dev` and `openboard serve`.
+ * Shared server bootstrap used by both `orrery dev` and `orrery serve`.
  *
  * `dev` passes devMode: true to get FileWatcher + DevWebSocket and hot-reload
  * client injection. `serve` passes devMode: false for a lean production process
