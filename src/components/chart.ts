@@ -152,6 +152,7 @@ function makeAxisFormatter(yFormatName: string | undefined): ((v: number) => str
 function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isArea: boolean, palette: string[]): Record<string, unknown> {
   const color = getStringProp(component, "color");
   const yFormatName = getStringProp(component, "y_format");
+  const yScale = getStringProp(component, "y_scale");
   const axisFormatter = makeAxisFormatter(yFormatName);
 
   // Group by series
@@ -198,7 +199,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
       axisTick: { alignWithLabel: true },
     },
     yAxis: {
-      type: "value",
+      type: yScale === "log" ? "log" : "value",
       axisLabel: {
         fontSize: 11,
         ...(axisFormatter ? { formatter: axisFormatter } : {}),
@@ -219,6 +220,7 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[], pale
   const sortDir = getStringProp(component, "sort");
   const orientation = getStringProp(component, "orientation") ?? "vertical";
   const yFormatName = getStringProp(component, "y_format");
+  const yScale = getStringProp(component, "y_scale");
   const axisFormatter = makeAxisFormatter(yFormatName);
   const isHorizontal = orientation === "horizontal";
 
@@ -293,7 +295,7 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[], pale
   const isPercentStacked = isStacked && stackedMode === "percent";
   const percentFormatter = (v: number) => `${Math.round(v)}%`;
   const valueAxis = {
-    type: "value" as const,
+    type: (yScale === "log" ? "log" : "value") as "value" | "log",
     ...(isPercentStacked ? { max: 100, min: 0 } : {}),
     axisLabel: {
       fontSize: 11,
