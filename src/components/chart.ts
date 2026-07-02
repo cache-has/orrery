@@ -168,6 +168,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
   const allLabels = [...new Set(points.map((p) => p.label))];
   const seriesKeys = [...seriesMap.keys()];
   const isMultiSeries = seriesKeys.length > 1;
+  const hasNonPositiveValue = points.some((p) => p.value <= 0);
 
   const echartsSeriesList = seriesKeys.map((key, i) => {
     const seriesPoints = seriesMap.get(key)!;
@@ -202,7 +203,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
       ...(xLabel ? { name: xLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: { fontSize: 11 } } : {}),
     },
     yAxis: {
-      type: yScale === "log" ? "log" : "value",
+      type: yScale === "log" && !hasNonPositiveValue ? "log" : "value",
       axisLabel: {
         fontSize: 11,
         ...(axisFormatter ? { formatter: axisFormatter } : {}),
@@ -242,6 +243,7 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[], pale
   const isMultiSeries = seriesKeys.length > 1;
   const stackedMode = getStackedMode(component);
   const isStacked = isMultiSeries && stackedMode !== false;
+  const hasNonPositiveValue = points.some((p) => p.value <= 0);
 
   // Get unique labels — sort single-series if requested
   let allLabels: string[];
@@ -296,14 +298,13 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[], pale
     data: allLabels,
     axisLabel: { fontSize: 11, rotate: !isHorizontal && allLabels.length > 8 ? 30 : 0 },
     axisTick: { alignWithLabel: true },
-    ...((!isHorizontal && xLabel) ? { name: xLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: { fontSize: 11 } } : {}),
-    ...((isHorizontal && yLabel) ? { name: yLabel, nameLocation: "middle", nameGap: 48, nameTextStyle: { fontSize: 11 } } : {}),
+    ...(xLabel ? { name: xLabel, nameLocation: "middle", nameGap: isHorizontal ? 48 : 28, nameTextStyle: { fontSize: 11 } } : {}),
   };
 
   const isPercentStacked = isStacked && stackedMode === "percent";
   const percentFormatter = (v: number) => `${Math.round(v)}%`;
   const valueAxis = {
-    type: (yScale === "log" ? "log" : "value") as "value" | "log",
+    type: (yScale === "log" && !isPercentStacked && !hasNonPositiveValue ? "log" : "value") as "value" | "log",
     ...(isPercentStacked ? { max: 100, min: 0 } : {}),
     axisLabel: {
       fontSize: 11,
@@ -314,8 +315,7 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[], pale
         : {}),
     },
     splitLine: { lineStyle: { type: "dashed" } },
-      ...((!isHorizontal && yLabel) ? { name: yLabel, nameLocation: "middle", nameGap: 48, nameTextStyle: { fontSize: 11 } } : {}),
-      ...((isHorizontal && xLabel) ? { name: xLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: { fontSize: 11 } } : {}),
+    ...(yLabel ? { name: yLabel, nameLocation: "middle", nameGap: isHorizontal ? 28 : 48, nameTextStyle: { fontSize: 11 } } : {}),
   };
 
   return {
@@ -324,7 +324,7 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[], pale
       left: isHorizontal ? 80 : 60,
       right: 20,
       top: 20,
-      bottom: isMultiSeries ? 60 : 36,
+      bottom: isMultiSeries ? 60 : ((isHorizontal ? yLabel : xLabel) ? 52 : 36),
       containLabel: false,
     },
     xAxis: isHorizontal ? valueAxis : categoryAxis,
