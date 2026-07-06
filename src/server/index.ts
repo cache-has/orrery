@@ -72,6 +72,8 @@ export function createApp(options: AppOptions = {}): Hono {
       ...options.dashboard,
       devMode: options.devMode,
       getDashboards: options.dashboard.getDashboards ?? options.getDashboards,
+      editorEnabled: options.editor?.enabled ?? false,
+      access: options.access,
     });
     app.route("/", dashRoutes);
   }
