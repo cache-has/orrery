@@ -377,12 +377,23 @@ body {
   padding: 0.375rem 1rem;
   border-top: 1px solid var(--ob-border);
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
 }
 
 .orrery-query-time {
   font-size: 0.6875rem;
   color: var(--ob-text-muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.orrery-component-footnote {
+  font-size: 0.75rem;
+  color: var(--ob-text-muted);
+  font-style: italic;
+  overflow-wrap: anywhere;
 }
 
 /* =========================================================================
@@ -883,12 +894,15 @@ body {
   .orrery-theme-toggle,
   .orrery-header-actions,
   .orrery-page-btn,
-  .orrery-table-csv-btn {
+  .orrery-table-csv-btn,
+  .orrery-query-time {
     display: none !important;
   }
 
-  /* Remove component footer (query time) */
-  .orrery-component-footer {
+  /* Footnotes are content (data caveats, definitions) — keep them on the
+     printed page. Only the load-time noise above is stripped. Collapse the
+     footer entirely when it held nothing but query-time. */
+  .orrery-component-footer:not(:has(.orrery-component-footnote)) {
     display: none !important;
   }
 

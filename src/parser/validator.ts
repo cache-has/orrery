@@ -11,6 +11,8 @@ import { ParseError } from "./errors.js";
 const KNOWN_CHART_TYPES = new Set(["line", "bar", "area", "scatter", "pie", "donut", "heatmap", "funnel", "gauge"]);
 const COMPONENTS_REQUIRING_QUERY = new Set(["metric", "chart", "table"]);
 
+export const FOOTNOTE_MAX_LENGTH = 200;
+
 export interface ValidationDiagnostic {
   level: "error" | "warning";
   message: string;
@@ -205,6 +207,17 @@ function validateComponent(
     if (prop.key === "query" || prop.key === "trend_query") {
       checkParamReferences(prop.value, params, diags);
     }
+  }
+
+  // Renderer truncates footnotes so this just surfaces the issue at author-time.
+  const footnoteProp = comp.properties.find((p) => p.key === "footnote");
+  if (footnoteProp && footnoteProp.value.kind === "string" && footnoteProp.value.value.length > FOOTNOTE_MAX_LENGTH) {
+    diags.push({
+      level: "warning",
+      message: `'footnote' is ${footnoteProp.value.value.length} characters, over the ${FOOTNOTE_MAX_LENGTH}-character display limit`,
+      span: footnoteProp.span,
+      hint: `It will be truncated to ${FOOTNOTE_MAX_LENGTH} characters when rendered`,
+    });
   }
 }
 
