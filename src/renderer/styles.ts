@@ -827,6 +827,22 @@ body {
   margin-left: auto;
 }
 
+.orrery-header-edit-link {
+  display: inline-block;
+  padding: 0.4rem 0.85rem;
+  background: var(--ob-text, #1a1a1a);
+  color: var(--ob-bg, #fff);
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.orrery-header-edit-link:hover {
+  opacity: 0.85;
+}
+
 /* =========================================================================
    Print styles
    ========================================================================= */

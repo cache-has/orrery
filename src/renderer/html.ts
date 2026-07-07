@@ -34,13 +34,17 @@ export interface RenderOptions {
   branding?: BrandingConfig;
   /** Whether to show dev-mode UI (theme toggle) */
   devMode?: boolean;
+  /** Whether to show the "Edit dashboard" link in the header (links to this dashboard's editor). */
+  editorEnabled?: boolean;
+  /** Slug of the dashboard being rendered, used to link the header's edit button at /edit/:slug. */
+  dashboardSlug?: string;
 }
 
 /**
  * Render a complete HTML page for a dashboard.
  */
 export function renderPage(options: RenderOptions): string {
-  const { dashboard, layout, data, paramValues, themeCSS, themeName, palette, branding, devMode } = options;
+  const { dashboard, layout, data, paramValues, themeCSS, themeName, palette, branding, devMode, editorEnabled, dashboardSlug } = options;
 
   const components = collectComponents(dashboard);
   const componentDataMap: Record<string, ComponentData> = {};
@@ -86,7 +90,7 @@ export function renderPage(options: RenderOptions): string {
 </head>
 <body>
   <div class="orrery-root" id="orrery-root">
-    ${renderHeader(layout.title, description, branding, devMode)}
+    ${renderHeader(layout.title, description, branding, devMode, editorEnabled, dashboardSlug)}
     ${renderParamBar(data.params, paramValues)}
     ${renderRows(layout.rows, data, components, paramValues, palette)}
   </div>
@@ -125,7 +129,7 @@ export function renderComponentFragment(
 // Section renderers
 // ---------------------------------------------------------------------------
 
-function renderHeader(title: string, description?: string, branding?: BrandingConfig, _devMode?: boolean): string {
+function renderHeader(title: string, description?: string, branding?: BrandingConfig, _devMode?: boolean, editorEnabled?: boolean, dashboardSlug?: string): string {
   const logo = branding?.logo
     ? `<img class="orrery-header-logo" src="/orrery/assets/${escapeAttr(branding.logo)}" alt="${escapeAttr(branding.title ?? "Logo")}" />`
     : "";
@@ -138,6 +142,14 @@ function renderHeader(title: string, description?: string, branding?: BrandingCo
 
   const homeLink = `<nav class="orrery-breadcrumb"><a href="/">&#8592; All Dashboards</a></nav>`;
 
+  // Scoped to this dashboard's own editor (/edit/:slug), not the full /edit
+  // list — clicking it from a dashboard page should jump straight into
+  // editing that dashboard.
+  const editHref = dashboardSlug ? `/edit/${encodeURIComponent(dashboardSlug)}` : "/edit";
+  const editLink = editorEnabled
+    ? `<div class="orrery-header-actions"><a class="orrery-header-edit-link" href="${escapeAttr(editHref)}">Edit dashboard</a></div>`
+    : "";
+
   return `<header class="orrery-header" style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">
       <div>
         ${homeLink}
@@ -145,6 +157,7 @@ function renderHeader(title: string, description?: string, branding?: BrandingCo
         <h1>${escapeHtml(title)}</h1>
         ${description ? `<p class="orrery-description">${escapeHtml(description)}</p>` : ""}
       </div>
+      ${editLink}
     </header>`;
 }
 

@@ -7,7 +7,7 @@
  * POST /api/query — partial update endpoint for parameter changes.
  */
 
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { resolve, extname, relative } from "path";
 import { createRequire } from "module";
@@ -24,6 +24,7 @@ import { resolveDateRange } from "../../query/daterange.js";
 import { loadThemeFile, resolveTheme, type ThemeFile, type ThemeName } from "../../renderer/theme.js";
 import type { ProjectConfig, DiscoveredDashboard } from "../discovery.js";
 import type { DashboardSource } from "../../sources/types.js";
+import { getRequestAccess, type AccessConfig } from "../access.js";
 
 export interface DashboardRouteOptions {
   /** Root directory containing .board files (used as fallback when no source is wired). */
@@ -40,11 +41,15 @@ export interface DashboardRouteOptions {
   source?: DashboardSource;
   /** Supplies the current list of discovered dashboards (used to resolve slug → filePath/key). */
   getDashboards?: () => DiscoveredDashboard[];
+  /** Whether the web editor is enabled (shows an "Edit dashboard" link in the page header). */
+  editorEnabled?: boolean;
+  /** Header-based access control config, used to gate the editor link per-request. */
+  access?: AccessConfig;
 }
 
 export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   const app = new Hono();
-  const { boardDir, executor, devMode, projectRoot, config, source, getDashboards } = options;
+  const { boardDir, executor, devMode, projectRoot, config, source, getDashboards, editorEnabled, access } = options;
 
   // Load theme file once at startup (re-loaded via watcher in dev mode)
   let cachedThemeFile: ThemeFile | null = null;
@@ -158,8 +163,8 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   });
 
   // Render a dashboard by name — support both /d/:name and /dashboard/:name
-  const renderDashboard = async (c: { req: { param: (k: string) => string; query: () => Record<string, string> }; html: (body: string, status?: number) => Response }) => {
-    const name = c.req.param("name");
+  const renderDashboard = async (c: Context) => {
+    const name = c.req.param("name") as string;
     const loaded = await loadBoardContent(name, { source, getDashboards, boardDir });
 
     if (!loaded) {
@@ -215,6 +220,13 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
       // Dashboard-level palette overrides theme palette
       const dashboardPalette = getDashboardPalette(dashboard);
 
+      // Mirror the index page's editor-link gating: shown when the editor is
+      // enabled, and (if access control is on) only for callers who can edit.
+      let showEditor = editorEnabled ?? false;
+      if (showEditor && access?.enabled) {
+        showEditor = getRequestAccess(c)?.canEdit ?? false;
+      }
+
       let html = renderPage({
         dashboard,
         layout,
@@ -225,6 +237,8 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         palette: dashboardPalette ?? resolved.palette,
         branding: resolved.branding,
         devMode,
+        editorEnabled: showEditor,
+        dashboardSlug: name,
       });
 
       // Always inject interactive script (interactivity is core)
