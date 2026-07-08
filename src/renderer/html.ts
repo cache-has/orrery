@@ -14,6 +14,7 @@ import { getRenderer } from "../components/registry.js";
 import type { ComponentRenderData } from "../components/types.js";
 import { DATE_RANGE_PRESETS } from "../query/daterange.js";
 import type { BrandingConfig } from "./theme.js";
+import { FOOTNOTE_MAX_LENGTH } from "../parser/validator.js";
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -116,11 +117,7 @@ export function renderComponentFragment(
     ? renderErrorState(compData.error)
     : renderComponentBody(component, compData, paramValues, palette);
 
-  const footer = compData?.result
-    ? `<div class="orrery-component-footer">
-        <span class="orrery-query-time">Loaded in ${compData.result.executionTimeMs}ms</span>
-      </div>`
-    : "";
+  const footer = renderComponentFooter(component, compData);
 
   return `<div class="orrery-component-body">${body}</div>${footer}`;
 }
@@ -303,11 +300,7 @@ function renderComponentContainer(
     ? renderErrorState(compData.error)
     : renderComponentBody(rc.component, compData, paramValues, palette);
 
-  const footer = compData?.result
-    ? `<div class="orrery-component-footer">
-          <span class="orrery-query-time">Loaded in ${compData.result.executionTimeMs}ms</span>
-        </div>`
-    : "";
+  const footer = renderComponentFooter(rc.component, compData);
 
   // Build inline style with grid column + per-component color overrides
   const styleParts = [`grid-column: ${rc.gridColumn}`];
@@ -386,6 +379,29 @@ function getStringProp(component: ComponentNode, key: string): string | undefine
   if (!prop) return undefined;
   if (prop.value.kind === "string") return prop.value.value;
   return undefined;
+}
+
+/**
+ * Renders the footer bar: an optional author-supplied footnote 
+ * plus the query timing, if either exists.
+ */
+function renderComponentFooter(component: ComponentNode, compData?: ComponentData): string {
+  const rawFootnote = getStringProp(component, "footnote");
+  const footnote = rawFootnote
+    ? `<p class="orrery-component-footnote">${escapeHtml(truncate(rawFootnote, FOOTNOTE_MAX_LENGTH))}</p>`
+    : "";
+
+  const queryTime = compData?.result
+    ? `<span class="orrery-query-time">Loaded in ${compData.result.executionTimeMs}ms</span>`
+    : "";
+
+  if (!footnote && !queryTime) return "";
+  return `<div class="orrery-component-footer">${footnote}${queryTime}</div>`;
+}
+
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 function getDashboardDescription(dashboard: DashboardNode): string | undefined {

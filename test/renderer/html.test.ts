@@ -381,6 +381,50 @@ describe("renderPage", () => {
     expect(html).toContain("--ob-surface: #FFF1F2");
   });
 
+  it("renders a component footnote", () => {
+    const props: PropertyNode[] = [
+      { kind: "property", key: "footnote", value: { kind: "string", value: "Excludes refunded orders.", span }, span },
+    ];
+    const row = makeRow([makeComponent("metric", "Revenue", 12, props)]);
+    const dashboard = makeDashboard("Test", [row]);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([["revenue", {}]]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {} });
+
+    expect(html).toContain('class="orrery-component-footnote"');
+    expect(html).toContain("Excludes refunded orders.");
+  });
+
+  it("truncates a footnote longer than the display limit", () => {
+    const longText = "a".repeat(250);
+    const props: PropertyNode[] = [
+      { kind: "property", key: "footnote", value: { kind: "string", value: longText, span }, span },
+    ];
+    const row = makeRow([makeComponent("metric", "Revenue", 12, props)]);
+    const dashboard = makeDashboard("Test", [row]);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([["revenue", {}]]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {} });
+    const match = html.match(/<p class="orrery-component-footnote">([^<]*)<\/p>/);
+
+    expect(match).not.toBeNull();
+    expect(match![1].length).toBe(200);
+    expect(match![1].endsWith("…")).toBe(true);
+  });
+
+  it("omits the footer entirely when there is no footnote or query result", () => {
+    const row = makeRow([makeComponent("metric", "Revenue", 12)]);
+    const dashboard = makeDashboard("Test", [row]);
+    const layout = resolveLayout(dashboard);
+    const data = makeData([["revenue", {}]]);
+
+    const html = renderPage({ dashboard, layout, data, paramValues: {} });
+
+    expect(html).not.toContain('class="orrery-component-footer"');
+  });
+
   it("renders chart via chart renderer (no placeholder)", () => {
     const chart = makeComponent("chart", "Revenue Trend", 12);
     chart.opts.type = "area";

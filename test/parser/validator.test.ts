@@ -259,6 +259,33 @@ describe("Validator", () => {
     expect(diags.some((d) => d.level === "error" && d.message.includes("Invalid 'stacked' value"))).toBe(true);
   });
 
+  it("warns on a footnote over the display limit", () => {
+    const longText = "a".repeat(201);
+    const diags = parseAndValidate(`dashboard "D" {
+      row {
+        metric "M" (span: 12) {
+          query: "SELECT 1"
+          footnote: "${longText}"
+        }
+      }
+    }`);
+    expect(
+      diags.some((d) => d.level === "warning" && d.message.includes("over the 200-character display limit")),
+    ).toBe(true);
+  });
+
+  it("does not warn on a footnote within the display limit", () => {
+    const diags = parseAndValidate(`dashboard "D" {
+      row {
+        metric "M" (span: 12) {
+          query: "SELECT 1"
+          footnote: "Excludes refunded orders."
+        }
+      }
+    }`);
+    expect(diags.some((d) => d.message.includes("footnote"))).toBe(false);
+  });
+
   it("handles param references with dot notation (e.g., date_range.previous)", () => {
     const diags = parseAndValidate(`dashboard "D" {
       param date_range = daterange(default: "last 7 days")
