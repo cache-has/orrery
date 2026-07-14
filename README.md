@@ -212,7 +212,7 @@ colors:
   ob-radius: "8px"          # Border radius
 ```
 
-You can also override individual dashboard palettes in the `.board` file:
+You can also override an individual dashboard's palette in the `.board` file itself:
 
 ```
 dashboard "Sales" {
@@ -220,6 +220,30 @@ dashboard "Sales" {
   ...
 }
 ```
+
+To pin a specific series/category name to a specific color (e.g. always
+render `"bad"` red and `"good"` green), add `series_colors` to the chart
+widget itself — not the dashboard, and not `theme.yaml`. Colors are scoped
+to the one widget that declares them, since two widgets — even on the same
+dashboard — often query entirely different sources with unrelated category
+names. If another widget should visually match, repeat the same block on it:
+
+```
+chart "Status Breakdown" (type: donut) {
+  query: "SELECT status, COUNT(*) as count FROM issues GROUP BY status"
+  x: status
+  y: count
+  series_colors: {
+    bad: "#ef4444"
+    good: "#22c55e"
+  }
+}
+```
+
+On a grouped `bar`/`line`/`area`/`scatter` chart (one with a `series:`
+column), the keys match against that column's values instead of the `x:`
+labels — see `examples/pagila/dashboards/finance/revenue-overview.board`
+for a worked example.
 
 Alternatively, use a `theme.css` file for full CSS control over any Orrery class.
 

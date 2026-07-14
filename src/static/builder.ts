@@ -283,7 +283,7 @@ async function buildDashboard(
     selfContained,
     themeCSS: resolved.css || undefined,
     themeName: resolved.name,
-    palette: resolved.palette,
+    palette: getDashboardPalette(dashboard) ?? resolved.palette,
   });
 
   return { html, externalFiles };
@@ -292,6 +292,20 @@ async function buildDashboard(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function getDashboardPalette(dashboard: DashboardNode): string[] | undefined {
+  for (const item of dashboard.items) {
+    if (item.kind === "property" && item.key === "palette") {
+      if (item.value.kind === "array") {
+        const colors = item.value.elements
+          .filter((el) => el.kind === "string")
+          .map((el) => (el as { kind: "string"; value: string }).value);
+        if (colors.length > 0) return colors;
+      }
+    }
+  }
+  return undefined;
+}
 
 function getDashboardThemeFromAST(dashboard: DashboardNode): "light" | "dark" | undefined {
   for (const item of dashboard.items) {

@@ -10,6 +10,7 @@ import type {
   DashboardNode,
   FileRefValue,
   IncludeNode,
+  ObjectValue,
   ParamNode,
   ParamType,
   PropertyNode,
@@ -327,9 +328,16 @@ class Parser {
     };
   }
 
-  /** Property := IDENT ':' Value */
+  /** Property := (IDENT | STRING) ':' Value */
   private parseProperty(): PropertyNode {
-    const keyTok = this.expect("ident", "Expected property name");
+    const keyTok = this.current;
+    if (keyTok.type !== "ident" && keyTok.type !== "string") {
+      throw this.error(
+        `Expected property name, got '${keyTok.value || keyTok.type}'`,
+        keyTok.span,
+      );
+    }
+    this.advance();
     this.expect("colon", `Expected ':' after property '${keyTok.value}'`);
     const value = this.parseValue();
 
@@ -342,7 +350,7 @@ class Parser {
   }
 
   /**
-   * Value := STRING | NUMBER | BOOLEAN | FileRef | Array | IDENT
+   * Value := STRING | NUMBER | BOOLEAN | FileRef | Array | Object | IDENT
    * FileRef := 'file' '(' STRING ')'
    */
   private parseValue(): ValueNode {
@@ -365,6 +373,10 @@ class Parser {
 
     if (tok.type === "lbracket") {
       return this.parseArray();
+    }
+
+    if (tok.type === "lbrace") {
+      return this.parseObject();
     }
 
     if (tok.type === "ident") {
@@ -399,6 +411,25 @@ class Parser {
     return {
       kind: "array",
       elements,
+      span: createSpan(start.start, end.end, this.file),
+    };
+  }
+
+  /** Object := '{' (Property (','? Property)*)? '}' */
+  private parseObject(): ObjectValue {
+    const start = this.expect("lbrace").span;
+    const entries: PropertyNode[] = [];
+
+    while (!this.check("rbrace") && !this.check("eof")) {
+      entries.push(this.parseProperty());
+      if (this.check("comma")) this.advance();
+    }
+
+    const end = this.expect("rbrace", "Expected '}' to close object").span;
+
+    return {
+      kind: "object",
+      entries,
       span: createSpan(start.start, end.end, this.file),
     };
   }

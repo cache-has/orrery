@@ -35,6 +35,22 @@ function getStringProp(component: ComponentNode, key: string): string | undefine
 }
 
 /**
+ * Read this chart's own `series_colors: { name: "#hex", ... }` property.
+ * Scoped to this one widget — two widgets that want matching colors for the
+ * same category name each declare it themselves, since sibling widgets on
+ * the same dashboard may be sourced from entirely different queries.
+ */
+function getSeriesColorsProp(component: ComponentNode): Record<string, string> | undefined {
+  const prop = component.properties.find((p: PropertyNode) => p.key === "series_colors");
+  if (!prop || prop.value.kind !== "object") return undefined;
+  const map: Record<string, string> = {};
+  for (const entry of prop.value.entries) {
+    if (entry.value.kind === "string") map[entry.key] = entry.value.value;
+  }
+  return Object.keys(map).length > 0 ? map : undefined;
+}
+
+/**
  * Read the `stacked` property: accepts boolean or the literal string "percent".
  * Returns "stack" for plain stacking, "percent" for 100%-normalized, or false.
  */
@@ -149,7 +165,7 @@ function makeAxisFormatter(yFormatName: string | undefined): ((v: number) => str
 // Build ECharts option: line / area
 // ---------------------------------------------------------------------------
 
-function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isArea: boolean, palette: string[]): Record<string, unknown> {
+function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isArea: boolean, palette: string[], seriesColors?: Record<string, string>): Record<string, unknown> {
   const color = getStringProp(component, "color");
   const yFormatName = getStringProp(component, "y_format");
   const yScale = getStringProp(component, "y_scale");
@@ -177,7 +193,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
     for (const sp of seriesPoints) lookup.set(sp.label, sp.value);
     const data = allLabels.map((l) => lookup.get(l) ?? null);
 
-    const seriesColor = color && i === 0 ? color : palette[i % palette.length];
+    const seriesColor = seriesColors?.[key] ?? (color && i === 0 ? color : palette[i % palette.length]);
 
     return {
       type: "line" as const,
@@ -220,7 +236,7 @@ function buildLineOption(component: ComponentNode, points: ChartDataPoint[], isA
 // Build ECharts option: bar
 // ---------------------------------------------------------------------------
 
-function buildBarOption(component: ComponentNode, points: ChartDataPoint[], palette: string[]): Record<string, unknown> {
+function buildBarOption(component: ComponentNode, points: ChartDataPoint[], palette: string[], seriesColors?: Record<string, string>): Record<string, unknown> {
   const color = getStringProp(component, "color");
   const sortDir = getStringProp(component, "sort");
   const orientation = getStringProp(component, "orientation") ?? "vertical";
@@ -281,7 +297,7 @@ function buildBarOption(component: ComponentNode, points: ChartDataPoint[], pale
       return v;
     });
 
-    const seriesColor = color && i === 0 ? color : palette[i % palette.length];
+    const seriesColor = seriesColors?.[key] ?? (color && i === 0 ? color : palette[i % palette.length]);
 
     return {
       type: "bar" as const,
@@ -457,6 +473,7 @@ function buildScatterOption(
   xCol: string,
   yCol: string,
   palette: string[],
+  seriesColors?: Record<string, string>,
 ): Record<string, unknown> {
   const color = getStringProp(component, "color");
   const xFormatName = getStringProp(component, "x_format");
@@ -494,7 +511,7 @@ function buildScatterOption(
     const data = pts.map((p) =>
       hasSize ? [p.x, p.y, p.size ?? 0] : [p.x, p.y],
     );
-    const seriesColor = color && i === 0 ? color : palette[i % palette.length];
+    const seriesColor = seriesColors?.[key] ?? (color && i === 0 ? color : palette[i % palette.length]);
     return {
       type: "scatter" as const,
       name: isMultiSeries ? key : undefined,
@@ -788,14 +805,17 @@ function buildGaugeOption(
 // Build ECharts option: donut / pie
 // ---------------------------------------------------------------------------
 
-function buildDonutOption(_component: ComponentNode, points: ChartDataPoint[], palette: string[]): Record<string, unknown> {
+function buildDonutOption(_component: ComponentNode, points: ChartDataPoint[], palette: string[], seriesColors?: Record<string, string>): Record<string, unknown> {
   // Aggregate duplicate labels (e.g. multiple rows for the same category)
   const agg = new Map<string, number>();
   for (const p of points) {
     agg.set(p.label, (agg.get(p.label) ?? 0) + p.value);
   }
 
-  const data = [...agg.entries()].map(([name, value]) => ({ name, value }));
+  const data = [...agg.entries()].map(([name, value]) => {
+    const c = seriesColors?.[name];
+    return c ? { name, value, itemStyle: { color: c } } : { name, value };
+  });
 
   return {
     color: palette,
@@ -829,6 +849,7 @@ export const chartRenderer: ComponentRenderer = {
   renderToString(component: ComponentNode, data: ComponentRenderData): string {
     const chartType = String(component.opts.type ?? "line");
     const palette = data.palette ?? DEFAULT_PALETTE;
+    const seriesColors = getSeriesColorsProp(component);
 
     let option: Record<string, unknown>;
     let tooltipTrigger: "axis" | "item" = "axis";
@@ -845,7 +866,7 @@ export const chartRenderer: ComponentRenderer = {
       if (!scatter || scatter.points.length === 0) {
         return `<div class="orrery-no-data">No data</div>`;
       }
-      option = buildScatterOption(component, scatter.points, scatter.xCol, scatter.yCol, palette);
+      option = buildScatterOption(component, scatter.points, scatter.xCol, scatter.yCol, palette, seriesColors);
       tooltipTrigger = "item";
     } else if (chartType === "gauge") {
       const gauge = extractGaugeData(component, data);
@@ -869,17 +890,17 @@ export const chartRenderer: ComponentRenderer = {
 
       switch (chartType) {
         case "line":
-          option = buildLineOption(component, extracted.points, false, palette);
+          option = buildLineOption(component, extracted.points, false, palette, seriesColors);
           break;
         case "area":
-          option = buildLineOption(component, extracted.points, true, palette);
+          option = buildLineOption(component, extracted.points, true, palette, seriesColors);
           break;
         case "bar":
-          option = buildBarOption(component, extracted.points, palette);
+          option = buildBarOption(component, extracted.points, palette, seriesColors);
           break;
         case "donut":
         case "pie":
-          option = buildDonutOption(component, extracted.points, palette);
+          option = buildDonutOption(component, extracted.points, palette, seriesColors);
           break;
         default:
           return `<div class="orrery-placeholder">Unsupported chart type: ${escapeHtml(chartType)}</div>`;

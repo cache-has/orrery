@@ -31,6 +31,107 @@ describe("Parser", () => {
     }
   });
 
+  it("parses an object-valued property (grammar-level — not tied to any specific feature)", () => {
+    const ast = parse(`dashboard "D" {
+      settings: {
+        alpha: "#f59e0b"
+        beta: "#0d9488"
+      }
+    }`);
+    expect(ast.items).toHaveLength(1);
+    const prop = ast.items[0];
+    expect(prop.kind).toBe("property");
+    if (prop.kind === "property") {
+      expect(prop.key).toBe("settings");
+      expect(prop.value.kind).toBe("object");
+      if (prop.value.kind === "object") {
+        expect(prop.value.entries).toHaveLength(2);
+        expect(prop.value.entries[0]).toMatchObject({ key: "alpha", value: { kind: "string", value: "#f59e0b" } });
+        expect(prop.value.entries[1]).toMatchObject({ key: "beta", value: { kind: "string", value: "#0d9488" } });
+      }
+    }
+  });
+
+  it("supports quoted string keys with spaces in object values", () => {
+    const ast = parse(`dashboard "D" {
+      settings: { "Store 25": "#2563eb", "Store 33": "#d97706" }
+    }`);
+    const prop = ast.items[0];
+    if (prop.kind === "property" && prop.value.kind === "object") {
+      expect(prop.value.entries).toHaveLength(2);
+      expect(prop.value.entries[0].key).toBe("Store 25");
+      expect(prop.value.entries[1].key).toBe("Store 33");
+    } else {
+      expect.fail("expected an object property");
+    }
+  });
+
+  it("supports mixed comma- and newline-separated object entries", () => {
+    const ast = parse(`dashboard "D" {
+      settings: {
+        a: "#111111", b: "#222222"
+        c: "#333333"
+      }
+    }`);
+    const prop = ast.items[0];
+    if (prop.kind === "property" && prop.value.kind === "object") {
+      expect(prop.value.entries.map((e) => e.key)).toEqual(["a", "b", "c"]);
+    } else {
+      expect.fail("expected an object property");
+    }
+  });
+
+  it("supports non-string values inside an object literal", () => {
+    const ast = parse(`dashboard "D" {
+      config: { count: 5, enabled: true, label: name }
+    }`);
+    const prop = ast.items[0];
+    if (prop.kind === "property" && prop.value.kind === "object") {
+      expect(prop.value.entries[0]).toMatchObject({ key: "count", value: { kind: "number", value: 5 } });
+      expect(prop.value.entries[1]).toMatchObject({ key: "enabled", value: { kind: "boolean", value: true } });
+      expect(prop.value.entries[2]).toMatchObject({ key: "label", value: { kind: "ident", name: "name" } });
+    } else {
+      expect.fail("expected an object property");
+    }
+  });
+
+  it("throws on missing colon inside an object literal", () => {
+    expect(() =>
+      parse('dashboard "D" { settings: { alpha "#f59e0b" } }'),
+    ).toThrow(ParseError);
+  });
+
+  it("throws on an unclosed object literal", () => {
+    expect(() =>
+      parse('dashboard "D" { settings: { alpha: "#f59e0b" '),
+    ).toThrow(ParseError);
+  });
+
+  it("parses an object-valued property on a component (the actual series_colors use case)", () => {
+    const ast = parse(`dashboard "D" {
+      chart "Status Breakdown" (type: donut) {
+        query: "SELECT status, COUNT(*) as count FROM issues GROUP BY status"
+        x: status
+        y: count
+        series_colors: {
+          bad: "#ef4444"
+          good: "#22c55e"
+        }
+      }
+    }`);
+    const row0 = ast.items[0];
+    expect(row0.kind).toBe("component");
+    if (row0.kind === "component") {
+      const seriesColorsProp = row0.properties.find((p) => p.key === "series_colors");
+      expect(seriesColorsProp?.value.kind).toBe("object");
+      if (seriesColorsProp?.value.kind === "object") {
+        expect(seriesColorsProp.value.entries).toHaveLength(2);
+        expect(seriesColorsProp.value.entries[0]).toMatchObject({ key: "bad", value: { kind: "string", value: "#ef4444" } });
+        expect(seriesColorsProp.value.entries[1]).toMatchObject({ key: "good", value: { kind: "string", value: "#22c55e" } });
+      }
+    }
+  });
+
   it("parses a daterange param", () => {
     const ast = parse(`dashboard "D" {
       param date_range = daterange(default: "last 7 days")
