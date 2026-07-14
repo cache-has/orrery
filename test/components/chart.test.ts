@@ -352,6 +352,40 @@ describe("chartRenderer — bar chart", () => {
     expect(html).toContain("&quot;color&quot;:&quot;#111111&quot;");
   });
 
+  it("ignores series_colors keys that don't match any returned category — no crash, no leak, matched keys unaffected", () => {
+    const component = makeChart("Multi Bar", "bar", [
+      identProp("x", "quarter"),
+      identProp("y", "revenue"),
+      identProp("series", "status"),
+      // "godo" is a typo for "good" (never matches); "ugly" never appears in
+      // the data at all. Both should be silently unused — not applied to
+      // any series, and no error/crash — while "bad" (correctly spelled)
+      // still gets its mapped color.
+      objectProp("series_colors", { godo: "#22c55e", bad: "#ef4444", ugly: "#000000" }),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["quarter", "revenue", "status"], [
+        { quarter: "Q1", revenue: 5, status: "good" },
+        { quarter: "Q1", revenue: 3, status: "bad" },
+      ]),
+      palette: ["#111111", "#222222"],
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    // "good" isn't matched by the typo'd "godo" key, so it keeps its
+    // index-based palette color instead of the intended green.
+    expect(html).toContain("&quot;name&quot;:&quot;good&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#111111&quot;");
+    expect(html).not.toContain("#22c55e");
+    // "bad" is spelled correctly and still gets its mapped color.
+    expect(html).toContain("&quot;name&quot;:&quot;bad&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#ef4444&quot;");
+    // "ugly" never appears in the data, so it can't show up anywhere.
+    expect(html).not.toContain("#000000");
+  });
+
   it("renders unsupported chart type with placeholder", () => {
     const component = makeChart("Unknown", "sunburst");
     const data: ComponentRenderData = {
@@ -780,5 +814,34 @@ describe("chartRenderer — donut chart", () => {
     const html = chartRenderer.renderToString(component, data);
 
     expect(html).not.toContain("&quot;itemStyle&quot;:{&quot;color&quot;");
+  });
+
+  it("ignores series_colors keys that don't match any returned slice label — no crash, matched keys unaffected", () => {
+    const component = makeChart("Breakdown", "donut", [
+      identProp("x", "tier"),
+      identProp("y", "count"),
+      // "premiun" is a typo for "premium" (never matches); "enterprise"
+      // never appears in the data at all.
+      objectProp("series_colors", { free: "#d97706", premiun: "#16a34a", enterprise: "#000000" }),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["tier", "count"], [
+        { tier: "free", count: 70 },
+        { tier: "premium", count: 30 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    // "free" is spelled correctly and still gets its mapped color.
+    expect(html).toContain("&quot;name&quot;:&quot;free&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#d97706&quot;");
+    // "premium" isn't matched by the typo'd "premiun" key, so it gets no
+    // itemStyle override at all (falls through to ECharts' own coloring).
+    expect(html).toContain("&quot;name&quot;:&quot;premium&quot;,&quot;value&quot;:30}");
+    expect(html).not.toContain("#16a34a");
+    // "enterprise" never appears in the data, so it can't show up anywhere.
+    expect(html).not.toContain("#000000");
   });
 });
