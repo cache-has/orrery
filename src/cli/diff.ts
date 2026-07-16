@@ -107,6 +107,8 @@ function valueToString(val: ValueNode): string {
       return `file("${val.path}")`;
     case "array":
       return `[${val.elements.map(valueToString).join(", ")}]`;
+    case "object":
+      return `{${val.entries.map((e) => `${e.key}: ${valueToString(e.value)}`).join(", ")}}`;
   }
 }
 

@@ -25,7 +25,8 @@ export type ValueNode =
   | BooleanValue
   | IdentValue
   | FileRefValue
-  | ArrayValue;
+  | ArrayValue
+  | ObjectValue;
 
 export interface StringValue {
   kind: "string";
@@ -69,6 +70,14 @@ export interface PropertyNode {
   kind: "property";
   key: string;
   value: ValueNode;
+  span: Span;
+}
+
+// An object literal is just a brace-delimited list of properties, so it
+// reuses PropertyNode for entries rather than a bespoke key/value shape.
+export interface ObjectValue {
+  kind: "object";
+  entries: PropertyNode[];
   span: Span;
 }
 

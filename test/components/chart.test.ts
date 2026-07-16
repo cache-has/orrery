@@ -17,6 +17,19 @@ function identProp(key: string, name: string): PropertyNode {
   return { kind: "property", key, value: { kind: "ident", name, span }, span };
 }
 
+function objectProp(key: string, entries: Record<string, string>): PropertyNode {
+  return {
+    kind: "property",
+    key,
+    value: {
+      kind: "object",
+      entries: Object.entries(entries).map(([k, v]) => prop(k, v)),
+      span,
+    },
+    span,
+  };
+}
+
 function makeChart(
   title: string,
   type: string,
@@ -290,6 +303,87 @@ describe("chartRenderer — bar chart", () => {
     expect(html).toContain("<svg");
     expect(html).toContain("Widget");
     expect(html).toContain("Gadget");
+  });
+
+  it("applies the widget's own series_colors property by category name, overriding index-based palette order", () => {
+    const component = makeChart("Multi Bar", "bar", [
+      identProp("x", "quarter"),
+      identProp("y", "revenue"),
+      identProp("series", "product"),
+      objectProp("series_colors", { Widget: "#ef4444", Gadget: "#22c55e" }),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["quarter", "revenue", "product"], [
+        // "Gadget" appears first here (index 0), unlike the earlier test where
+        // "Widget" is first — series_colors should still pin each name's color
+        // regardless of which index it lands on in this widget's query order.
+        { quarter: "Q1", revenue: 80, product: "Gadget" },
+        { quarter: "Q1", revenue: 100, product: "Widget" },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("&quot;name&quot;:&quot;Gadget&quot;");
+    expect(html).toContain("&quot;name&quot;:&quot;Widget&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#22c55e&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#ef4444&quot;");
+  });
+
+  it("falls back to palette order for series not listed in the widget's series_colors", () => {
+    const component = makeChart("Multi Bar", "bar", [
+      identProp("x", "quarter"),
+      identProp("y", "revenue"),
+      identProp("series", "product"),
+      objectProp("series_colors", { Widget: "#ef4444" }),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["quarter", "revenue", "product"], [
+        { quarter: "Q1", revenue: 80, product: "Gadget" },
+        { quarter: "Q1", revenue: 100, product: "Widget" },
+      ]),
+      palette: ["#111111", "#222222"],
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("&quot;color&quot;:&quot;#ef4444&quot;");
+    // "Gadget" (index 0, unmapped) keeps the existing index-based palette color
+    expect(html).toContain("&quot;color&quot;:&quot;#111111&quot;");
+  });
+
+  it("ignores series_colors keys that don't match any returned category — no crash, no leak, matched keys unaffected", () => {
+    const component = makeChart("Multi Bar", "bar", [
+      identProp("x", "quarter"),
+      identProp("y", "revenue"),
+      identProp("series", "status"),
+      // "godo" is a typo for "good" (never matches); "ugly" never appears in
+      // the data at all. Both should be silently unused — not applied to
+      // any series, and no error/crash — while "bad" (correctly spelled)
+      // still gets its mapped color.
+      objectProp("series_colors", { godo: "#22c55e", bad: "#ef4444", ugly: "#000000" }),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["quarter", "revenue", "status"], [
+        { quarter: "Q1", revenue: 5, status: "good" },
+        { quarter: "Q1", revenue: 3, status: "bad" },
+      ]),
+      palette: ["#111111", "#222222"],
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    // "good" isn't matched by the typo'd "godo" key, so it keeps its
+    // index-based palette color instead of the intended green.
+    expect(html).toContain("&quot;name&quot;:&quot;good&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#111111&quot;");
+    expect(html).not.toContain("#22c55e");
+    // "bad" is spelled correctly and still gets its mapped color.
+    expect(html).toContain("&quot;name&quot;:&quot;bad&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#ef4444&quot;");
+    // "ugly" never appears in the data, so it can't show up anywhere.
+    expect(html).not.toContain("#000000");
   });
 
   it("renders unsupported chart type with placeholder", () => {
@@ -658,5 +752,96 @@ describe("chartRenderer — bar chart", () => {
     const html = chartRenderer.renderToString(component, data);
 
     expect(html).toContain("#ff0000");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Donut chart tests
+// ---------------------------------------------------------------------------
+
+describe("chartRenderer — donut chart", () => {
+  it("renders an ECharts SVG with data", () => {
+    const component = makeChart("Breakdown", "donut", [
+      identProp("x", "tier"),
+      identProp("y", "count"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["tier", "count"], [
+        { tier: "free", count: 70 },
+        { tier: "premium", count: 30 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    expect(html).toContain("</svg>");
+  });
+
+  it("applies the widget's own series_colors property by category name via per-slice itemStyle override", () => {
+    const component = makeChart("Breakdown", "donut", [
+      identProp("x", "tier"),
+      identProp("y", "count"),
+      objectProp("series_colors", { free: "#d97706", premium: "#16a34a" }),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["tier", "count"], [
+        { tier: "free", count: 70 },
+        { tier: "premium", count: 30 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("&quot;name&quot;:&quot;free&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#d97706&quot;");
+    expect(html).toContain("&quot;name&quot;:&quot;premium&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#16a34a&quot;");
+  });
+
+  it("leaves unmapped slices without an itemStyle override", () => {
+    const component = makeChart("Breakdown", "donut", [
+      identProp("x", "tier"),
+      identProp("y", "count"),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["tier", "count"], [
+        { tier: "free", count: 70 },
+        { tier: "premium", count: 30 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).not.toContain("&quot;itemStyle&quot;:{&quot;color&quot;");
+  });
+
+  it("ignores series_colors keys that don't match any returned slice label — no crash, matched keys unaffected", () => {
+    const component = makeChart("Breakdown", "donut", [
+      identProp("x", "tier"),
+      identProp("y", "count"),
+      // "premiun" is a typo for "premium" (never matches); "enterprise"
+      // never appears in the data at all.
+      objectProp("series_colors", { free: "#d97706", premiun: "#16a34a", enterprise: "#000000" }),
+    ]);
+    const data: ComponentRenderData = {
+      result: makeResult(["tier", "count"], [
+        { tier: "free", count: 70 },
+        { tier: "premium", count: 30 },
+      ]),
+    };
+
+    const html = chartRenderer.renderToString(component, data);
+
+    expect(html).toContain("<svg");
+    // "free" is spelled correctly and still gets its mapped color.
+    expect(html).toContain("&quot;name&quot;:&quot;free&quot;");
+    expect(html).toContain("&quot;color&quot;:&quot;#d97706&quot;");
+    // "premium" isn't matched by the typo'd "premiun" key, so it gets no
+    // itemStyle override at all (falls through to ECharts' own coloring).
+    expect(html).toContain("&quot;name&quot;:&quot;premium&quot;,&quot;value&quot;:30}");
+    expect(html).not.toContain("#16a34a");
+    // "enterprise" never appears in the data, so it can't show up anywhere.
+    expect(html).not.toContain("#000000");
   });
 });

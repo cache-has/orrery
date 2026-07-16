@@ -72,6 +72,15 @@ dashboard "Revenue Overview" {
       x: month
       y: revenue
       series: series
+      # Pins each store's color for this widget. If another widget on this
+      # (or any) dashboard also groups by store and should visually match,
+      # this same block is repeated there too — colors are never shared
+      # automatically across widgets, since two widgets' queries may be
+      # sourced completely differently even on the same dashboard.
+      series_colors: {
+        "Store 25": "#2563eb"
+        "Store 33": "#d97706"
+      }
     }
     chart "Revenue by Store" (span: 4, type: bar) {
       query: """
