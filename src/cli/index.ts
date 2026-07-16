@@ -1,9 +1,13 @@
 #!/usr/bin/env node
-export {};
+import { VERSION } from "../version.js";
 
 const command = process.argv[2];
 
 switch (command) {
+  case "--version":
+  case "-v":
+    console.log(VERSION);
+    break;
   case "dev":
     await import("./dev.js");
     break;

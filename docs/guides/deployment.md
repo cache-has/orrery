@@ -49,7 +49,7 @@ extend it.
 
 ```bash
 # From a checkout of this repository:
-docker build -t orrery-base:1.0.0 .
+docker build -t orrery-base:1.4.0 .
 ```
 
 The base image:
@@ -63,8 +63,8 @@ The base image:
 Push it to your registry:
 
 ```bash
-docker tag orrery-base:1.0.0 <registry>/orrery-base:1.0.0
-docker push <registry>/orrery-base:1.0.0
+docker tag orrery-base:1.4.0 <registry>/orrery-base:1.4.0
+docker push <registry>/orrery-base:1.4.0
 ```
 
 > Replace `<registry>` with your registry host, e.g.
@@ -80,7 +80,7 @@ usually *not* baked in — see step 3.
 
 ```dockerfile
 # Dockerfile (your analytics project)
-FROM <registry>/orrery-base:1.0.0
+FROM <registry>/orrery-base:1.4.0
 
 WORKDIR /workspace
 COPY orrery.config.yaml ./

@@ -14,6 +14,7 @@ import type { ResolvedLayout } from "../renderer/layout.js";
 import type { DashboardData } from "../renderer/data.js";
 import type { BrandingConfig } from "../renderer/theme.js";
 import { renderPage } from "../renderer/html.js";
+import { VERSION } from "../version.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,7 +62,7 @@ export function renderStaticPage(options: StaticRenderOptions): string {
     paramValues,
     snapshotLabel,
     builtAt = new Date(),
-    version = "1.0.0",
+    version = VERSION,
     externalDataComponents,
     themeCSS,
     themeName,
