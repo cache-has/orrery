@@ -74,7 +74,7 @@
     "@lezer/lr": "^1.4.10",
     "better-sqlite3": "^13.0.3",
     "chokidar": "^5.0.0",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.4",
     "echarts": "^6.1.0",
     "esbuild": "^0.28.2",
     "hono": "^4.13.5",
