@@ -24,6 +24,7 @@ As docs grow, add sibling directories for `reference/` (config schemas, CLI refe
 | Guide | What it covers |
 |---|---|
 | [Deploying Orrery](./guides/deployment.md) | Production container deploy: base + project images, S3-backed dashboards, DB credentials, CI/CD, and fronting Orrery with your own SSO via the trusted-header auth pattern. |
+| [Diagnosing and Fixing Slow Dashboards](./guides/query-performance.md) | How to measure where dashboard load time goes, recognise the common causes (flattening views over raw data, unindexable predicates, repeated work, data larger than memory), and fix them in order of leverage. |
 
 ## Tutorials
 

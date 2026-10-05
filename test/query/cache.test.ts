@@ -55,3 +55,26 @@ describe("QueryCache", () => {
     expect(cache.get("k3")).toBe("v3");
   });
 });
+
+describe("QueryCache size bound", () => {
+  it("evicts the least recently used entry once maxEntries is exceeded", () => {
+    const cache = new QueryCache(2);
+    cache.set("a", 1, 60);
+    cache.set("b", 2, 60);
+    cache.get("a"); // "b" is now the least recently used
+    cache.set("c", 3, 60);
+    expect(cache.size).toBe(2);
+    expect(cache.get("a")).toBe(1);
+    expect(cache.get("b")).toBeUndefined();
+    expect(cache.get("c")).toBe(3);
+  });
+
+  it("drops expired entries before live ones", () => {
+    const cache = new QueryCache(2);
+    cache.set("stale", 1, -1);
+    cache.set("b", 2, 60);
+    cache.set("c", 3, 60);
+    expect(cache.get("b")).toBe(2);
+    expect(cache.get("c")).toBe(3);
+  });
+});

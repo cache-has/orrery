@@ -2,7 +2,8 @@
  * Project discovery: find config, dashboards, connections, and queries directories.
  *
  * Discovery order:
- *  1. orrery.config.yaml in projectRoot (explicit config)
+ *  1. orrery.config.yaml in projectRoot (explicit config; the pre-rename
+ *     openboard.config.yaml is still loaded as a deprecated fallback)
  *  2. dashboards/ directory in projectRoot
  *  3. Any .board files directly in projectRoot
  */
@@ -25,7 +26,22 @@ export interface ProjectConfig {
   queries_dir: string;
   port: number;
   theme: "light" | "dark";
+  /** Query result cache TTL in seconds. 0 disables caching. Default: 300. */
   cache_ttl: number;
+  /**
+   * Keep the cache warm: periodically re-run every dashboard's queries with
+   * their default parameters so the first visitor gets a cached result.
+   * Default: false.
+   */
+  cache_warm?: boolean;
+  /** Log queries slower than this many milliseconds. 0 disables. Default: 1000. */
+  slow_query_ms?: number;
+  /**
+   * How long a dashboard page waits for its queries before it is sent with
+   * loading placeholders for the unfinished components (which then fill in as
+   * they complete). 0 always waits for every query. Default: 300.
+   */
+  render_deadline_ms?: number;
   /** Remote source URI (e.g. "s3://bucket/prefix/"). Omit for local filesystem. */
   source?: string;
   /** Polling interval in seconds for remote sources. Default: 30. */
@@ -65,11 +81,75 @@ const DEFAULT_CONFIG: ProjectConfig = {
   cache_ttl: 300,
 };
 
+export const CONFIG_FILENAME = "orrery.config.yaml";
+
+// The config filename before the OpenBoard -> Orrery rename. Still loaded, with
+// a deprecation warning, so an upgraded deployment keeps its configuration
+// (including its `access:` block) instead of silently reverting to defaults.
+const LEGACY_CONFIG_FILENAME = "openboard.config.yaml";
+
+// The trusted-header defaults from before the rename. A deployment still using
+// the legacy config filename is fronted by a proxy that sends these, so they
+// stay the defaults for it; switching to the new header names would fail closed
+// and hide every dashboard.
+const LEGACY_FOLDERS_HEADER = "x-openboard-folders";
+const LEGACY_CANEDIT_HEADER = "x-openboard-can-edit";
+
+// The full set of recognized top-level keys.
+const KNOWN_CONFIG_KEYS = [
+  "dashboards_dir",
+  "connections_dir",
+  "queries_dir",
+  "port",
+  "theme",
+  "cache_ttl",
+  "cache_warm",
+  "slow_query_ms",
+  "render_deadline_ms",
+  "source",
+  "source_poll",
+  "source_endpoint",
+  "source_writable",
+  "connections_source",
+  "editor",
+  "access",
+];
+
+/** A non-negative number from config, or undefined (with a warning) if it is not one. */
+function parseNonNegative(raw: unknown, key: string, file: string): number | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) return raw;
+  console.warn(`Warning: ${file} \`${key}\` should be a non-negative number; ignored, using default.`);
+  return undefined;
+}
+
 export function loadConfig(projectRoot: string): ProjectConfig {
-  const configPath = resolve(projectRoot, "orrery.config.yaml");
+  let configPath = resolve(projectRoot, CONFIG_FILENAME);
+  const legacyPath = resolve(projectRoot, LEGACY_CONFIG_FILENAME);
+  let legacy = false;
+
   if (!existsSync(configPath)) {
-    return { ...DEFAULT_CONFIG };
+    if (!existsSync(legacyPath)) {
+      // Zero-config is a supported way to run, so this is a note rather than a
+      // warning, but it must never be silent: a config file that is present
+      // under the wrong name looks exactly like this from the inside.
+      console.warn(`Note: no ${CONFIG_FILENAME} found in ${projectRoot}; using defaults.`);
+      return { ...DEFAULT_CONFIG };
+    }
+    console.warn(
+      `Warning: loading deprecated config file ${LEGACY_CONFIG_FILENAME}. ` +
+        `Rename it to ${CONFIG_FILENAME}; support for the old name will be removed in a future release.`,
+    );
+    configPath = legacyPath;
+    legacy = true;
+  } else if (existsSync(legacyPath)) {
+    console.warn(
+      `Warning: both ${CONFIG_FILENAME} and ${LEGACY_CONFIG_FILENAME} exist; ` +
+        `using ${CONFIG_FILENAME} and ignoring the other. Delete ${LEGACY_CONFIG_FILENAME}.`,
+    );
   }
+
+  const file = legacy ? LEGACY_CONFIG_FILENAME : CONFIG_FILENAME;
 
   try {
     const raw = readFileSync(configPath, "utf-8");
@@ -77,20 +157,41 @@ export function loadConfig(projectRoot: string): ProjectConfig {
     if (!parsed || typeof parsed !== "object") {
       return { ...DEFAULT_CONFIG };
     }
+
+    // A key Orrery does not recognize is silently a no-op, which is how a
+    // setting can look applied without being applied. Name them.
+    const unknown = Object.keys(parsed).filter((k) => !KNOWN_CONFIG_KEYS.includes(k));
+    if (unknown.length > 0) {
+      console.warn(
+        `Warning: ${file} has unrecognized ${unknown.length === 1 ? "key" : "keys"} ` +
+          `${unknown.map((k) => `\`${k}\``).join(", ")}; ignored. ` +
+          `Valid keys: ${KNOWN_CONFIG_KEYS.join(", ")}.`,
+      );
+    }
+
+    const access = parseAccessConfig(parsed.access, file);
+    if (legacy && access) {
+      access.foldersHeader ??= LEGACY_FOLDERS_HEADER;
+      access.canEditHeader ??= LEGACY_CANEDIT_HEADER;
+    }
+
     return {
       dashboards_dir: parsed.dashboards_dir ?? DEFAULT_CONFIG.dashboards_dir,
       connections_dir: parsed.connections_dir ?? DEFAULT_CONFIG.connections_dir,
       queries_dir: parsed.queries_dir ?? DEFAULT_CONFIG.queries_dir,
       port: parsed.port ?? DEFAULT_CONFIG.port,
       theme: parsed.theme ?? DEFAULT_CONFIG.theme,
-      cache_ttl: parsed.cache_ttl ?? DEFAULT_CONFIG.cache_ttl,
+      cache_ttl: parseNonNegative(parsed.cache_ttl, "cache_ttl", file) ?? DEFAULT_CONFIG.cache_ttl,
+      cache_warm: parsed.cache_warm === true,
+      slow_query_ms: parseNonNegative(parsed.slow_query_ms, "slow_query_ms", file),
+      render_deadline_ms: parseNonNegative(parsed.render_deadline_ms, "render_deadline_ms", file),
       source: parsed.source ?? undefined,
       source_poll: parsed.source_poll ?? undefined,
       source_endpoint: parsed.source_endpoint ?? undefined,
       source_writable: parsed.source_writable ?? undefined,
       connections_source: parsed.connections_source ?? undefined,
       editor: parseEditorConfig(parsed.editor),
-      access: parseAccessConfig(parsed.access),
+      access,
     };
   } catch {
     console.warn(`Warning: Failed to parse ${configPath}, using defaults`);
@@ -116,11 +217,11 @@ const KNOWN_ACCESS_KEYS = ["enabled", "require_folder", "folders_header", "can_e
 // hard — loadConfig's catch would drop the whole config and disable access
 // control, which is worse — so we surface problems as warnings and keep the
 // secure defaults.
-function parseAccessConfig(raw: unknown): ProjectConfig["access"] {
+function parseAccessConfig(raw: unknown, file: string = CONFIG_FILENAME): ProjectConfig["access"] {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
 
-  const warn = (msg: string) => console.warn(`Warning: orrery.config.yaml \`access.${msg}`);
+  const warn = (msg: string) => console.warn(`Warning: ${file} \`access.${msg}`);
   const checkType = (key: string, expected: "boolean" | "string") => {
     if (key in r && typeof r[key] !== expected) {
       warn(`${key}\` should be a ${expected}; got ${typeof r[key]} — ignored, using default.`);

@@ -10,6 +10,7 @@ import type {
   ParamNode,
   PropertyNode,
 } from "../parser/ast.js";
+import { toQueryExecutionError } from "../query/executor.js";
 import type { QueryExecutor, QueryResult } from "../query/executor.js";
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,34 @@ export interface DashboardData {
   connection: string;
   /** Param definitions extracted from the AST */
   params: ParamInfo[];
+  /**
+   * IDs of components whose queries had not finished when `deadlineMs`
+   * elapsed. Their queries keep running; ask for them again to get the result.
+   * Empty unless a deadline was set.
+   */
+  pending?: string[];
+}
+
+export interface FetchOptions {
+  /** Only run the queries of these component IDs. Default: every component. */
+  only?: Iterable<string>;
+  /** Cache TTL in seconds for this dashboard's queries. Default: the executor's default. */
+  cacheTtl?: number;
+  /** Skip the cache read (results are still cached). */
+  fresh?: boolean;
+  /** Abandon the fetch; queries that have not started are never run. */
+  signal?: AbortSignal;
+  /** Dashboard name, used to label queries in the slow query log. */
+  label?: string;
+  /**
+   * Return after this many milliseconds with whatever has finished, listing
+   * the rest in `pending`. Default: wait for every query.
+   */
+  deadlineMs?: number;
+  /** Run this many of the dashboard's queries at a time. Default: all at once. */
+  concurrency?: number;
+  /** Called as each component's data becomes available, in completion order. */
+  onComponent?: (id: string, data: ComponentData) => void;
 }
 
 export interface ParamInfo {
@@ -163,7 +192,10 @@ export async function fetchDashboardData(
   dashboard: DashboardNode,
   executor: QueryExecutor,
   paramValues: Record<string, unknown> = {},
+  options: FetchOptions = {},
 ): Promise<DashboardData> {
+  const { cacheTtl, fresh, signal, label, deadlineMs, concurrency, onComponent } = options;
+  const only = options.only ? new Set(options.only) : undefined;
   const connection = getDashboardConnection(dashboard);
   const params = extractParams(dashboard);
   const components = collectComponents(dashboard);
@@ -183,58 +215,81 @@ export async function fetchDashboardData(
     }
   }
 
-  // Build list of queries to execute
-  const queryJobs: { id: string; sql: string; kind: "primary" | "trend" }[] = [];
+  // One task per component: its primary query plus its optional trend query.
+  const tasks: { id: string; run: () => Promise<ComponentData> }[] = [];
 
   for (const { id, component } of components) {
-    const sql = getStringProp(component, "query");
-    if (sql) {
-      queryJobs.push({ id, sql, kind: "primary" });
-    } else {
-      // Components without queries (e.g., text blocks) get empty data
-      dataMap.set(id, {});
-    }
+    if (only && !only.has(id)) continue;
 
+    const sql = getStringProp(component, "query");
     // Trend queries for metric components
     const trendSql = getStringProp(component, "trend_query");
-    if (trendSql) {
-      queryJobs.push({ id, sql: trendSql, kind: "trend" });
+
+    if (!sql && !trendSql) {
+      // Components without queries (e.g., text blocks) get empty data
+      dataMap.set(id, {});
+      continue;
     }
+
+    const run = (querySql: string) =>
+      executor.execute({
+        sql: querySql,
+        connection,
+        params: paramValues,
+        cacheTtl,
+        fresh,
+        signal,
+        label: label ? `${label}/${id}` : id,
+      });
+
+    tasks.push({
+      id,
+      run: async () => {
+        const [primary, trend] = await Promise.all([
+          sql ? run(sql).catch((err) => toQueryExecutionError(err, sql)) : undefined,
+          // Trend query errors are silently ignored — trend is optional
+          trendSql ? run(trendSql).catch(() => undefined) : undefined,
+        ]);
+        const data: ComponentData = {};
+        if (primary instanceof Error) data.error = primary.message;
+        else if (primary) data.result = primary;
+        if (trend) data.trendResult = trend;
+        return data;
+      },
+    });
   }
 
-  // Execute all queries in parallel
-  if (queryJobs.length > 0) {
-    const queryOptions = queryJobs.map((job) => ({
-      sql: job.sql,
-      connection,
-      params: paramValues,
-    }));
+  const settle = async (task: (typeof tasks)[number]) => {
+    const data = await task.run();
+    dataMap.set(task.id, data);
+    onComponent?.(task.id, data);
+  };
 
-    const results = await executor.executeAll(queryOptions);
-
-    for (let i = 0; i < queryJobs.length; i++) {
-      const job = queryJobs[i];
-      const result = results.get(i);
-      const existing = dataMap.get(job.id) ?? {};
-
-      if (!result) {
-        if (job.kind === "primary") {
-          dataMap.set(job.id, { ...existing, error: "Query returned no result" });
-        }
-      } else if (result instanceof Error) {
-        if (job.kind === "primary") {
-          dataMap.set(job.id, { ...existing, error: result.message });
-        }
-        // Trend query errors are silently ignored — trend is optional
-      } else {
-        if (job.kind === "primary") {
-          dataMap.set(job.id, { ...existing, result });
-        } else {
-          dataMap.set(job.id, { ...existing, trendResult: result });
-        }
-      }
-    }
+  let all: Promise<unknown>;
+  if (concurrency && concurrency > 0 && concurrency < tasks.length) {
+    // A bounded number of workers pull from the shared list in order.
+    let next = 0;
+    const worker = async () => {
+      while (next < tasks.length) await settle(tasks[next++]);
+    };
+    all = Promise.all(Array.from({ length: concurrency }, worker));
+  } else {
+    all = Promise.all(tasks.map(settle));
   }
 
-  return { components: dataMap, connection, params };
+  if (deadlineMs !== undefined && deadlineMs > 0 && tasks.length > 0) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, deadlineMs);
+    });
+    await Promise.race([all, deadline]);
+    clearTimeout(timer);
+  } else {
+    await all;
+  }
+
+  // Anything not in the map yet is still running (only possible after a deadline).
+  const pending = tasks.filter((t) => !dataMap.has(t.id)).map((t) => t.id);
+
+  return { components: dataMap, connection, params, pending };
 }

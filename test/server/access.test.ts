@@ -6,6 +6,8 @@ import {
   filterDashboards,
   accessMiddleware,
   type AccessConfig,
+  describeAccessConfig,
+  resolveAccessConfig,
 } from "../../src/server/access.js";
 import type { DiscoveredDashboard } from "../../src/server/discovery.js";
 
@@ -101,5 +103,22 @@ describe("accessMiddleware", () => {
   it("allows the editor with the edit capability", async () => {
     const headers = { "x-orrery-folders": "*", "x-orrery-can-edit": "1" };
     expect((await app().request("/edit", { headers })).status).toBe(200);
+  });
+});
+
+describe("describeAccessConfig", () => {
+  it("states plainly when access control is off", () => {
+    const text = describeAccessConfig(resolveAccessConfig(undefined));
+    expect(text).toBe("Access control: disabled (every dashboard is visible to every caller)");
+  });
+
+  it("names the headers and the root-dashboard rule when it is on", () => {
+    const text = describeAccessConfig(
+      resolveAccessConfig({ enabled: true, foldersHeader: "x-team-folders", requireFolder: true }),
+    );
+    expect(text).toContain("enabled");
+    expect(text).toContain("folders header: x-team-folders");
+    expect(text).toContain("edit header: x-orrery-can-edit");
+    expect(text).toContain("root-level dashboards: hidden");
   });
 });

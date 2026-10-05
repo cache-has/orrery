@@ -11,7 +11,8 @@ import { existsSync } from "fs";
 import { createServer, type Server } from "http";
 import { getRequestListener } from "@hono/node-server";
 import { createApp } from "./index.js";
-import { resolveAccessConfig } from "./access.js";
+import { resolveAccessConfig, describeAccessConfig } from "./access.js";
+import { startCacheWarmer, warmIntervalSeconds, type CacheWarmer } from "./warmer.js";
 import {
   loadConfig,
   discoverDashboards,
@@ -104,7 +105,10 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`Warning: Connection initialization failed: ${msg}`);
   }
-  const executor = new QueryExecutor(connManager);
+  const executor = new QueryExecutor(connManager, {
+    defaultCacheTtl: config.cache_ttl,
+    slowQueryMs: config.slow_query_ms,
+  });
 
   // 4. Theme / branding
   let cachedBranding = (() => {
@@ -116,6 +120,13 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
   })();
 
   // 5. Hono app
+  // Header-based access control — resolved from the config file (`access:`)
+  // with env overrides. Disabled unless explicitly turned on. Its effective
+  // state is always logged: "off" and "working" are indistinguishable to a
+  // caller, and a config file that was not picked up leaves it off.
+  const access = resolveAccessConfig(config.access);
+  console.log(`  ${describeAccessConfig(access)}`);
+
   const app = createApp({
     dashboard: {
       boardDir: dashboardsDir,
@@ -141,9 +152,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         dashboards = await discoverDashboards(projectRoot, config, dashboardSource);
       },
     },
-    // Header-based access control — resolved from the config file (`access:`)
-    // with env overrides. Disabled unless explicitly turned on.
-    access: resolveAccessConfig(config.access),
+    access,
   });
 
   // 6. HTTP server
@@ -268,11 +277,32 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
   const addr = server.address();
   const boundPort = typeof addr === "object" && addr ? addr.port : port;
 
-  // 9. Shutdown handle
+  // 9. Cache warming (opt-in): keep default-parameter results cached so the
+  // first visitor to a dashboard does not pay for its queries.
+  let warmer: CacheWarmer | undefined;
+  if (config.cache_warm) {
+    if (config.cache_ttl > 0) {
+      warmer = startCacheWarmer({
+        executor,
+        config,
+        boardDir: dashboardsDir,
+        source: dashboardSource,
+        getDashboards: () => dashboards,
+      });
+      console.log(
+        `  Cache warming: on (every ${warmIntervalSeconds(config.cache_ttl)}s, cache_ttl ${config.cache_ttl}s)`,
+      );
+    } else {
+      console.warn("Warning: cache_warm is set but cache_ttl is 0; nothing to warm.");
+    }
+  }
+
+  // 10. Shutdown handle
   let shuttingDown = false;
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
+    warmer?.stop();
     dashboardSource.unwatch?.();
     connectionSource?.unwatch?.();
     watcher?.stop();

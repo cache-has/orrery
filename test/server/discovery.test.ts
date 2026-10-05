@@ -222,3 +222,129 @@ describe("discoverDashboards", () => {
     expect(dashboards[0].slug).toBe("team-sales");
   });
 });
+
+describe("loadConfig — config file discovery (issue #52)", () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  const warnings = () => warn.mock.calls.map((c) => String(c[0]));
+
+  it("says so when no config file is found", () => {
+    loadConfig(TMP);
+    expect(warnings()).toEqual([expect.stringContaining("no orrery.config.yaml found")]);
+  });
+
+  it("is quiet when the config file is present and valid", () => {
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), "port: 4000\n");
+    expect(loadConfig(TMP).port).toBe(4000);
+    expect(warnings()).toEqual([]);
+  });
+
+  it("loads the pre-rename openboard.config.yaml with a deprecation warning", () => {
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), "port: 4100\naccess:\n  enabled: true\n");
+    const config = loadConfig(TMP);
+    expect(config.port).toBe(4100);
+    expect(config.access?.enabled).toBe(true);
+    expect(warnings().join("\n")).toContain("deprecated config file openboard.config.yaml");
+  });
+
+  it("keeps the pre-rename header names for a legacy config, so access control does not fail closed", () => {
+    writeFileSync(
+      resolve(TMP, "openboard.config.yaml"),
+      "access:\n  enabled: true\n  require_folder: true\n",
+    );
+    const access = resolveAccessConfig(loadConfig(TMP).access);
+    expect(access).toEqual({
+      enabled: true,
+      foldersHeader: "x-openboard-folders",
+      canEditHeader: "x-openboard-can-edit",
+      requireFolder: true,
+    });
+  });
+
+  it("lets a legacy config set its header names explicitly", () => {
+    writeFileSync(
+      resolve(TMP, "openboard.config.yaml"),
+      "access:\n  enabled: true\n  folders_header: x-team-folders\n",
+    );
+    const access = loadConfig(TMP).access;
+    expect(access?.foldersHeader).toBe("x-team-folders");
+    expect(access?.canEditHeader).toBe("x-openboard-can-edit");
+  });
+
+  it("uses the current header names for a config under the current filename", () => {
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), "access:\n  enabled: true\n");
+    const access = resolveAccessConfig(loadConfig(TMP).access);
+    expect(access.foldersHeader).toBe("x-orrery-folders");
+    expect(access.canEditHeader).toBe("x-orrery-can-edit");
+  });
+
+  it("prefers orrery.config.yaml when both files exist, and says the other is ignored", () => {
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), "port: 4000\n");
+    writeFileSync(resolve(TMP, "openboard.config.yaml"), "port: 4100\n");
+    expect(loadConfig(TMP).port).toBe(4000);
+    expect(warnings().join("\n")).toContain("ignoring the other");
+  });
+
+  it("names top-level keys it does not recognize instead of silently ignoring them", () => {
+    writeFileSync(
+      resolve(TMP, "orrery.config.yaml"),
+      "port: 4000\ncache:\n  ttl_seconds: 60\nserver:\n  port: 9\n",
+    );
+    const config = loadConfig(TMP);
+    expect(config.cache_ttl).toBe(300);
+    const text = warnings().join("\n");
+    expect(text).toContain("unrecognized keys `cache`, `server`");
+  });
+});
+
+describe("loadConfig — performance settings", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reads cache_ttl, cache_warm, slow_query_ms and render_deadline_ms", () => {
+    writeFileSync(
+      resolve(TMP, "orrery.config.yaml"),
+      "cache_ttl: 3600\ncache_warm: true\nslow_query_ms: 250\nrender_deadline_ms: 0\n",
+    );
+    const config = loadConfig(TMP);
+    expect(config.cache_ttl).toBe(3600);
+    expect(config.cache_warm).toBe(true);
+    expect(config.slow_query_ms).toBe(250);
+    expect(config.render_deadline_ms).toBe(0);
+  });
+
+  it("leaves the optional settings unset by default", () => {
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), "port: 4000\n");
+    const config = loadConfig(TMP);
+    expect(config.cache_ttl).toBe(300);
+    expect(config.cache_warm).toBe(false);
+    expect(config.slow_query_ms).toBeUndefined();
+    expect(config.render_deadline_ms).toBeUndefined();
+  });
+
+  it("allows cache_ttl: 0 to turn caching off", () => {
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), "cache_ttl: 0\n");
+    expect(loadConfig(TMP).cache_ttl).toBe(0);
+  });
+
+  it("ignores a value that is not a non-negative number", () => {
+    writeFileSync(resolve(TMP, "orrery.config.yaml"), "cache_ttl: -5\nslow_query_ms: fast\n");
+    const config = loadConfig(TMP);
+    expect(config.cache_ttl).toBe(300);
+    expect(config.slow_query_ms).toBeUndefined();
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("`cache_ttl` should be a non-negative number"));
+  });
+});

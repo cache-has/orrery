@@ -32,6 +32,9 @@ export const ORRERY_INTERACTIVE_JS = /* js */ `
 
   // Track in-flight requests to prevent stacking
   var inflightRequest = null;
+  // Component IDs the in-flight request has not delivered yet. A request that
+  // replaces it takes these over, so nothing is left showing a spinner.
+  var inflightRemaining = {};
 
   // ---------------------------------------------------------------------------
   // Initialization
@@ -42,9 +45,19 @@ export const ORRERY_INTERACTIVE_JS = /* js */ `
     hydrateRefreshButtons();
     hydrateCharts();
     syncFromUrl();
+    loadPending();
     setupKeyboardShortcuts();
     setupAutoRefresh();
     setupPopState();
+  }
+
+  // The server sends the page without waiting for slow queries. Their
+  // components arrive as loading placeholders, listed in state.pending; ask
+  // for them now (unless syncFromUrl already started a full refresh).
+  function loadPending() {
+    if (!state.pending || state.pending.length === 0) return;
+    if (inflightRequest) return;
+    refreshComponents(state.pending);
   }
 
   // ---------------------------------------------------------------------------
@@ -277,7 +290,8 @@ export const ORRERY_INTERACTIVE_JS = /* js */ `
       var container = btn.closest('[data-component-id]');
       if (!container) return;
       var compId = container.getAttribute('data-component-id');
-      refreshComponents([compId]);
+      // An explicit refresh asks for current data, not a cached result.
+      refreshComponents([compId], { fresh: true });
     });
   }
 
@@ -297,12 +311,20 @@ export const ORRERY_INTERACTIVE_JS = /* js */ `
     refreshComponents(affected);
   }
 
-  function refreshComponents(componentIds) {
+  function refreshComponents(componentIds, opts) {
     if (componentIds.length === 0) return;
+    opts = opts || {};
+
+    // Replacing an in-flight request: take over whatever it had not delivered.
+    var remaining = {};
+    var id;
+    for (id in inflightRemaining) remaining[id] = true;
+    for (var n = 0; n < componentIds.length; n++) remaining[componentIds[n]] = true;
+    var ids = Object.keys(remaining);
 
     // Show loading state on affected components
-    for (var i = 0; i < componentIds.length; i++) {
-      showLoading(componentIds[i]);
+    for (var i = 0; i < ids.length; i++) {
+      showLoading(ids[i]);
     }
 
     // Serialize params for the request
@@ -316,43 +338,83 @@ export const ORRERY_INTERACTIVE_JS = /* js */ `
       try { inflightRequest.abort(); } catch(e) {}
     }
 
-    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : {};
     inflightRequest = controller;
+    inflightRemaining = remaining;
+
+    var requestBody = {
+      dashboard: dashboardName,
+      params: serializedParams,
+      components: ids,
+      format: 'html',
+      // Each component is written to the response as its query finishes.
+      stream: true
+    };
+    if (opts.fresh) requestBody.fresh = true;
 
     var fetchOpts = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dashboard: dashboardName,
-        params: serializedParams,
-        components: componentIds,
-        format: 'html'
-      })
+      body: JSON.stringify(requestBody)
     };
-    if (controller) fetchOpts.signal = controller.signal;
+    if (controller.signal) fetchOpts.signal = controller.signal;
+
+    function deliver(compId, html) {
+      delete remaining[compId];
+      updateComponent(compId, html);
+    }
+
+    function finish() {
+      // Superseded by a newer request, which now owns the remaining components.
+      if (inflightRequest !== controller) return;
+      inflightRequest = null;
+      inflightRemaining = {};
+      for (var compId in remaining) hideLoading(compId);
+    }
 
     fetch('/api/query', fetchOpts)
       .then(function(res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-      })
-      .then(function(data) {
-        inflightRequest = null;
-        if (data.html) {
-          for (var compId in data.html) {
-            updateComponent(compId, data.html[compId]);
+        var type = res.headers.get('Content-Type') || '';
+        if (type.indexOf('application/x-ndjson') === 0 && res.body && res.body.getReader) {
+          return readLines(res.body.getReader(), function(line) {
+            if (line.error) throw new Error(line.error);
+            if (line.id && typeof line.html === 'string') deliver(line.id, line.html);
+          });
+        }
+        // Not streamed (older server, or a proxy that rewrote the response)
+        return res.json().then(function(data) {
+          if (data.html) {
+            for (var compId in data.html) deliver(compId, data.html[compId]);
           }
-        }
+        });
       })
+      .then(finish)
       .catch(function(err) {
-        inflightRequest = null;
-        if (err.name === 'AbortError') return;
-        console.error('[orrery] Refresh failed:', err);
-        // Remove loading states on error
-        for (var i = 0; i < componentIds.length; i++) {
-          hideLoading(componentIds[i]);
-        }
+        if (err.name !== 'AbortError') console.error('[orrery] Refresh failed:', err);
+        finish();
       });
+  }
+
+  // Read a newline-delimited JSON response, calling onLine for each object as
+  // it arrives.
+  function readLines(reader, onLine) {
+    var decoder = new TextDecoder();
+    var buffer = '';
+    function pump() {
+      return reader.read().then(function(chunk) {
+        if (chunk.value) buffer += decoder.decode(chunk.value, { stream: true });
+        var newline;
+        while ((newline = buffer.indexOf('\\n')) >= 0) {
+          var text = buffer.slice(0, newline);
+          buffer = buffer.slice(newline + 1);
+          if (text) onLine(JSON.parse(text));
+        }
+        if (!chunk.done) return pump();
+        if (buffer.trim()) onLine(JSON.parse(buffer));
+      });
+    }
+    return pump();
   }
 
   function refreshAll() {
@@ -613,9 +675,24 @@ export const ORRERY_INTERACTIVE_JS = /* js */ `
     var refreshInterval = state.refreshInterval;
     if (!refreshInterval || refreshInterval <= 0) return;
 
+    // A background tab keeps its timer running. Skip its refreshes rather than
+    // spend queries on a page nobody is looking at, and catch up once when the
+    // tab is shown again.
+    var missedWhileHidden = false;
     autoRefreshTimer = setInterval(function() {
+      if (document.hidden) {
+        missedWhileHidden = true;
+        return;
+      }
       refreshAll();
     }, refreshInterval * 1000);
+
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden && missedWhileHidden) {
+        missedWhileHidden = false;
+        refreshAll();
+      }
+    });
   }
 
   // Theme toggle disabled — needs proper dark mode implementation for ECharts

@@ -62,6 +62,22 @@ export function resolveAccessConfig(fromConfig?: Partial<AccessConfig>): AccessC
   };
 }
 
+/**
+ * One-line summary of the effective access config, logged at startup. Access
+ * control that is off looks identical to access control that is working from
+ * the outside, so the server states which it is.
+ */
+export function describeAccessConfig(cfg: AccessConfig): string {
+  if (!cfg.enabled) {
+    return "Access control: disabled (every dashboard is visible to every caller)";
+  }
+  return (
+    `Access control: enabled (folders header: ${cfg.foldersHeader}, ` +
+    `edit header: ${cfg.canEditHeader}, ` +
+    `root-level dashboards: ${cfg.requireFolder ? "hidden" : "visible"})`
+  );
+}
+
 export function resolveAccess(c: Context, cfg: AccessConfig): RequestAccess {
   const raw = (c.req.header(cfg.foldersHeader) || "").trim();
   // "*" → all folders (null sentinel); "" → none (fail closed); else the set.

@@ -20,6 +20,10 @@ export interface ConnectionInfo {
   type: string;
   connected: boolean;
   sourceFile: string;
+  /** Configured `pool_size`, if any: how many queries may run at once. */
+  poolSize?: number;
+  /** Configured `timeout` in milliseconds, if any. */
+  timeoutMs?: number;
 }
 
 export type HealthStatus = { ok: true } | { ok: false; error: string };
@@ -120,6 +124,8 @@ export class ConnectionManager {
       type: entry.config.type,
       connected: entry.driver.isConnected(),
       sourceFile: entry.sourceFile,
+      poolSize: entry.config.pool_size,
+      timeoutMs: entry.config.timeout,
     };
   }
 

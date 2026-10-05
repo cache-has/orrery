@@ -1,6 +1,6 @@
 {
   "name": "@horizon-analytic/orrery",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Open-source, code-defined BI dashboards. Dashboards as code, not clicks.",
   "type": "module",
   "main": "dist/index.js",

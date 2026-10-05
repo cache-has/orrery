@@ -71,6 +71,8 @@ export function renderPage(options: RenderOptions): string {
     params: data.params,
     paramValues,
     connection: data.connection,
+    // Components still loading when the page was sent; the client fetches them.
+    pending: data.pending ?? [],
     refreshInterval: getRefreshInterval(dashboard),
   }).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 
@@ -296,11 +298,20 @@ function renderComponentContainer(
   const compData = data.components.get(id);
   const title = rc.component.title ?? "";
 
-  const body = compData?.error
-    ? renderErrorState(compData.error)
-    : renderComponentBody(rc.component, compData, paramValues, palette);
+  // A component whose query was still running when the page was sent gets a
+  // placeholder and the same overlay the client uses for partial updates; the
+  // client swaps in the real body when the result arrives.
+  const isPending = data.pending?.includes(id) ?? false;
 
-  const footer = renderComponentFooter(rc.component, compData);
+  const body = isPending
+    ? `<div class="orrery-pending"></div>`
+    : compData?.error
+      ? renderErrorState(compData.error)
+      : renderComponentBody(rc.component, compData, paramValues, palette);
+
+  const footer =
+    renderComponentFooter(rc.component, compData) +
+    (isPending ? `<div class="orrery-loading"><div class="orrery-spinner"></div></div>` : "");
 
   // Build inline style with grid column + per-component color overrides
   const styleParts = [`grid-column: ${rc.gridColumn}`];

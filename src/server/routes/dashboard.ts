@@ -4,7 +4,8 @@
  * GET /d/:name — parses the .board file, resolves layout,
  * fetches data, and returns a fully rendered HTML page.
  *
- * POST /api/query — partial update endpoint for parameter changes.
+ * POST /api/query — partial update endpoint for parameter changes. Runs only
+ * the requested components and can stream each one back as it completes.
  */
 
 import { Hono, type Context } from "hono";
@@ -15,7 +16,7 @@ import { parse } from "../../parser/parser.js";
 import { resolveIncludes, resolveIncludesAsync } from "../../parser/resolver.js";
 import { resolveLayout } from "../../renderer/layout.js";
 import { renderPage, renderComponentFragment } from "../../renderer/html.js";
-import { fetchDashboardData, collectComponents } from "../../renderer/data.js";
+import { fetchDashboardData, collectComponents, type ComponentData } from "../../renderer/data.js";
 import type { QueryExecutor } from "../../query/executor.js";
 import { ORRERY_CSS } from "../../renderer/styles.js";
 import { ORRERY_CLIENT_JS } from "../client.js";
@@ -47,9 +48,15 @@ export interface DashboardRouteOptions {
   access?: AccessConfig;
 }
 
+// How long a page render waits for its queries before sending the page with
+// loading placeholders for the rest. Long enough that a healthy dashboard is
+// fully server-rendered, short enough that a slow one is not a blank page.
+const DEFAULT_RENDER_DEADLINE_MS = 300;
+
 export function dashboardRoutes(options: DashboardRouteOptions): Hono {
   const app = new Hono();
   const { boardDir, executor, devMode, projectRoot, config, source, getDashboards, editorEnabled, access } = options;
+  const renderDeadlineMs = config?.render_deadline_ms ?? DEFAULT_RENDER_DEADLINE_MS;
 
   // Load theme file once at startup (re-loaded via watcher in dev mode)
   let cachedThemeFile: ThemeFile | null = null;
@@ -206,7 +213,15 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
       const resolvedParams = resolveParamsWithDateRanges(dashboard, paramValues);
       Object.assign(paramValues, resolvedParams);
 
-      const data = await fetchDashboardData(dashboard, executor, paramValues);
+      // Wait briefly for the queries. Whatever has not finished by the
+      // deadline is rendered as a loading placeholder and requested again by
+      // the client, which joins the still-running query rather than starting
+      // a second one.
+      const data = await fetchDashboardData(dashboard, executor, paramValues, {
+        deadlineMs: renderDeadlineMs,
+        cacheTtl: dashboardCacheTtl(dashboard, config),
+        label: name,
+      });
 
       // Resolve theme
       const dashboardTheme = getDashboardTheme(dashboard);
@@ -273,6 +288,10 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
         params: Record<string, unknown>;
         components?: string[];
         format?: "json" | "html";
+        /** Bypass the cache (the per-component refresh button). */
+        fresh?: boolean;
+        /** Respond with newline-delimited JSON, one line per component as it completes. */
+        stream?: boolean;
       }>();
 
       const loaded = await loadBoardContent(body.dashboard, { source, getDashboards, boardDir });
@@ -288,28 +307,106 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
 
       // Resolve daterange params
       const resolvedParams = resolveParamsWithDateRanges(dashboard, body.params);
-      const data = await fetchDashboardData(dashboard, executor, resolvedParams);
-
       const components = collectComponents(dashboard);
 
-      if (body.format === "html") {
-        // Resolve theme palette for chart rendering
-        const dashTheme = getDashboardTheme(dashboard);
-        const resolved = resolveTheme({
-          configTheme: config?.theme ?? "light",
-          dashboardTheme: dashTheme,
-          themeFile: cachedThemeFile,
-        });
+      // Resolve the theme palette lazily: only HTML fragments need it.
+      let palette: string[] | undefined;
+      let paletteResolved = false;
+      const getPalette = () => {
+        if (!paletteResolved) {
+          palette = resolveTheme({
+            configTheme: config?.theme ?? "light",
+            dashboardTheme: getDashboardTheme(dashboard),
+            themeFile: cachedThemeFile,
+          }).palette;
+          paletteResolved = true;
+        }
+        return palette;
+      };
 
+      const renderHtml = (id: string, compData: ComponentData): string | undefined => {
+        const comp = components.find((c) => c.id === id);
+        return comp
+          ? renderComponentFragment(comp.component, compData, resolvedParams, getPalette())
+          : undefined;
+      };
+
+      // If the client goes away (navigation, a newer filter change), stop
+      // waiting: queries that have not started are dropped.
+      const abort = new AbortController();
+      const requestSignal = c.req.raw.signal;
+      if (requestSignal.aborted) abort.abort();
+      else requestSignal.addEventListener("abort", () => abort.abort(), { once: true });
+
+      const fetchOptions = {
+        // Only the requested components are executed, not the whole dashboard.
+        only: body.components,
+        fresh: body.fresh === true,
+        cacheTtl: dashboardCacheTtl(dashboard, config),
+        label: body.dashboard,
+        signal: abort.signal,
+      };
+
+      if (body.stream) {
+        const encoder = new TextEncoder();
+        let open = true;
+        const stream = new ReadableStream<Uint8Array>({
+          start: async (controller) => {
+            const send = (line: Record<string, unknown>) => {
+              if (open) controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+            };
+            const sent = new Set<string>();
+            const sendComponent = (id: string, compData: ComponentData) => {
+              sent.add(id);
+              if (body.format === "html") {
+                const html = renderHtml(id, compData);
+                if (html !== undefined) send({ id, html });
+              } else {
+                send({ id, data: compData });
+              }
+            };
+            try {
+              const data = await fetchDashboardData(dashboard, executor, resolvedParams, {
+                ...fetchOptions,
+                onComponent: sendComponent,
+              });
+              // Components with no query never fire onComponent.
+              for (const [id, compData] of data.components) {
+                if (!sent.has(id)) sendComponent(id, compData);
+              }
+              send({ done: true });
+            } catch (err) {
+              send({ error: err instanceof Error ? err.message : String(err) });
+            } finally {
+              if (open) {
+                open = false;
+                controller.close();
+              }
+            }
+          },
+          cancel: () => {
+            open = false;
+            abort.abort();
+          },
+        });
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "application/x-ndjson; charset=utf-8",
+            "Cache-Control": "no-store",
+            // Ask buffering reverse proxies to pass lines through as they are written.
+            "X-Accel-Buffering": "no",
+          },
+        });
+      }
+
+      const data = await fetchDashboardData(dashboard, executor, resolvedParams, fetchOptions);
+
+      if (body.format === "html") {
         // Return rendered HTML fragments for each component
         const html: Record<string, string> = {};
         for (const [id, compData] of data.components) {
-          if (!body.components || body.components.includes(id)) {
-            const comp = components.find((c) => c.id === id);
-            if (comp) {
-              html[id] = renderComponentFragment(comp.component, compData, resolvedParams, resolved.palette);
-            }
-          }
+          const fragment = renderHtml(id, compData);
+          if (fragment !== undefined) html[id] = fragment;
         }
         return c.json({ html });
       }
@@ -317,9 +414,7 @@ export function dashboardRoutes(options: DashboardRouteOptions): Hono {
       // JSON format (default)
       const result: Record<string, unknown> = {};
       for (const [id, compData] of data.components) {
-        if (!body.components || body.components.includes(id)) {
-          result[id] = compData;
-        }
+        result[id] = compData;
       }
 
       return c.json({ data: result });
@@ -352,6 +447,22 @@ function getDashboardPalette(dashboard: DashboardNode): string[] | undefined {
   return undefined;
 }
 
+/**
+ * Cache TTL for a dashboard's queries, or undefined to use the executor's
+ * default. A dashboard with `refresh: N` expects data at most N seconds old,
+ * so its TTL is capped at its refresh interval.
+ */
+export function dashboardCacheTtl(dashboard: DashboardNode, config?: ProjectConfig): number | undefined {
+  const cacheTtl = config?.cache_ttl;
+  if (cacheTtl === undefined) return undefined;
+  for (const item of dashboard.items) {
+    if (item.kind === "property" && item.key === "refresh" && item.value.kind === "number") {
+      return item.value.value > 0 ? Math.min(cacheTtl, item.value.value) : cacheTtl;
+    }
+  }
+  return cacheTtl;
+}
+
 function getDashboardTheme(dashboard: DashboardNode): ThemeName | undefined {
   for (const item of dashboard.items) {
     if (item.kind === "property" && item.key === "theme") {
@@ -364,7 +475,7 @@ function getDashboardTheme(dashboard: DashboardNode): ThemeName | undefined {
   return undefined;
 }
 
-function resolveDefaultParams(dashboard: DashboardNode): Record<string, unknown> {
+export function resolveDefaultParams(dashboard: DashboardNode): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};
   for (const item of dashboard.items) {
     if (item.kind === "param") {
@@ -419,7 +530,7 @@ function resolveDefaultParams(dashboard: DashboardNode): Record<string, unknown>
  * Resolve daterange params in a params object by looking at the AST
  * to know which params are daterange type.
  */
-function resolveParamsWithDateRanges(
+export function resolveParamsWithDateRanges(
   dashboard: DashboardNode,
   params: Record<string, unknown>,
 ): Record<string, unknown> {

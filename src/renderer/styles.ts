@@ -436,6 +436,11 @@ body {
   z-index: 10;
 }
 
+/* Placeholder body for a component whose query is still running at first paint */
+.orrery-pending {
+  min-height: 96px;
+}
+
 .orrery-spinner {
   width: 24px;
   height: 24px;

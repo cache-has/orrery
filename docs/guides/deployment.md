@@ -49,14 +49,14 @@ extend it.
 
 ```bash
 # From a checkout of this repository:
-docker build -t orrery-base:2.0.1 .
+docker build -t orrery-base:2.1.0 .
 ```
 
 Or skip the build entirely and extend the published image, which is the same
 artifact this repository's release pipeline pushes:
 
 ```dockerfile
-FROM cachehorizon/orrery:2.0.1
+FROM cachehorizon/orrery:2.1.0
 ```
 
 The base image:
@@ -71,8 +71,8 @@ The base image:
 Push it to your registry:
 
 ```bash
-docker tag orrery-base:2.0.1 <registry>/orrery-base:2.0.1
-docker push <registry>/orrery-base:2.0.1
+docker tag orrery-base:2.1.0 <registry>/orrery-base:2.1.0
+docker push <registry>/orrery-base:2.1.0
 ```
 
 > **Mirroring the published image into a private registry.** Two things bite here.
@@ -96,7 +96,7 @@ usually *not* baked in — see step 3.
 
 ```dockerfile
 # Dockerfile (your analytics project)
-FROM <registry>/orrery-base:2.0.1
+FROM <registry>/orrery-base:2.1.0
 
 WORKDIR /workspace
 COPY orrery.config.yaml ./

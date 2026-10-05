@@ -174,7 +174,13 @@ port: 5432
 database: my_database
 username: ${DB_USER}    # Environment variable reference
 password: ${DB_PASSWORD}
+pool_size: 5            # Queries run at once on this connection. Default: 5
+timeout: 30000          # Per-query execution timeout in ms. Default: 30000
 ```
+
+`pool_size` is how many of a dashboard's queries run concurrently; the rest wait
+their turn, and waiting does not count toward `timeout`. Set it to what your
+database can comfortably run at once, not to the number of components.
 
 SQLite and DuckDB use `path` instead of host/port:
 
@@ -291,8 +297,40 @@ Optional `orrery.config.yaml` in your project root:
 dashboards_dir: ./dashboards    # Default: ./dashboards
 connections_dir: ./connections   # Default: ./connections
 port: 3000                      # Dev server port
-cache_ttl: 300                  # Query cache TTL in seconds
+cache_ttl: 300                  # Query cache TTL in seconds (0 disables). Default: 300
+cache_warm: false               # Keep default-parameter results cached. Default: false
+slow_query_ms: 1000             # Log queries slower than this (0 disables). Default: 1000
+render_deadline_ms: 300         # How long a page waits for queries before sending. Default: 300
 ```
+
+**Caching.** Query results are cached in memory for `cache_ttl` seconds, keyed
+by connection, SQL and parameter values. A dashboard with `refresh: N` caps its
+own TTL at `N`. The refresh button on a component always bypasses the cache.
+Set `cache_ttl` to how stale your data is allowed to be: if it loads hourly, an
+hour is reasonable.
+
+**Cache warming.** With `cache_warm: true` the server re-runs every dashboard's
+queries with their default parameters shortly before the cached results expire,
+one query at a time, so the first visitor gets a cached page. Pair it with a
+`cache_ttl` that matches how often your data changes; warming a slow dashboard
+every five minutes is constant load on your database. Because `refresh: N` caps
+a dashboard's TTL at `N`, a dashboard that refreshes more often than the warm
+interval expires in between; drop or raise its `refresh` if its data does not
+change that fast.
+
+**Progressive loading.** A dashboard page is sent after at most
+`render_deadline_ms`. Components whose queries have finished are rendered in the
+page; the rest show a loading state and fill in as their queries complete. Set
+`render_deadline_ms: 0` to always wait for every query.
+
+**Slow queries** are logged with their dashboard and component, for example
+`[orrery] slow query 15624ms rows=4 connection=warehouse sales/revenue_by_region`.
+See [Diagnosing and Fixing Slow Dashboards](./docs/guides/query-performance.md).
+
+The server reports at startup whether a config file was found, any keys it does
+not recognize, and whether access control is on. A project still using the
+pre-rename `openboard.config.yaml` is loaded with a deprecation warning; rename
+the file to `orrery.config.yaml`.
 
 ### Advanced Features
 
