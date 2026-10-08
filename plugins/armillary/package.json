@@ -14,9 +14,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@duckdb/node-api": "^1.5.5-r.4",
+    "@duckdb/node-api": "^1.5.5-r.5",
     "apache-arrow": "^21.2.0",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
