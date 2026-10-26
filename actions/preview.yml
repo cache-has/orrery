@@ -39,7 +39,7 @@ jobs:
           # WAREHOUSE_PASSWORD: ${{ secrets.WAREHOUSE_PASSWORD }}
 
       - name: Upload preview artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dashboard-preview
           path: ./preview
